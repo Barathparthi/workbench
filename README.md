@@ -7,6 +7,37 @@
 
 ---
 
+## 0. This repository: status and quick start
+
+This repository holds the implementation kit (folders `00_…07_`, `reference/`) **and** the product code
+built from it. Where things stand, and what was done when, is in **[`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)**.
+
+| Phase | State |
+|---|---|
+| 00 — Environment, decisions & spikes | In progress: toolchain pinned, org decisions captured as assumptions, spikes pending |
+| 01 — Monorepo foundation | Built; gate CONDITIONAL on CI running green on GitHub and branch protection |
+| 02 — Theia product shell | Next |
+
+Prerequisites: Node.js **24.22.0** (`.nvmrc`; `nvm install`), npm 11, Git. Docker is needed from Phase 03.
+
+```bash
+npm ci                 # or scripts/bootstrap.sh  /  scripts/bootstrap.ps1
+npm run typecheck
+npm run lint
+npm run test:unit
+npm run build
+npm run verify         # everything CI runs
+```
+
+| Path | What |
+|---|---|
+| `packages/*` | Library packages (`@qe/domain`, `contracts`, `rbac`, `policy`, `broker-core`, …) |
+| `tests/lint/` | Proof that the package-boundary rules hold |
+| `docs/` | Project log, org decisions, phase-gate evidence |
+| `CLAUDE.md` / `AGENTS.md` | Rules for coding agents working in this repo |
+
+---
+
 ## 1. What problem this solves
 
 Today most QE engineers develop in **VS Code on their own laptop**:

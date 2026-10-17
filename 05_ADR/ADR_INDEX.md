@@ -12,5 +12,6 @@
 | ADR-008 | Shared broker-core library for hosted and embedded (local) brokers | Accepted |
 | ADR-009 | npm workspaces as package manager | Accepted |
 | ADR-010 | Internal Open VSX mirror with allowlist for extensions | Accepted |
+| ADR-011 | Workspace package conventions: ESM, `@qe/source` export condition, declared dependency graph | Accepted (2026-10-17, ratify in Phase 01 PR) |
 
 All ADRs are in `ADRS.md`. New ADRs use `06_TEMPLATES/ADR_TEMPLATE.md`.
