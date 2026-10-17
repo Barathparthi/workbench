@@ -1,0 +1,29 @@
+# Desktop installers for QE Workspace (01_ARCHITECTURE/09_LOCAL_AND_WEB_PARITY.md §6).
+# Phase 02 records the configuration only; electron-builder is added, and installers are built, signed and
+# notarized, in Phase 10 (02_PHASES/PHASE_10_LOCAL_DESKTOP_AND_LOCAL_WEB.md).
+appId: corp.qe.workspace
+productName: QE Workspace
+directories:
+  buildResources: resources
+  output: dist-electron
+files:
+  - lib/**
+  - src-gen/**
+  - package.json
+# Built-in VS Code plugins (pinned and hash-checked at build time) ship next to the app.
+extraResources:
+  - from: ../../plugins
+    to: plugins
+win:
+  target: [nsis]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target: [dmg]
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+linux:
+  target: [AppImage]
+  category: Development

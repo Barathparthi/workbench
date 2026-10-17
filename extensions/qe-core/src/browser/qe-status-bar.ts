@@ -13,7 +13,12 @@ export class QeStatusBarContribution implements FrontendApplicationContribution 
   @inject(QeEnvironmentService) protected readonly environmentService!: QeEnvironmentService;
   @inject(ILogger) protected readonly logger!: ILogger;
 
-  async onStart(): Promise<void> {
+  // Theia awaits each onStart before showing the shell, so the RPC round trip must not block startup.
+  onStart(): void {
+    void this.showMode();
+  }
+
+  protected async showMode(): Promise<void> {
     let environment: QeEnvironment | undefined;
     try {
       environment = await this.environmentService.getEnvironment();

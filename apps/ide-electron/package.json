@@ -1,0 +1,61 @@
+{
+  "name": "@qe/ide-electron",
+  "version": "0.0.0",
+  "private": true,
+  "description": "QE Workspace IDE, Electron target (desktop).",
+  "license": "UNLICENSED",
+  "main": "lib/backend/electron-main.js",
+  "scripts": {
+    "build": "theia build --mode production",
+    "start": "theia start --plugins=local-dir:../../plugins"
+  },
+  "dependencies": {
+    "@qe/theia-qe-core": "0.0.0",
+    "@theia/core": "1.76.0",
+    "@theia/editor": "1.76.0",
+    "@theia/electron": "1.76.0",
+    "@theia/file-search": "1.76.0",
+    "@theia/filesystem": "1.76.0",
+    "@theia/getting-started": "1.76.0",
+    "@theia/keymaps": "1.76.0",
+    "@theia/markers": "1.76.0",
+    "@theia/messages": "1.76.0",
+    "@theia/monaco": "1.76.0",
+    "@theia/navigator": "1.76.0",
+    "@theia/outline-view": "1.76.0",
+    "@theia/output": "1.76.0",
+    "@theia/plugin-ext": "1.76.0",
+    "@theia/plugin-ext-vscode": "1.76.0",
+    "@theia/preferences": "1.76.0",
+    "@theia/process": "1.76.0",
+    "@theia/scm": "1.76.0",
+    "@theia/search-in-workspace": "1.76.0",
+    "@theia/terminal": "1.76.0",
+    "@theia/workspace": "1.76.0"
+  },
+  "devDependencies": {
+    "@theia/cli": "1.76.0",
+    "electron": "42.11.10"
+  },
+  "theia": {
+    "target": "electron",
+    "frontend": {
+      "config": {
+        "applicationName": "QE Workspace",
+        "defaultTheme": {
+          "light": "light",
+          "dark": "dark"
+        },
+        "preferences": {
+          "files.enableTrash": false,
+          "security.workspace.trust.enabled": true
+        }
+      }
+    },
+    "backend": {
+      "config": {
+        "startupTimeout": -1
+      }
+    }
+  }
+}
