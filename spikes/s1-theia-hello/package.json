@@ -1,0 +1,37 @@
+{
+  "name": "s1-theia-hello",
+  "private": true,
+  "description": "Phase 00 spike S1 (throwaway): one Theia extension in a browser app and an Electron app.",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "workspaces": [
+    "qe-hello",
+    "browser-app",
+    "electron-app"
+  ],
+  "scripts": {
+    "build:extension": "npm run build -w qe-hello",
+    "build:browser": "npm run build:extension && npm run bundle -w browser-app",
+    "build:electron": "npm run build:extension && npm run bundle -w electron-app",
+    "build:electron:napi": "npm run build:extension && npm run bundle:napi -w electron-app",
+    "start:browser": "npm start -w browser-app",
+    "start:electron": "npm start -w electron-app",
+    "verify:browser": "node verify/browser.mjs",
+    "verify:electron": "node verify/electron.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  },
+  "allowScripts": {
+    "node-pty@1.2.0-beta.12": true,
+    "native-keymap@2.5.0": true,
+    "keytar@7.9.0": true,
+    "drivelist@12.0.2": true,
+    "@theia/ffmpeg@1.76.0": true,
+    "@parcel/watcher@2.6.0": true,
+    "msgpackr-extract@3.0.4": true,
+    "esbuild@0.28.2": true,
+    "puppeteer": false
+  }
+}

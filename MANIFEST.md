@@ -53,3 +53,5 @@
 | `docs/PROJECT_LOG.md` | Dated project history from the initial commit, status snapshot |
 | `docs/ORG_DECISIONS.md` | Filled decisions sheet and pinned toolchain |
 | `docs/phase-gates/PHASE_xx.md` | Phase-gate evidence records |
+| `docs/spikes/` | Spike reports and screenshots (S1 Theia hello) |
+| `spikes/` | Throwaway Phase 00 spike code, outside the root workspaces and checks |

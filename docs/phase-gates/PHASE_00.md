@@ -1,23 +1,23 @@
 # Phase Gate — Phase 00: Environment, Decisions and Technical Spikes
 
-**Date:** 2026-10-17 (interim record — phase still in progress) · **Branch/PRs:**
+**Date:** 2026-10-17 (interim record, updated after spike S1 — phase still in progress) · **Branch/PRs:**
 `claude/gallant-goldberg-v788zv` · **Reviewers:** tech lead + security (not yet held)
 
 Template: `06_TEMPLATES/PHASE_GATE_TEMPLATE.md`. Guide: `02_PHASES/PHASE_00_ENVIRONMENT_DECISIONS_SPIKES.md`.
 
 ## Deliverables
 
-| Deliverable                                               | Status                                                                               | Evidence                                        |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| `docs/ORG_DECISIONS.md`                                   | **partial** — created; kit defaults marked _Assumed_, 1 row confirmed, 6 rows _Open_ | [`ORG_DECISIONS.md`](../ORG_DECISIONS.md)       |
-| Pinned versions table with verification date              | **done** (Theia candidate, final pick in S1)                                         | `ORG_DECISIONS.md` §F, `.nvmrc`, `package.json` |
-| S1 Theia browser + Electron hello app                     | missing                                                                              | —                                               |
-| S2 Theia behind a reverse proxy at `/w/{id}/`             | missing                                                                              | —                                               |
-| S3 Remote terminal + remote FS approach                   | missing                                                                              | —                                               |
-| S4 `ssh2` deep-check (host keys, certs, agent, jump host) | missing                                                                              | —                                               |
-| S5 Open VSX extension availability                        | missing                                                                              | —                                               |
-| ADR-005 (routing), ADR-006 (remote terminal/FS)           | missing — still _Proposed_                                                           | `05_ADR/ADRS.md`                                |
-| Risk register initialised                                 | done (R1–R13 from the kit; R14–R15 added)                                            | `07_PLANNING/RISK_REGISTER.md`                  |
+| Deliverable                                               | Status                                                                               | Evidence                                                       |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `docs/ORG_DECISIONS.md`                                   | **partial** — created; kit defaults marked _Assumed_, 1 row confirmed, 6 rows _Open_ | [`ORG_DECISIONS.md`](../ORG_DECISIONS.md)                      |
+| Pinned versions table with verification date              | **done** — Theia 1.76.0 pinned after S1                                              | `ORG_DECISIONS.md` §F, `.nvmrc`, `package.json`                |
+| S1 Theia browser + Electron hello app                     | **done** — same command and terminal work in both                                    | [`docs/spikes/S1_THEIA_HELLO.md`](../spikes/S1_THEIA_HELLO.md) |
+| S2 Theia behind a reverse proxy at `/w/{id}/`             | missing                                                                              | —                                                              |
+| S3 Remote terminal + remote FS approach                   | missing                                                                              | —                                                              |
+| S4 `ssh2` deep-check (host keys, certs, agent, jump host) | missing                                                                              | —                                                              |
+| S5 Open VSX extension availability                        | missing                                                                              | —                                                              |
+| ADR-005 (routing), ADR-006 (remote terminal/FS)           | missing — still _Proposed_                                                           | `05_ADR/ADRS.md`                                               |
+| Risk register initialised                                 | done (R1–R13 from the kit; R14–R15 added)                                            | `07_PLANNING/RISK_REGISTER.md`                                 |
 
 ## Validation (real output, trimmed)
 
@@ -55,7 +55,8 @@ $ npm view @theia/electron@1.76.0 peerDependencies --json
 ## Known limitations & follow-ups
 
 - Sections A–E need answers from IdP, platform, security and network owners (step 0.2).
-- Spikes need: a Linux test VM / Docker (S2, S4), Vault dev server (S4), and time-boxed Theia builds (S1, S3).
+- Remaining spikes need: Docker or a Linux test VM (S2, S4), a Vault dev server (S4), Theia (S3, reuse the S1 apps).
+- S1 added org decision D12 (build-time access to `artifacts.electronjs.org` or a mirror) and the Linux build packages to §F.
 - Phase 01 was built before this gate (risk R15); nothing in Phase 01 depends on spike outcomes.
 
 ## Decision

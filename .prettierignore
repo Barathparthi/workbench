@@ -5,6 +5,9 @@ coverage/
 .tsbuild/
 package-lock.json
 
+# Throwaway spikes (own tooling, not part of the product build)
+spikes/
+
 # Implementation kit (source material, kept in its authored format)
 00_START_HERE/
 01_ARCHITECTURE/

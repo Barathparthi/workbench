@@ -1,0 +1,26 @@
+{
+  "name": "qe-hello",
+  "version": "0.0.0",
+  "private": true,
+  "keywords": [
+    "theia-extension"
+  ],
+  "files": [
+    "lib",
+    "src"
+  ],
+  "dependencies": {
+    "@theia/core": "1.76.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/qe-hello-frontend-module"
+    }
+  ]
+}
