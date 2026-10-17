@@ -30,7 +30,8 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   subdomain, with Playwright checks and a two-workspace reconnect test; report in
   `docs/spikes/S2_REVERSE_PROXY.md`. ADR-005 accepted: path-based routing.
 - Phase 00 spike S5 (`spikes/s5-openvsx`): Open VSX availability checker and a path-filtered CI workflow
-  (`spike-s5-openvsx`) that runs it on GitHub's runners.
+  (`spike-s5-openvsx`) that runs it on GitHub's runners; report and proposed extension allowlist in
+  `docs/spikes/S5_OPEN_VSX.md`.
 
 ### Changed
 
