@@ -1,6 +1,6 @@
 # Phase Gate — Phase 02: Theia Product Shell (Browser and Desktop)
 
-**Date:** 2026-10-17 · **Branch/PRs:** `claude/gallant-goldberg-v788zv` (PR to be opened) · **Reviewers:** @Barathparthi
+**Date:** 2026-10-17 · **Branch/PRs:** `claude/gallant-goldberg-v788zv` → [PR #6](https://github.com/Barathparthi/workbench/pull/6) · **Reviewers:** @Barathparthi
 (plan approved 2026-10-17 with: pinned + hashed plugins, no in-IDE marketplace, no Electron rebuild)
 
 Template: `06_TEMPLATES/PHASE_GATE_TEMPLATE.md`. Guide: `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`.
