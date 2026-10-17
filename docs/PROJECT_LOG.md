@@ -1,0 +1,135 @@
+# Project Log — QE Workspace
+
+A dated record of what has been done in this repository, why, and what is still open. It starts from the
+repository's initial state (the first commit). Newest entries go at the **bottom** of the log section; the
+status snapshot at the top is kept current.
+
+How to add an entry: date, phase, what changed (with commit or PR), decisions and deviations from the kit,
+evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
+
+---
+
+## Status snapshot (updated 2026-10-17)
+
+| Phase                                | State                        | Record                                               |
+| ------------------------------------ | ---------------------------- | ---------------------------------------------------- |
+| 00 — Environment, decisions & spikes | **In progress** (partial)    | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
+| 01 — Monorepo foundation             | **Built — gate CONDITIONAL** | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
+| 02 — Theia product shell             | Not started (next)           | `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`          |
+| 03 – 19                              | Not started                  | `02_PHASES/`                                         |
+
+Milestones: M1 (end of Phase 06) — not reached.
+
+**Next actions**
+
+1. Open a PR for this branch and confirm the `ci` workflow is green on ubuntu **and** windows.
+2. Enable branch protection on `main` (required check `verify`, 1 review, no force-push).
+3. Phase 00: send sections B–E of [`ORG_DECISIONS.md`](ORG_DECISIONS.md) to the owning teams; run spikes
+   S1–S5 (S1 Theia hello is the prerequisite for Phase 02).
+4. Phase 02: Theia product shell (browser + Electron) on the pinned toolchain.
+
+---
+
+## Log
+
+### 2026-10-17 — Initial state (commit `1895cc9`, "first commit")
+
+The repository was created by Barath Kumar P containing only the **QE Workspace Production Implementation
+Kit (v2)** — documentation, no code, no tooling, no `.gitignore`.
+
+| Folder                     | Files | What it is                                                                                                                                                          |
+| -------------------------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `README.md`, `MANIFEST.md` |     2 | Kit overview (modes, phase table, milestones, rules) and file index                                                                                                 |
+| `00_START_HERE/`           |     4 | Executive summary, how to use the kit, org-decision questionnaire, glossary                                                                                         |
+| `01_ARCHITECTURE/`         |    12 | PRD, solution architecture, stack, repo standards, API/WS contracts, data model, threat model, remote connectivity, local/web parity, observability, testing, CI/CD |
+| `02_PHASES/`               |    20 | Step-by-step guides for phases 00–19                                                                                                                                |
+| `03_PROMPTS/`              |    23 | Agent session bootstrap, 8-step loop, one prompt pack per phase, utilities                                                                                          |
+| `04_OPERATIONS/`           |     6 | Runbooks, readiness checklist, acceptance criteria, demo, user/admin guides                                                                                         |
+| `05_ADR/`                  |     2 | ADR-001 … ADR-010 (ADR-005 routing and ADR-006 remote terminal/FS still _Proposed_)                                                                                 |
+| `06_TEMPLATES/`            |     6 | CLAUDE.md/AGENTS.md, PR template, phase gate, ADR template, CODEOWNERS/config snippets                                                                              |
+| `07_PLANNING/`             |     3 | Roadmap, team/RACI, risk register R1–R13                                                                                                                            |
+| `reference/`               |     1 | Original technical architecture (`.docx`)                                                                                                                           |
+
+**What the product is.** QE Workspace is a VS Code-like IDE (Eclipse Theia) usable as **Hosted Web**
+(Kubernetes runtimes), **Local Web** (Docker on localhost) and **Desktop** (Electron), with the same
+extensions and workspace model in every mode. It adds an integrated terminal, **brokered SSH** to
+registered lab systems (remote terminal + remote file editing), a QE test runner, and enterprise controls
+(OIDC SSO, RBAC, secret manager with short-lived SSH certificates, audit, OpenTelemetry, hardened Kubernetes).
+
+**The plan.** 20 phases (00–19) and five demo milestones (M1 end of P06 … M5 end of P18), estimated at
+20–26 weeks for a 5–7 person team. Three rules never bend: the browser is a client, not a trusted computer;
+no connection to arbitrary hosts; one workspace contract for all clients.
+
+**Org decisions** (IdP, Kubernetes platform, secret manager, lab inventory, …) were all unanswered.
+
+### 2026-10-17 — Repository hygiene: `.gitignore` (commit `6e9c7be`)
+
+Added a root `.gitignore` covering dependencies, TypeScript/Theia/Electron build output, coverage and tool
+caches, Helm packages, local environment files and private keys (`.env*` except `.env.example`, `*.pem`,
+`*.key`, `id_*`), editor and OS files. Theia output paths are scoped to `apps/*` and `extensions/*` so they
+cannot hide source folders elsewhere.
+
+### 2026-10-17 — Phase 00 (partial): toolchain pinned, decisions sheet created
+
+Done:
+
+- **Toolchain pinned and verified** against the npm registry and Theia's repository on 2026-10-17
+  (details and sources in [`ORG_DECISIONS.md` §F](ORG_DECISIONS.md#f-toolchain-pinned-2026-10-17)):
+  Node.js **24.22.0** (Active LTS "Krypton"; Theia 1.76.0 requires `node >=24`), npm 11.19.1,
+  TypeScript **5.9.3** (Theia's own version), Electron 42.8.1 (peer of `@theia/electron` 1.76.0).
+- Theia itself: **1.76.0** (latest, 2026-09-24) recorded as the candidate; 1.74.x (npm dist-tag `patch`,
+  still receiving fixes) is the alternative if the org prefers the maintained line. Final pick happens with
+  spike S1 / Phase 02 — the Node and TypeScript pins hold for both.
+- [`ORG_DECISIONS.md`](ORG_DECISIONS.md) created from `00_START_HERE/03_DECISIONS_BEFORE_CODING.md`. Every
+  row shows the kit default marked **assumed**; only facts visible from the repository are marked confirmed
+  (Git host = GitHub).
+
+Not done (needs people, infrastructure or the Theia build): org answers for sections A–E, spikes S1–S5,
+ADR-005/ADR-006 decisions, architecture review. See [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md).
+
+**Deviation:** Phase 01 lists "Phase 00 gate PASS" as a prerequisite. Phase 01 was built anyway because it
+depends only on the pinned Node/TypeScript versions, not on spike outcomes. Recorded as risk R15.
+
+### 2026-10-17 — Phase 01: monorepo foundation (commits `cf57845`, `ff71118`)
+
+Built the skeleton every later phase builds on, following `02_PHASES/PHASE_01_MONOREPO_FOUNDATION.md` and
+prompts P01.1–P01.6:
+
+- **Root tooling** — npm workspaces (`packages/*`, `extensions/*`, `apps/*`, `tests/*`), `.nvmrc`,
+  `.npmrc` (`engine-strict`, `save-exact`), `.editorconfig`, `.gitattributes` (LF), strict
+  `tsconfig.base.json`, `tsconfig.build.json` (project references), Prettier, `npm run verify`.
+- **Ten library packages** — `domain`, `contracts`, `rbac`, `policy`, `broker-core`, `secrets`,
+  `runtime-providers`, `telemetry`, `client-sdk`, `test-utils`; dependencies and references wired exactly as
+  the dependency rules in `01_ARCHITECTURE/04` §1.
+- **`@qe/domain`** — the 23 `ErrorCodes` with their HTTP statuses (05_API_CONTRACTS §3), `DomainError`
+  (`code`, `httpStatus`, `details`, `cause`), `assertNever`, workspace and remote-session state machines
+  (02_SOLUTION_ARCHITECTURE §6) with tests for every legal **and** illegal transition.
+- **ESLint** — typescript-eslint `strictTypeChecked`, `no-explicit-any`, `no-floating-promises`,
+  `child_process` only in runtime-providers/broker-core/qe-runner backend, no `eval`, and
+  eslint-plugin-boundaries encoding the package graph (incl. the ADR-008 exception for the qe-remote
+  Electron backend).
+- **Vitest** — projects `unit` and `integration`; coverage gates 90 % (domain, rbac, policy, broker-core)
+  and 75 % elsewhere.
+- **Proof tests** (`tests/lint/`) — 33 cases showing forbidden imports fail lint and allowed ones pass;
+  a guard keeping imports, `package.json` dependencies and `tsconfig` references in sync.
+- **Repo hygiene** — `CLAUDE.md`, `AGENTS.md`, PR template, CODEOWNERS, CI workflow (ubuntu + windows,
+  actions pinned by SHA, read-only token), `scripts/bootstrap.sh` / `.ps1`.
+
+Decisions and deviations from the kit (rationale in [ADR-011](../05_ADR/ADRS.md)):
+
+| Topic                 | Kit says                                            | Done instead                                       | Why                                                           |
+| --------------------- | --------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------- |
+| Kit docs              | Copy `01_ARCHITECTURE/` → `docs/architecture/` etc. | Kept in place; `CLAUDE.md` maps the paths          | The kit lives in this repo; copies would drift                |
+| Package resolution    | `main`/`types` → `dist`                             | `exports` with an `@qe/source` condition first     | Tests and lint work before a build and never see stale `dist` |
+| State-machine helpers | `canTransition` in each file                        | `canTransitionWorkspace` / `canTransitionSession`  | Both are exported from one index                              |
+| `DomainError`         | `(code, message?, details?)`                        | `(code, message?, { details, httpStatus, cause })` | 04 §2 requires `httpStatus`; `cause` keeps error chains       |
+| `clean` script        | `git clean -xdf -e .env`                            | `scripts/clean.mjs` (build output only)            | `git clean -x` also deletes untracked source files            |
+| CODEOWNERS            | Team handles                                        | `@barathparthi` on every path                      | The teams do not exist yet                                    |
+| `test:integration`    | —                                                   | `--passWithNoTests`                                | No integration tests until Phase 03                           |
+| Lint fixtures         | Fixture files in `tests/lint-fixtures`              | In-memory snippets linted with the real config     | Real fixture files would fail `npm run lint`                  |
+
+Evidence: [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) (clean-install run, 277 tests, 100 %
+coverage, planted violations rejected).
+
+Open: CI has not yet run on GitHub (Windows result unknown); branch protection not enabled; one high
+severity advisory in dev tooling (`braces` via eslint-plugin-boundaries, no upstream fix — risk R14).

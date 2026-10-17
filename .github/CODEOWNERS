@@ -1,0 +1,12 @@
+# Code owners (06_TEMPLATES/CODEOWNERS_AND_CONFIG_SNIPPETS.md).
+# The kit's team handles (@qe-workspace/maintainers, @org/security-reviewers, @org/platform) do not
+# exist yet; until they do, the repository owner reviews everything. When the teams are created,
+# append them to each line below — security-sensitive paths need a security reviewer.
+*                           @barathparthi
+/packages/broker-core/      @barathparthi
+/packages/policy/           @barathparthi
+/packages/secrets/          @barathparthi
+/packages/rbac/             @barathparthi
+/apps/connection-broker/    @barathparthi
+/deploy/                    @barathparthi
+/.github/workflows/         @barathparthi

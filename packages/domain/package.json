@@ -1,0 +1,21 @@
+{
+  "name": "@qe/domain",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Entities, value objects, state machines and the DomainError/ErrorCode vocabulary. Depends on nothing.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@qe/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

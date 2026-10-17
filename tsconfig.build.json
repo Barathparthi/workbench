@@ -1,0 +1,41 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/domain"
+    },
+    {
+      "path": "packages/telemetry"
+    },
+    {
+      "path": "packages/contracts"
+    },
+    {
+      "path": "packages/rbac"
+    },
+    {
+      "path": "packages/policy"
+    },
+    {
+      "path": "packages/secrets"
+    },
+    {
+      "path": "packages/broker-core"
+    },
+    {
+      "path": "packages/runtime-providers"
+    },
+    {
+      "path": "packages/client-sdk"
+    },
+    {
+      "path": "packages/test-utils"
+    },
+    {
+      "path": "tests/lint"
+    },
+    {
+      "path": "tsconfig.tools.json"
+    }
+  ]
+}

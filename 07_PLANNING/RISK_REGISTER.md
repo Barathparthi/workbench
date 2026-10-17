@@ -15,3 +15,5 @@
 | R11 | Users keep personal keys/VS Code habits; low adoption | M | M | Desktop + local web parity, pilot feedback, migration guide | QE rep | Open |
 | R12 | Network zones block broker → lab connectivity | M | H | Confirm firewall rules in P00; zone brokers (P19) | Platform | Open |
 | R13 | Theia upgrade breaks extensions mid-project | M | M | Freeze version until after M3; scheduled upgrades with full E2E | Tech lead | Open |
+| R14 | Dev-tooling advisory: `braces` (high, DoS) via eslint-plugin-boundaries → micromatch; no upstream fix | L | L | Dev-only, patterns come from our config; `handlebars` criticals fixed by override; re-check on each tooling bump; swap to dependency-cruiser if it persists into Phase 15 | Tech lead | Open (2026-10-17) |
+| R15 | Phase 01 started before the Phase 00 gate (spikes S1–S5 not run) | M | L | Phase 01 depends only on Node/TS pins, which hold for Theia 1.74 and 1.76; run S1 before Phase 02 | Tech lead | Open (2026-10-17) |

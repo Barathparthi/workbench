@@ -1,0 +1,21 @@
+{
+  "name": "@qe/test-utils",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared test fixtures, Testcontainers helpers, fake IdP, SSH test server.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@qe/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

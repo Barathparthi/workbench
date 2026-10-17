@@ -33,3 +33,23 @@
 | `06_TEMPLATES/*` | CLAUDE.md, AGENTS.md, PR template, phase gate, ADR template, CODEOWNERS/config snippets |
 | `07_PLANNING/*` | Roadmap/timeline, team & RACI, risk register |
 | `reference/QE_Web_Development_Workbench_Technical_Architecture.docx` | Original architecture spec |
+
+## Product repository files (added from Phase 00 onward)
+
+| Path | Purpose |
+|---|---|
+| `.gitignore`, `.gitattributes`, `.editorconfig`, `.nvmrc`, `.npmrc` | Repository hygiene, LF line endings, pinned Node, strict npm |
+| `package.json`, `package-lock.json` | npm workspaces root, exact tool versions, scripts (`verify`, `test:unit`, …) |
+| `tsconfig.base.json`, `tsconfig.build.json`, `tsconfig.tools.json` | Strict compiler options, project-reference build graph, root config typecheck |
+| `eslint.config.js` | Lint rules incl. package boundaries and restricted imports |
+| `vitest.config.ts` | `unit` / `integration` projects and coverage gates |
+| `.prettierrc.json`, `.prettierignore` | Formatting (kit folders excluded) |
+| `packages/*` | Library packages (Phase 01 skeletons; `@qe/domain` implemented) |
+| `tests/lint/` | Boundary-rule proof tests and dependency-graph guard |
+| `scripts/` | `bootstrap.sh`, `bootstrap.ps1`, `clean.mjs` |
+| `.github/` | CI workflow, PR template, CODEOWNERS |
+| `CLAUDE.md`, `AGENTS.md` | Agent rules adapted to this repository |
+| `CHANGELOG.md` | Release-level change list |
+| `docs/PROJECT_LOG.md` | Dated project history from the initial commit, status snapshot |
+| `docs/ORG_DECISIONS.md` | Filled decisions sheet and pinned toolchain |
+| `docs/phase-gates/PHASE_xx.md` | Phase-gate evidence records |

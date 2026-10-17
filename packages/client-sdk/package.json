@@ -1,0 +1,24 @@
+{
+  "name": "@qe/client-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Typed client for the control plane and broker, used by Theia extensions.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@qe/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@qe/contracts": "0.0.0"
+  }
+}
