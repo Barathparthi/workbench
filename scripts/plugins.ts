@@ -1,6 +1,7 @@
 /**
  * Built-in VS Code plugins for the IDE apps: pinned by version and SHA-256 in config/vscode-plugins.json,
- * downloaded from the Open VSX registry named by QE_VSX_URL (the internal mirror, ADR-010) into plugins/.
+ * downloaded from the Open VSX registry named by QE_VSX_URL (the internal mirror, ADR-010) and unpacked into
+ * plugins/<id>/ (Theia deploys only unpacked system plugins).
  *
  *   QE_VSX_URL=https://openvsx.corp node scripts/plugins.ts download   # verify every hash, remove strays
  *   QE_VSX_URL=https://openvsx.corp node scripts/plugins.ts lock        # print hashes for the manifest
@@ -9,7 +10,8 @@
  */
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { dirname, join, posix, resolve, sep } from 'node:path';
+import { crc32, inflateRawSync } from 'node:zlib';
 
 export interface PluginSpec {
   /** `<namespace>.<name>` as on Open VSX. */
@@ -137,12 +139,115 @@ export async function fetchBytes(url: URL, limits: Limits = DEFAULT_LIMITS): Pro
   return Buffer.concat(chunks);
 }
 
-export const fileNameFor = (spec: PluginSpec): string => `${spec.id}.vsix`;
+export interface ZipLimits {
+  readonly maxEntries: number;
+  readonly maxTotalBytes: number;
+}
+
+export const DEFAULT_ZIP_LIMITS: ZipLimits = { maxEntries: 20_000, maxTotalBytes: 500 * 1024 * 1024 };
+
+const S_IFMT = 0o170000;
+const S_IFLNK = 0o120000;
+
+/** A path inside an archive that is safe to create under the destination, or an error. */
+function safeEntryPath(name: string): string {
+  const bad =
+    name === '' ||
+    name.includes('\\') ||
+    name.includes('\0') ||
+    name.startsWith('/') ||
+    /^[a-z]:/i.test(name) ||
+    name.split('/').includes('..');
+  if (bad) throw new PluginError(`archive entry "${name}" escapes the destination`);
+  return posix.normalize(name);
+}
 
 /**
- * Makes `outDir` contain exactly the manifest's plugins, each verified against its pinned hash. Existing
- * files with the right hash are kept; anything else in the folder is removed. Files are written under a
- * dot-name first (Theia ignores dotfiles) and renamed only after the hash matched.
+ * Extracts a ZIP (.vsix) held in memory: stored and deflated entries, CRC-checked. Refuses encrypted and
+ * ZIP64 archives, symlinks, paths leaving `destDir`, and archives over the limits. Callers verify the
+ * archive's SHA-256 first; these checks are defence in depth.
+ */
+export async function extractZip(
+  zip: Buffer,
+  destDir: string,
+  limits: ZipLimits = DEFAULT_ZIP_LIMITS,
+): Promise<number> {
+  const corrupt = (why: string) => new PluginError(`invalid archive: ${why}`);
+  // End of central directory record: 22 bytes plus a comment of up to 64 KiB, at the very end.
+  let eocd = -1;
+  for (let i = zip.length - 22; i >= Math.max(0, zip.length - 22 - 0xffff); i--) {
+    if (zip.readUInt32LE(i) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw corrupt('no end of central directory');
+  const count = zip.readUInt16LE(eocd + 10);
+  let offset = zip.readUInt32LE(eocd + 16);
+  if (count === 0xffff || offset === 0xffffffff) throw corrupt('ZIP64 is not supported');
+  if (count > limits.maxEntries) throw corrupt(`more than ${limits.maxEntries} entries`);
+  const root = resolve(destDir);
+  let total = 0;
+  for (let n = 0; n < count; n++) {
+    if (offset + 46 > zip.length || zip.readUInt32LE(offset) !== 0x02014b50)
+      throw corrupt('bad central directory');
+    const flags = zip.readUInt16LE(offset + 8);
+    const method = zip.readUInt16LE(offset + 10);
+    const crc = zip.readUInt32LE(offset + 16);
+    const compressedSize = zip.readUInt32LE(offset + 20);
+    const size = zip.readUInt32LE(offset + 24);
+    const nameLength = zip.readUInt16LE(offset + 28);
+    const extraLength = zip.readUInt16LE(offset + 30);
+    const commentLength = zip.readUInt16LE(offset + 32);
+    const mode = zip.readUInt32LE(offset + 38) >>> 16;
+    const localOffset = zip.readUInt32LE(offset + 42);
+    const name = zip.toString('utf8', offset + 46, offset + 46 + nameLength);
+    offset += 46 + nameLength + extraLength + commentLength;
+
+    if ((flags & 0x1) !== 0) throw corrupt(`"${name}" is encrypted`);
+    if (compressedSize === 0xffffffff || size === 0xffffffff || localOffset === 0xffffffff) {
+      throw corrupt('ZIP64 is not supported');
+    }
+    if ((mode & S_IFMT) === S_IFLNK) throw corrupt(`"${name}" is a symbolic link`);
+    const relative = safeEntryPath(name);
+    const target = resolve(root, relative);
+    if (target !== root && !target.startsWith(root + sep)) throw corrupt(`"${name}" escapes the destination`);
+    if (name.endsWith('/')) {
+      await mkdir(target, { recursive: true });
+      continue;
+    }
+    total += size;
+    if (total > limits.maxTotalBytes) throw corrupt(`more than ${limits.maxTotalBytes} bytes when unpacked`);
+
+    if (localOffset + 30 > zip.length || zip.readUInt32LE(localOffset) !== 0x04034b50)
+      throw corrupt('bad local header');
+    const dataStart =
+      localOffset + 30 + zip.readUInt16LE(localOffset + 26) + zip.readUInt16LE(localOffset + 28);
+    const data = zip.subarray(dataStart, dataStart + compressedSize);
+    if (data.length !== compressedSize) throw corrupt(`"${name}" is truncated`);
+    let content: Buffer;
+    if (method === 0) content = Buffer.from(data);
+    else if (method === 8) {
+      try {
+        content = inflateRawSync(data, { maxOutputLength: Math.max(size, 1) });
+      } catch {
+        throw corrupt(`"${name}" does not inflate to its declared size`);
+      }
+    } else throw corrupt(`"${name}" uses unsupported compression method ${method}`);
+    if (content.length !== size || crc32(content) !== crc) throw corrupt(`"${name}" fails its CRC check`);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, content);
+  }
+  return count;
+}
+
+/** Records, inside each unpacked plugin, the archive hash it was unpacked from. */
+const MARKER = '.qe-sha256';
+
+/**
+ * Makes `outDir` contain exactly the manifest's plugins, each unpacked from an archive whose SHA-256 matched
+ * the pin. Plugins already unpacked from the pinned hash are kept; anything else in the folder is removed.
+ * Unpacking goes to a dot-folder first (Theia ignores dotfiles) and is renamed into place when complete.
  */
 export async function downloadPlugins(
   specs: readonly PluginSpec[],
@@ -151,7 +256,7 @@ export async function downloadPlugins(
   limits: Limits = DEFAULT_LIMITS,
 ): Promise<{ downloaded: string[]; kept: string[]; removed: string[] }> {
   await mkdir(outDir, { recursive: true });
-  const wanted = new Map(specs.map((s) => [fileNameFor(s), s]));
+  const wanted = new Map(specs.map((s) => [s.id, s]));
   const removed: string[] = [];
   for (const entry of await readdir(outDir)) {
     if (!wanted.has(entry)) {
@@ -161,25 +266,31 @@ export async function downloadPlugins(
   }
   const downloaded: string[] = [];
   const kept: string[] = [];
-  for (const [fileName, spec] of wanted) {
-    const target = join(outDir, fileName);
-    const existing = await readFile(target).catch(() => undefined);
-    if (existing !== undefined && sha256Of(existing) === spec.sha256) {
-      kept.push(spec.id);
+  for (const [id, spec] of wanted) {
+    const target = join(outDir, id);
+    const marker = await readFile(join(target, MARKER), 'utf8').catch(() => undefined);
+    if (marker?.trim() === spec.sha256) {
+      kept.push(id);
       continue;
     }
     const bytes = await fetchBytes(vsixUrl(base, spec), limits);
     const actual = sha256Of(bytes);
     if (actual !== spec.sha256) {
-      await rm(target, { force: true });
       throw new PluginError(
-        `${spec.id}@${spec.version}: sha256 ${actual} does not match the pinned ${spec.sha256}`,
+        `${id}@${spec.version}: sha256 ${actual} does not match the pinned ${spec.sha256}`,
       );
     }
-    const temp = join(outDir, `.${fileName}.download`);
-    await writeFile(temp, bytes);
-    await rename(temp, target);
-    downloaded.push(spec.id);
+    const temp = join(outDir, `.${id}.unpack`);
+    await rm(temp, { recursive: true, force: true });
+    try {
+      await extractZip(bytes, temp);
+      await writeFile(join(temp, MARKER), `${spec.sha256}\n`);
+      await rm(target, { recursive: true, force: true });
+      await rename(temp, target);
+    } finally {
+      await rm(temp, { recursive: true, force: true });
+    }
+    downloaded.push(id);
   }
   return { downloaded, kept, removed };
 }

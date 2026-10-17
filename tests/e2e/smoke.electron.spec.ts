@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 
-import { openPalette, QE_COMMANDS, waitForShell, workspace } from './ide.js';
+import { openPalette, preferenceRows, QE_COMMANDS, waitForShell, workspace } from './ide.js';
 
 const appDir = resolve(import.meta.dirname, '../../apps/ide-electron');
 
@@ -55,4 +55,11 @@ test('desktop app offers the same QE commands as the browser app', async () => {
     expect.arrayContaining(QE_COMMANDS),
   );
   await page.keyboard.press('Escape');
+});
+
+test('desktop app adds the desktop-only telemetry setting, off by default', async () => {
+  expect(await preferenceRows(page, 'qe.telemetry.enabled')).toBe(1);
+  await expect(
+    page.locator('[data-pref-id="qe.telemetry.enabled"] input[type="checkbox"]'),
+  ).not.toBeChecked();
 });

@@ -3,7 +3,11 @@
 # the browser IDE serving /home/qe/project on port 3000, as UID 1000.
 #
 #   docker build -f images/workspace-runtime/Dockerfile -t qews/runtime:dev .
-#   docker run --rm -p 127.0.0.1:3000:3000 -v "$PWD":/home/qe/project qews/runtime:dev
+#   docker run --rm -p 127.0.0.1:3000:3000 -e QE_MODE=local-web -v "$PWD":/home/qe/project qews/runtime:dev
+#
+# The IDE has no login of its own: publish the port on 127.0.0.1 only (local web token: Phase 10; hosted
+# gateway and NetworkPolicy: Phase 05). QE_MODE defaults to hosted, which refuses to start (exit 78) until
+# QE_CONTROL_PLANE_URL and QE_WORKSPACE_ID are set, so a pod is never silently a local-web IDE.
 #
 # Built-in VS Code plugins are added when QE_VSX_URL names the Open VSX mirror (pinned and hash-checked).
 
@@ -32,7 +36,7 @@ RUN apt-get update \
 COPY --from=build /usr/local/bin/node /usr/local/bin/node
 # Application files belong to root: the qe user can read and run them but not change them.
 COPY --from=build --chown=root:root /src /opt/qe-workspace
-ENV NODE_ENV=production
+ENV NODE_ENV=production QE_MODE=hosted
 USER 1000:1000
 WORKDIR /home/qe/project
 EXPOSE 3000

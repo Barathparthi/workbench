@@ -3,7 +3,15 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
-import { openPalette, pluginsAvailable, QE_COMMANDS, runCommand, waitForShell, workspace } from './ide.js';
+import {
+  openPalette,
+  pluginsAvailable,
+  preferenceRows,
+  QE_COMMANDS,
+  runCommand,
+  waitForShell,
+  workspace,
+} from './ide.js';
 import { SEARCH_NEEDLE } from './prepare-workspace.js';
 
 test.describe('browser IDE smoke', () => {
@@ -22,6 +30,11 @@ test.describe('browser IDE smoke', () => {
     expect((await rows.allInnerTexts()).map((t) => t.split('\n')[0])).toEqual(
       expect.arrayContaining(QE_COMMANDS),
     );
+  });
+
+  test('offers the qe.* settings, without the desktop-only telemetry switch', async ({ page }) => {
+    expect(await preferenceRows(page, 'qe.runner.framework')).toBe(1);
+    expect(await preferenceRows(page, 'qe.telemetry.enabled')).toBe(0);
   });
 
   test('explorer lists the project files', async ({ page }) => {

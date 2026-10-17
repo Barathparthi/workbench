@@ -31,21 +31,23 @@ jobs:
         run: docker build -f images/workspace-runtime/Dockerfile --build-arg QE_VSX_URL -t qews/runtime:ci .
       - name: Serves the IDE as UID 1000 with read-only application files
         run: |
-          docker run -d --name ws -p 127.0.0.1:3000:3000 qews/runtime:ci
+          docker run -d --name ws -p 127.0.0.1:3000:3000 -e QE_MODE=local-web qews/runtime:ci
           for _ in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3000/ && break; sleep 1; done
           curl -fsS -o /dev/null -w 'GET / -> HTTP %{http_code}\n' http://127.0.0.1:3000/
           docker exec ws id
           test "$(docker exec ws id -u)" = 1000
           if docker exec ws touch /opt/qe-workspace/probe; then echo "qe can write application files"; exit 1; fi
-          docker exec ws sh -c 'ls /opt/qe-workspace/plugins'
+          docker exec ws sh -c 'ls /opt/qe-workspace/plugins /opt/qe-workspace/plugins/vscode.git'
           # Plugins deploy after the server listens; wait for the batch that contains them.
           for _ in $(seq 1 60); do docker logs ws 2>&1 | grep -qE 'Deploy batch of [1-9][0-9]* accepted plugins' && break; sleep 1; done
           docker logs ws 2>&1 | grep -E 'Deploy batch|listening on'
           docker logs ws 2>&1 | grep -qE 'Deploy batch of [1-9][0-9]* accepted plugins'
-      - name: Refuses invalid configuration (exit 78)
+      - name: Defaults to hosted and refuses to start without its configuration (exit 78)
         run: |
-          code=0; docker run --rm -e QE_MODE=hosted qews/runtime:ci || code=$?
+          code=0; docker run --rm qews/runtime:ci || code=$?
           echo "exit code: $code"; test "$code" = 78
+          code=0; docker run --rm -e QE_MODE=desktop qews/runtime:ci || code=$?
+          echo "exit code (QE_MODE=desktop): $code"; test "$code" = 78
       - name: Image size
         run: docker image ls qews/runtime:ci
 
