@@ -14,8 +14,8 @@ built from it. Where things stand, and what was done when, is in **[`docs/PROJEC
 
 | Phase | State |
 |---|---|
-| 00 — Environment, decisions & spikes | In progress: toolchain pinned, org decisions captured as assumptions, spikes pending |
-| 01 — Monorepo foundation | Built; gate CONDITIONAL on CI running green on GitHub and branch protection |
+| 00 — Environment, decisions & spikes | In progress: toolchain pinned (Theia 1.76.0), spike S1 done, S2–S5 and org answers pending |
+| 01 — Monorepo foundation | Merged with CI green on Ubuntu and Windows; gate CONDITIONAL on branch protection |
 | 02 — Theia product shell | Next |
 
 Prerequisites: Node.js **24.22.0** (`.nvmrc`; `nvm install`), npm 11, Git. Docker is needed from Phase 03.
@@ -33,7 +33,8 @@ npm run verify         # everything CI runs
 |---|---|
 | `packages/*` | Library packages (`@qe/domain`, `contracts`, `rbac`, `policy`, `broker-core`, …) |
 | `tests/lint/` | Proof that the package-boundary rules hold |
-| `docs/` | Project log, org decisions, phase-gate evidence |
+| `docs/` | Project log, org decisions, phase-gate evidence, spike reports |
+| `spikes/` | Throwaway Phase 00 spikes (own `package.json`, outside the product build) |
 | `CLAUDE.md` / `AGENTS.md` | Rules for coding agents working in this repo |
 
 ---

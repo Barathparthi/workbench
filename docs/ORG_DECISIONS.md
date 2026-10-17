@@ -8,7 +8,7 @@ Filled from `00_START_HERE/03_DECISIONS_BEFORE_CODING.md`. Code must not guess t
 - **Assumed** — the kit default, used so work can proceed; it must be confirmed or replaced by the owner.
 - **Open** — no workable default; blocks the phase listed.
 
-Last reviewed: 2026-10-17 (Phase 00, partial). Revisit at every milestone.
+Last reviewed: 2026-10-17 (Phase 00, after spike S1). Revisit at every milestone.
 
 ## A. Product scope
 
@@ -51,19 +51,20 @@ Last reviewed: 2026-10-17 (Phase 00, partial). Revisit at every milestone.
 
 ## D. Platform & infrastructure
 
-| #   | Question                            | Answer                                                   | Status  | Blocks   |
-| --- | ----------------------------------- | -------------------------------------------------------- | ------- | -------- |
-| D1  | Kubernetes platform                 | Any CNCF-conformant, supported minor                     | Open    | Phase 05 |
-| D2  | Ingress / gateway controller        | NGINX Ingress or a Gateway API implementation            | Assumed | Phase 16 |
-| D3  | Storage class for workspace volumes | CSI RWO with snapshots                                   | Assumed | Phase 05 |
-| D4  | PostgreSQL                          | Managed service (RDS / Azure DB / Cloud SQL)             | Assumed | Phase 03 |
-| D5  | Secret manager                      | HashiCorp Vault (SSH CA support)                         | Assumed | Phase 12 |
-| D6  | Registry & signing                  | Internal registry + cosign                               | Assumed | Phase 15 |
-| D7  | Internal Open VSX mirror            | Yes, allowlisted extensions only                         | Assumed | Phase 02 |
-| D8  | Workspace egress                    | Deny by default; allow Artifactory/Nexus and Git host    | Assumed | Phase 16 |
-| D9  | Hosted DNS name                     | `qe-workspace.<corp-domain>`                             | Open    | Phase 16 |
-| D10 | Telemetry backend                   | OTLP to the org collector                                | Assumed | Phase 13 |
-| D11 | CI system                           | GitHub Actions (repository is on GitHub; `ci.yml` added) | Assumed | —        |
+| #   | Question                            | Answer                                                                                                                                                                                        | Status  | Blocks              |
+| --- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------- |
+| D1  | Kubernetes platform                 | Any CNCF-conformant, supported minor                                                                                                                                                          | Open    | Phase 05            |
+| D2  | Ingress / gateway controller        | NGINX Ingress or a Gateway API implementation                                                                                                                                                 | Assumed | Phase 16            |
+| D3  | Storage class for workspace volumes | CSI RWO with snapshots                                                                                                                                                                        | Assumed | Phase 05            |
+| D4  | PostgreSQL                          | Managed service (RDS / Azure DB / Cloud SQL)                                                                                                                                                  | Assumed | Phase 03            |
+| D5  | Secret manager                      | HashiCorp Vault (SSH CA support)                                                                                                                                                              | Assumed | Phase 12            |
+| D6  | Registry & signing                  | Internal registry + cosign                                                                                                                                                                    | Assumed | Phase 15            |
+| D7  | Internal Open VSX mirror            | Yes, allowlisted extensions only                                                                                                                                                              | Assumed | Phase 02            |
+| D8  | Workspace egress                    | Deny by default; allow Artifactory/Nexus and Git host                                                                                                                                         | Assumed | Phase 16            |
+| D9  | Hosted DNS name                     | `qe-workspace.<corp-domain>`                                                                                                                                                                  | Open    | Phase 16            |
+| D10 | Telemetry backend                   | OTLP to the org collector                                                                                                                                                                     | Assumed | Phase 13            |
+| D11 | CI system                           | GitHub Actions (repository is on GitHub; `ci.yml` added)                                                                                                                                      | Assumed | —                   |
+| D12 | Build-time network access           | `registry.npmjs.org`, `github.com` (Electron binary) and `artifacts.electronjs.org` (Electron headers for native rebuilds) — or internal mirrors via `npm_config_disturl` / `ELECTRON_MIRROR` | Open    | Phase 02 desktop CI |
 
 ## E. Compliance & operations
 
@@ -82,16 +83,17 @@ Last reviewed: 2026-10-17 (Phase 00, partial). Revisit at every milestone.
 Verified on 2026-10-17 against the npm registry (`npm view`), the Node.js release index (`nvm ls-remote
 --lts`) and Theia's repository at tag `v1.76.0`.
 
-| Item        | Pinned value                                  | Where it is pinned                      | Source / rationale                                                                                          |
-| ----------- | --------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Node.js     | **24.22.0** (engines `>=24.11.0 <25`)         | `.nvmrc`, root `package.json` `engines` | Latest Active LTS ("Krypton"); Theia 1.76.0 root `package.json` declares `"node": ">=24"`                   |
-| npm         | 11.19.1 (engines `>=11`)                      | bundled with Node 24.22.0               | Version shipped with the pinned Node                                                                        |
-| TypeScript  | **5.9.3**                                     | root `devDependencies`                  | Theia 1.76.0 and 1.74.2 both use `~5.9.3`; TypeScript 6/7 not adopted (typescript-eslint supports `<6.1.0`) |
-| Theia       | **1.76.0** candidate (2026-09-24)             | not installed yet (Phase 02)            | npm `latest`. Alternative: 1.74.2 (dist-tag `patch`, maintained line, Node `>=22`). Decide in spike S1      |
-| Electron    | 42.8.1                                        | Phase 02 (`apps/ide-electron`)          | `peerDependencies` of `@theia/electron@1.76.0` (1.74.2 → 42.11.8)                                           |
-| PostgreSQL  | Open — supported major of the managed service | Phase 03                                | Depends on D4                                                                                               |
-| Kubernetes  | Open — supported minor of the platform        | Phase 05                                | Depends on D1                                                                                               |
-| Base images | Open — org-approved, pinned by digest         | Phase 05 / 15                           | —                                                                                                           |
+| Item                 | Pinned value                                      | Where it is pinned                               | Source / rationale                                                                                                         |
+| -------------------- | ------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Node.js              | **24.22.0** (engines `>=24.11.0 <25`)             | `.nvmrc`, root `package.json` `engines`          | Latest Active LTS ("Krypton"); Theia 1.76.0 root `package.json` declares `"node": ">=24"`                                  |
+| npm                  | 11.19.1 (engines `>=11`)                          | bundled with Node 24.22.0                        | Version shipped with the pinned Node                                                                                       |
+| TypeScript           | **5.9.3**                                         | root `devDependencies`                           | Theia 1.76.0 and 1.74.2 both use `~5.9.3`; TypeScript 6/7 not adopted (typescript-eslint supports `<6.1.0`)                |
+| Theia                | **1.76.0** (2026-09-24) — pinned after spike S1   | `spikes/s1-theia-hello`; Phase 02 apps           | Built and ran in browser and Electron with no Theia workarounds ([S1 report](spikes/S1_THEIA_HELLO.md)). 1.74.2 not needed |
+| Electron             | 42.8.1                                            | Phase 02 (`apps/ide-electron`)                   | `peerDependencies` of `@theia/electron@1.76.0`; verified in S1 under `xvfb`                                                |
+| Linux build packages | `libx11-dev`, `libxkbfile-dev`, `libsecret-1-dev` | developer prerequisites, CI, runtime build image | `native-keymap` and `keytar` compile from source (S1 finding 2)                                                            |
+| PostgreSQL           | Open — supported major of the managed service     | Phase 03                                         | Depends on D4                                                                                                              |
+| Kubernetes           | Open — supported minor of the platform            | Phase 05                                         | Depends on D1                                                                                                              |
+| Base images          | Open — org-approved, pinned by digest             | Phase 05 / 15                                    | —                                                                                                                          |
 
 Development tooling (exact versions in `package.json`): ESLint 10.13.0, typescript-eslint 8.71.2,
 eslint-plugin-boundaries 7.2.0, eslint-import-resolver-typescript 4.4.5, Prettier 3.9.10,

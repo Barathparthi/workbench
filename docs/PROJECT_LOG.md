@@ -11,22 +11,23 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 ## Status snapshot (updated 2026-10-17)
 
-| Phase                                | State                        | Record                                               |
-| ------------------------------------ | ---------------------------- | ---------------------------------------------------- |
-| 00 — Environment, decisions & spikes | **In progress** (partial)    | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
-| 01 — Monorepo foundation             | **Built — gate CONDITIONAL** | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
-| 02 — Theia product shell             | Not started (next)           | `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`          |
-| 03 – 19                              | Not started                  | `02_PHASES/`                                         |
+| Phase                                | State                                                                | Record                                               |
+| ------------------------------------ | -------------------------------------------------------------------- | ---------------------------------------------------- |
+| 00 — Environment, decisions & spikes | **In progress** — toolchain pinned, S1 done, S2–S5 open              | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
+| 01 — Monorepo foundation             | **Merged (PR #1), CI green — gate CONDITIONAL on branch protection** | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
+| 02 — Theia product shell             | Not started (next)                                                   | `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`          |
+| 03 – 19                              | Not started                                                          | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
 
 **Next actions**
 
-1. Open a PR for this branch and confirm the `ci` workflow is green on ubuntu **and** windows.
-2. Enable branch protection on `main` (required check `verify`, 1 review, no force-push).
-3. Phase 00: send sections B–E of [`ORG_DECISIONS.md`](ORG_DECISIONS.md) to the owning teams; run spikes
-   S1–S5 (S1 Theia hello is the prerequisite for Phase 02).
-4. Phase 02: Theia product shell (browser + Electron) on the pinned toolchain.
+1. Enable branch protection on `main` (required `verify` checks, 1 review, no force-push) — closes the
+   Phase 01 gate.
+2. Phase 00: send sections B–E of [`ORG_DECISIONS.md`](ORG_DECISIONS.md) (incl. new D12) to the owning
+   teams; run spikes S2 (reverse proxy), S5 (Open VSX), S4 (`ssh2`), S3 (remote terminal/FS).
+3. Phase 02: Theia product shell on Theia 1.76.0, applying the S1 findings
+   ([report](spikes/S1_THEIA_HELLO.md)).
 
 ---
 
@@ -133,3 +134,31 @@ coverage, planted violations rejected).
 
 Open: CI has not yet run on GitHub (Windows result unknown); branch protection not enabled; one high
 severity advisory in dev tooling (`braces` via eslint-plugin-boundaries, no upstream fix — risk R14).
+
+### 2026-10-17 — Phase 01 merged ([PR #1](https://github.com/Barathparthi/workbench/pull/1))
+
+@Barathparthi opened and merged PR #1 (merge commit `b35c692`). The `ci` workflow passed on the PR
+(`verify (ubuntu-latest)` and `verify (windows-latest)`) and again on `main` — the Windows half of the
+Phase 01 exit criterion is now met. The PR was merged 16 s after opening, before CI finished, so branch
+protection is evidently not enforcing required checks yet; that is the remaining gate condition.
+
+### 2026-10-17 — Phase 00 spike S1: Theia hello app (browser + Electron)
+
+Built [`spikes/s1-theia-hello/`](../spikes/s1-theia-hello/): one extension `qe-hello` (command
+`qe.hello`) used unchanged by a browser app and an Electron app on Theia 1.76.0, plus Playwright checks
+that run the command from the palette and spawn a shell in the integrated terminal. Both targets pass;
+screenshots and measurements are in the [S1 report](spikes/S1_THEIA_HELLO.md).
+
+Decisions:
+
+- **Theia pinned to 1.76.0** (Electron 42.8.1); 1.74.2 is not needed.
+- New org decision **D12**: build-time access to `artifacts.electronjs.org` (Electron headers) or a mirror.
+- Linux build packages (`libx11-dev`, `libxkbfile-dev`, `libsecret-1-dev`) added to the toolchain table.
+
+Findings that change the kit's Phase 02 assumptions: Theia 1.76 bundles with **esbuild** (not webpack —
+`.gitignore`/ESLint updated for `gen-esbuild.*.mjs`); npm 11.19 needs `allowScripts` approvals for native
+modules; Workspace Trust prompts on first open; all native modules are Node-API, so they load in Electron
+even when the Electron rebuild cannot download headers (this sandbox blocks electronjs.org).
+
+Repository changes: spikes excluded from Prettier (already outside workspaces, lint and tests);
+risk R15 closed, R9 updated, R16 added.

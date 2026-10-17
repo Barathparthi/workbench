@@ -23,6 +23,12 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   - Lint proof tests and a workspace dependency-graph guard (`tests/lint/`).
   - `CLAUDE.md`, `AGENTS.md`, PR template, CODEOWNERS, CI workflow (ubuntu + windows), bootstrap scripts.
 - Project documentation: `docs/PROJECT_LOG.md`, phase-gate records, ADR-011, risks R14–R15.
+- Phase 00 spike S1 (`spikes/s1-theia-hello`): one Theia 1.76.0 extension running in a browser app and an
+  Electron app, with Playwright checks; report in `docs/spikes/S1_THEIA_HELLO.md`. Theia pinned to 1.76.0.
+
+### Changed
+
+- `.gitignore` and ESLint ignores cover Theia's esbuild output (`gen-esbuild.*.mjs`); Prettier skips `spikes/`.
 
 ### Initial state
 

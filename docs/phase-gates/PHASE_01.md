@@ -1,7 +1,7 @@
 # Phase Gate — Phase 01: Monorepo Foundation
 
-**Date:** 2026-10-17 · **Branch/PRs:** `claude/gallant-goldberg-v788zv` (commits `cf57845`, `ff71118`; PR not
-opened yet) · **Reviewers:** pending (1 human review required)
+**Date:** 2026-10-17 · **Branch/PRs:** `claude/gallant-goldberg-v788zv` → [PR #1](https://github.com/Barathparthi/workbench/pull/1),
+merged 2026-10-17 by @Barathparthi (merge commit `b35c692`) · **Reviewers:** @Barathparthi
 
 Template: `06_TEMPLATES/PHASE_GATE_TEMPLATE.md`. Guide: `02_PHASES/PHASE_01_MONOREPO_FOUNDATION.md`.
 
@@ -14,7 +14,7 @@ Template: `06_TEMPLATES/PHASE_GATE_TEMPLATE.md`. Guide: `02_PHASES/PHASE_01_MONO
 | Ten empty-but-compiling packages                                                           | done                                                                                           | `packages/*`                                                              |
 | `@qe/domain` seeded with errors and state machines                                         | done                                                                                           | `packages/domain/src`                                                     |
 | `CLAUDE.md`, `AGENTS.md`, PR template, CODEOWNERS, `.editorconfig`, `.gitattributes`       | done                                                                                           | repo root, `.github/`                                                     |
-| CI workflow: install, typecheck, lint, unit test, build                                    | done, **not yet run on GitHub**                                                                | `.github/workflows/ci.yml`                                                |
+| CI workflow: install, typecheck, lint, unit test, build                                    | done — green on ubuntu and windows (see below)                                                 | `.github/workflows/ci.yml`                                                |
 | `docs/` skeleton                                                                           | done — kit kept in place instead of copied (see project log)                                   | `docs/`                                                                   |
 | Developer bootstrap scripts                                                                | done (`.sh` run on Linux; `.ps1` not run)                                                      | `scripts/`                                                                |
 | Domain state-machine tests (all transitions)                                               | done — every pair: 64 workspace + 100 session                                                  | `packages/domain/src/__tests__`                                           |
@@ -87,6 +87,18 @@ $ npx vitest run tests/lint/workspace-graph.test.ts   # undeclared @qe/rbac impo
 AssertionError: expected [ '@qe/rbac' ] to deeply equal []
 ```
 
+### CI on GitHub (PR #1 and the merge to `main`)
+
+```text
+ci #1 (pull_request, head 23b57f1) — conclusion: success
+  verify (ubuntu-latest)   success   npm ci · typecheck · lint · format:check · test:unit --coverage · build
+  verify (windows-latest)  success   npm ci · typecheck · lint · format:check · test:unit --coverage · build
+ci #2 (push to main, b35c692) — conclusion: success
+```
+
+Runs: [39025441351](https://github.com/Barathparthi/workbench/actions/runs/39025441351) (PR),
+[39025456161](https://github.com/Barathparthi/workbench/actions/runs/39025456161) (main).
+
 ## Security review
 
 - Threats touched: none directly (no runtime code). Supply-chain hygiene groundwork for Phase 15.
@@ -115,8 +127,10 @@ AssertionError: expected [ '@qe/rbac' ] to deeply equal []
 
 ## Known limitations & follow-ups
 
-- **CI not yet run on GitHub.** Windows has not been exercised (exit criterion: Linux **and** Windows).
-- **Branch protection on `main` not enabled** (repository setting; needs the owner).
+- ~~CI not yet run on GitHub~~ — done: green on ubuntu and windows (PR #1).
+- **Branch protection on `main` not confirmed** (repository setting; needs the owner). PR #1 was merged
+  16 s after it was opened (10:34:50 → 10:35:06 UTC), before its CI run finished (10:35:52) — CI happened
+  to pass, but required checks were not enforced at that time.
 - `scripts/bootstrap.ps1` untested on Windows.
 - `npm run build` re-runs `tsc -b` per workspace; acceptable now, revisit (Turborepo/Nx or a single
   `tsc -b`) when the Theia apps join in Phase 02.
@@ -125,7 +139,7 @@ AssertionError: expected [ '@qe/rbac' ] to deeply equal []
 ## Decision
 
 - [ ] PASS
-- [x] **CONDITIONAL** — conditions: (1) `ci` workflow green on ubuntu and windows for this branch's PR —
-      owner: repository owner, by first PR; (2) branch protection enabled on `main` — owner: repository
-      owner, before Phase 02 merges.
+- [x] **CONDITIONAL** — conditions: ~~(1) `ci` workflow green on ubuntu and windows~~ **met 2026-10-17
+      (PR #1)**; (2) branch protection enabled on `main` (required `verify` checks, 1 review, no
+      force-push) — owner: repository owner, before Phase 02 merges. Flip to PASS once (2) is confirmed.
 - [ ] FAIL
