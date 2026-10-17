@@ -1,0 +1,106 @@
+# ---------------------------------------------------------------------------
+# QE Workspace — .gitignore
+# Never commit build output, dependencies, local environment or secrets.
+# ---------------------------------------------------------------------------
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+.npm/
+
+# Logs and debug output
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+report.*.json
+
+# TypeScript build output
+dist/
+out/
+*.tsbuildinfo
+.tsbuild/
+
+# Test, coverage and tooling caches
+coverage/
+.nyc_output/
+.vitest/
+.eslintcache
+.cache/
+.turbo/
+.nx/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Theia generated sources and downloaded VS Code plugins (apps/ide-*, extensions/*, Phase 02+)
+apps/*/lib/
+apps/*/src-gen/
+apps/*/plugins/
+apps/*/gen-webpack.config.js
+apps/*/gen-webpack.node.config.js
+extensions/*/lib/
+
+# Electron packaging output (apps/ide-electron, Phase 02+)
+apps/*/release/
+apps/*/dist-electron/
+*.dmg
+*.exe
+*.msi
+*.AppImage
+*.deb
+*.rpm
+*.snap
+
+# Helm / Kubernetes packaging artefacts
+deploy/helm/**/charts/*.tgz
+*.tgz
+
+# Throwaway spike build output (spike sources are reviewed, outputs are not)
+spikes/**/node_modules/
+spikes/**/lib/
+spikes/**/src-gen/
+
+# Environment files and secrets — only the .example variants are tracked
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+!**/__fixtures__/**/*.pub
+.vault-token
+kubeconfig*
+
+# SBOMs and scan reports produced locally (CI uploads them as artefacts)
+sbom-*.json
+trivy-*.json
+
+# Editors and IDEs
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+.history/
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Office lock files (reference/*.docx)
+~$*
