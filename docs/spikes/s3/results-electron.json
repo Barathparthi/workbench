@@ -1,0 +1,27 @@
+{
+  "target": "electron",
+  "optionA": {
+    "terminal": "error: locator.waitFor: Timeout 20000ms exceeded.",
+    "file": "error: locator.waitFor: Timeout 20000ms exceeded."
+  },
+  "optionB": {
+    "terminal": {
+      "remoteFile": "REMOTE_B_qeuser_8x79",
+      "ms": 201
+    },
+    "ctrlC": {
+      "remoteFile": "CTRLC_130",
+      "ms": 201
+    },
+    "fileOpened": true,
+    "focusBeforeTyping": "native-edit-context",
+    "fileSaved": {
+      "remoteFile": "hello from the lab host\\nedited via option B in electron",
+      "ms": 402
+    }
+  },
+  "webview": "webview content not found",
+  "consoleErrors": [],
+  "failedRequests": [],
+  "pluginWorkers": []
+}

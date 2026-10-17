@@ -11,21 +11,22 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 ## Status snapshot (updated 2026-10-17)
 
-| Phase                                | State                                                            | Record                                               |
-| ------------------------------------ | ---------------------------------------------------------------- | ---------------------------------------------------- |
-| 00 — Environment, decisions & spikes | **In progress** — toolchain pinned; S1, S2, S4, S5 done; S3 open | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
-| 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)            | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
-| 02 — Theia product shell             | Not started (next)                                               | `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`          |
-| 03 – 19                              | Not started                                                      | `02_PHASES/`                                         |
+| Phase                                | State                                                                                       | Record                                               |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
+| 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                       | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
+| 02 — Theia product shell             | Not started (next)                                                                          | `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`          |
+| 03 – 19                              | Not started                                                                                 | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
 
 **Next actions**
 
-1. Phase 00: run spike S3 (remote terminal/FS → ADR-006), then gate Phase 00; send sections A8 and B–E of
-   [`ORG_DECISIONS.md`](ORG_DECISIONS.md) (incl. D9, D12) to the owning teams, A8 with a licence review.
+1. Phase 00 gate conditions: send sections A8 and B–E of [`ORG_DECISIONS.md`](ORG_DECISIONS.md) (incl. D9,
+   D12) to the owning teams, A8 with a licence review; hold the architecture review (tech lead + security)
+   before Phase 05.
 2. Decide how to carry the `ssh2` certificate patch (S4): `patch-package` + upstream PR is the recommendation.
-3. Phase 02: Theia product shell on Theia 1.76.0, applying the S1, S2 and S5 findings.
+3. Phase 02: Theia product shell on Theia 1.76.0, applying the S1, S2, S3 and S5 findings.
 4. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
 
 ---
@@ -219,3 +220,36 @@ with `ssh2` 1.17.0. Results ([S4 report](spikes/S4_SSH2.md)):
 Decisions: ADR-002 and ADR-007 addenda (binding rules for `SshTransport`; carry the patch + upstream PR, keep
 the ephemeral key in memory, set Vault `key_id_format` to include the user). Org decisions C3/C4 annotated;
 risk R3 mitigated with the patch. Not tested here: Windows/macOS agents (Phase 10).
+
+### 2026-10-17 — PR #4 merged; Phase 00 spike S3: remote terminal + remote files → ADR-006
+
+@Barathparthi merged [PR #4](https://github.com/Barathparthi/workbench/pull/4) (S4).
+
+Built [`spikes/s3-remote/`](../spikes/s3-remote/): the same feature — a remote terminal and a remote file you
+can edit, through a stub of the contract's session API (tickets, `qews.v1` WebSocket, `fs/{op}`) over `ssh2` to
+the S4 OpenSSH target — written twice and loaded side by side into one browser and one Electron app on Theia
+1.76: **option A** as a VS Code web extension (`Pseudoterminal` + `FileSystemProvider`, frontend plugin worker),
+**option B** as a Theia frontend extension (terminal widget with `isPseudoTerminal` + `FileSystemProvider` via a
+`FileServiceContribution`). Playwright checks read the evidence back from the remote host. Results
+([S3 report](spikes/S3_REMOTE_TERMINAL_FS.md)):
+
+- Browser: both options pass — remote terminal at the widget's real size, Ctrl+C → exit 130, remote file
+  open/edit/save in 0.4 s, A's webview in its own origin. The broker saw every session with the IDE's `Origin`,
+  so both keep SSH traffic out of the runtime (P9).
+- Electron: B passes the same checks; **A never runs** — Theia 1.76 does not start the frontend plugin host in
+  Electron, and no packaging of A works on the desktop without running it in the hosted runtime's plugin host.
+- The Electron renderer is loaded from `file://` (WebSocket `Origin: file://`), so the desktop must relay
+  broker traffic through its backend with a Bearer token, not call the hosted broker from the renderer.
+- Smaller findings: a DI cycle if the `FileServiceContribution` injects terminal services; a PTY size race;
+  keystrokes before the shell opens must be queued; Theia's save-conflict check works through the provider but
+  SFTP `mtime` has whole-second resolution; Ctrl+C travels as `\x03` input (matches S4).
+
+Decisions: **ADR-006 accepted — option B**, with the transport behind `ConnectionClient` per mode (desktop
+relays through the Electron backend). Risk R2 likelihood lowered, R1 updated (webview origin confirmed), **R17**
+added (desktop renderer origin). Phase 00 gate updated: all spikes done, **proposed CONDITIONAL** on the org
+answers and the architecture review.
+
+Process note: the first combined A+B run failed B's save behind an overwrite dialog. Cause: the check reset
+`hello.txt` while an editor restored from the previous group was still open — clearing `localStorage` before a
+reload does not help because Theia stores the layout again on unload. The checks now run "Reset Workbench
+Layout" before each group.

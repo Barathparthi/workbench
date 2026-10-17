@@ -1,0 +1,22 @@
+{
+  "name": "qe-remote-a",
+  "displayName": "QE Remote (spike S3, option A)",
+  "publisher": "qe",
+  "version": "0.0.1",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "browser": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onFileSystem:qe-ssh-a"
+  ],
+  "contributes": {
+    "commands": [
+      { "command": "qe.remoteA.openTerminal", "title": "QE Remote (A): Open Terminal" },
+      { "command": "qe.remoteA.openFile", "title": "QE Remote (A): Open hello.txt" },
+      { "command": "qe.remoteA.webview", "title": "QE Remote (A): Open Webview" }
+    ]
+  }
+}
