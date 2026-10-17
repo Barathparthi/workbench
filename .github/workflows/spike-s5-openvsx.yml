@@ -1,0 +1,28 @@
+# Phase 00 spike S5: Open VSX availability of the required VS Code extensions.
+# Runs on GitHub's runners because the development sandbox cannot reach open-vsx.org.
+# Throwaway: delete together with spikes/s5-openvsx once the extension list is settled (Phase 02).
+name: spike-s5-openvsx
+
+on:
+  pull_request:
+    paths:
+      - spikes/s5-openvsx/**
+      - .github/workflows/spike-s5-openvsx.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  openvsx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # 1.139.0 = DEFAULT_SUPPORTED_API_VERSION of @theia/application-package 1.76.0 (pinned Theia)
+      - run: node spikes/s5-openvsx/check.mjs --theia-api 1.139.0 --markdown "$GITHUB_STEP_SUMMARY"

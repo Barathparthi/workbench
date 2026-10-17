@@ -128,18 +128,32 @@ Runs: [39025441351](https://github.com/Barathparthi/workbench/actions/runs/39025
 ## Known limitations & follow-ups
 
 - ~~CI not yet run on GitHub~~ — done: green on ubuntu and windows (PR #1).
-- **Branch protection on `main` not confirmed** (repository setting; needs the owner). PR #1 was merged
-  16 s after it was opened (10:34:50 → 10:35:06 UTC), before its CI run finished (10:35:52) — CI happened
-  to pass, but required checks were not enforced at that time.
+- ~~Branch protection on `main` not confirmed~~ — done 2026-10-17: ruleset `25300209` on the default branch
+  (verified through the GitHub API, see below). PR #1 had been merged 16 s after opening, before its CI run
+  finished; the ruleset now prevents that.
+- The ruleset requires CI but **not a pull request or review** — a deliberate choice while there is a single
+  maintainer (GitHub does not allow approving your own PR). Add "Require a pull request" with 1 approval when a
+  second reviewer joins (kit standard: 1 review, 2 for security-sensitive phases).
 - `scripts/bootstrap.ps1` untested on Windows.
 - `npm run build` re-runs `tsc -b` per workspace; acceptable now, revisit (Turborepo/Nx or a single
   `tsc -b`) when the Theia apps join in Phase 02.
 - Phase 00 gate has not passed (prerequisite) — see `PHASE_00.md` and risk R15.
 
+### Branch protection (GitHub API, 2026-10-17)
+
+```text
+$ curl -s https://api.github.com/repos/Barathparthi/workbench/rules/branches/main   # trimmed
+[ { "type": "deletion",         "ruleset_id": 25300209 },
+  { "type": "non_fast_forward", "ruleset_id": 25300209 },
+  { "type": "required_status_checks", "ruleset_id": 25300209,
+    "parameters": { "strict_required_status_checks_policy": true,
+      "required_status_checks": [ { "context": "verify (ubuntu-latest)" }, { "context": "verify (windows-latest)" } ] } } ]
+```
+
 ## Decision
 
-- [ ] PASS
-- [x] **CONDITIONAL** — conditions: ~~(1) `ci` workflow green on ubuntu and windows~~ **met 2026-10-17
-      (PR #1)**; (2) branch protection enabled on `main` (required `verify` checks, 1 review, no
-      force-push) — owner: repository owner, before Phase 02 merges. Flip to PASS once (2) is confirmed.
+- [x] **PASS** (2026-10-17) — both conditions met: CI green on ubuntu and windows (PR #1); branch protection on
+      `main` (required `verify` checks on an up-to-date branch, no force-push, no deletion). Review requirement
+      deferred while there is one maintainer (see limitations).
+- [ ] CONDITIONAL
 - [ ] FAIL

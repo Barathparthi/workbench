@@ -1,0 +1,29 @@
+{
+  "$comment": "Extensions to check on Open VSX. need: required = org decision A8 default; alternative = candidate replacement; builtin = Theia ships it from the vscode namespace; expected-missing = known Microsoft-licensed, listed to confirm.",
+  "extensions": [
+    { "id": "ms-python.python", "area": "Python", "need": "required" },
+    { "id": "ms-python.debugpy", "area": "Python", "need": "required" },
+    { "id": "ms-python.vscode-pylance", "area": "Python", "need": "expected-missing" },
+    { "id": "detachhead.basedpyright", "area": "Python", "need": "alternative" },
+    { "id": "ms-pyright.pyright", "area": "Python", "need": "alternative" },
+    { "id": "charliermarsh.ruff", "area": "Python", "need": "alternative" },
+    { "id": "ms-toolsai.jupyter", "area": "Python", "need": "alternative" },
+    { "id": "redhat.java", "area": "Java", "need": "required" },
+    { "id": "vscjava.vscode-java-debug", "area": "Java", "need": "required" },
+    { "id": "vscjava.vscode-java-test", "area": "Java", "need": "required" },
+    { "id": "vscjava.vscode-maven", "area": "Java", "need": "required" },
+    { "id": "redhat.vscode-yaml", "area": "YAML", "need": "required" },
+    { "id": "eamodio.gitlens", "area": "Git", "need": "alternative" },
+    { "id": "mhutchie.git-graph", "area": "Git", "need": "alternative" },
+    { "id": "donjayamanne.githistory", "area": "Git", "need": "alternative" },
+    { "id": "d-biehl.robotcode", "area": "Robot Framework", "need": "required" },
+    { "id": "robocorp.robotframework-lsp", "area": "Robot Framework", "need": "alternative" },
+    { "id": "vscode.git", "area": "Built-in", "need": "builtin" },
+    { "id": "vscode.python", "area": "Built-in", "need": "builtin" },
+    { "id": "vscode.json-language-features", "area": "Built-in", "need": "builtin" },
+    { "id": "vscode.yaml", "area": "Built-in", "need": "builtin" },
+    { "id": "vscode.markdown-language-features", "area": "Built-in", "need": "builtin" },
+    { "id": "vscode.theme-defaults", "area": "Built-in", "need": "builtin" },
+    { "id": "ms-vscode-remote.remote-ssh", "area": "Remote", "need": "expected-missing" }
+  ]
+}
