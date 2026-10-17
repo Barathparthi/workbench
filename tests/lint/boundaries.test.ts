@@ -52,6 +52,8 @@ describe('package boundaries: forbidden imports fail lint', () => {
       'only the qe-remote electron backend may embed the broker',
     ],
     ['apps/connection-broker/src/fixture.ts', '@qe/runtime-providers', 'the broker does not run workspaces'],
+    ['extensions/qe-core/src/node/fixture.ts', '@qe/secrets', 'qe-core is an extension: no secrets'],
+    ['extensions/qe-core/src/node/fixture.ts', '@qe/broker-core', 'qe-core is an extension: no broker'],
   ])('%s → %s (%s)', async (file, specifier) => {
     expect(await ruleIdsFor(file, importFrom(specifier))).toContain('boundaries/dependencies');
   });
@@ -78,6 +80,7 @@ describe('package boundaries: allowed imports pass lint', () => {
     ['packages/rbac/src/__tests__/fixture.test.ts', '@qe/test-utils'],
     ['extensions/qe-workspaces/src/browser/fixture.ts', '@qe/client-sdk'],
     ['extensions/qe-remote/src/electron-node/fixture.ts', '@qe/broker-core'],
+    ['extensions/qe-core/src/node/fixture.ts', '@qe/domain'],
     ['apps/control-plane/src/fixture.ts', '@qe/runtime-providers'],
     ['apps/connection-broker/src/fixture.ts', '@qe/broker-core'],
     ['tests/integration/fixture.test.ts', '@qe/broker-core'],

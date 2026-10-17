@@ -2,7 +2,7 @@
   "name": "qe-workspace",
   "version": "0.0.0",
   "private": true,
-  "description": "QE Workspace — VS Code-like IDE for browser and desktop with brokered SSH to lab systems",
+  "description": "QE Workspace \u2014 VS Code-like IDE for browser and desktop with brokered SSH to lab systems",
   "type": "module",
   "engines": {
     "node": ">=24.11.0 <25",
@@ -39,5 +39,12 @@
   },
   "overrides": {
     "handlebars": "4.7.10"
+  },
+  "allowScripts": {
+    "@parcel/watcher@2.6.0": true,
+    "drivelist@12.0.2": true,
+    "keytar@7.9.0": true,
+    "msgpackr-extract@3.0.4": true,
+    "unrs-resolver@1.12.2": false
   }
 }

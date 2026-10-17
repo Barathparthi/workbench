@@ -32,6 +32,9 @@
       "path": "packages/test-utils"
     },
     {
+      "path": "extensions/qe-core"
+    },
+    {
       "path": "tests/lint"
     },
     {

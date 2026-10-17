@@ -1,0 +1,31 @@
+{
+  "name": "@qe/theia-qe-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "QE Workspace core Theia extension: branding, QeEnvironment, QE commands, qe.* preferences, status bar.",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "keywords": [
+    "theia-extension"
+  ],
+  "files": [
+    "lib",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@qe/domain": "0.0.0",
+    "@theia/core": "1.76.0",
+    "zod": "4.6.7"
+  },
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/qe-core-frontend-module",
+      "frontendElectron": "lib/electron-browser/qe-core-electron-frontend-module",
+      "backend": "lib/node/qe-core-backend-module",
+      "backendElectron": "lib/electron-node/qe-core-electron-backend-module"
+    }
+  ]
+}

@@ -39,6 +39,8 @@ const allowedDependencies = {
   // Theia extensions: never secrets, broker-core server parts or runtime-providers.
   // qe-core is allowed because it exposes QeEnvironment to the other extensions (09_LOCAL_AND_WEB_PARITY).
   extension: ['client-sdk', 'contracts', 'domain', 'extension-qe-core'],
+  // qe-core is an extension too (04 §1 "extensions/*"); it is a separate element only so others may import it.
+  'extension-qe-core': ['client-sdk', 'contracts', 'domain'],
   // ADR-008 exception: the qe-remote Electron backend embeds the broker for desktop mode.
   'extension-qe-remote-electron-backend': ['client-sdk', 'contracts', 'domain', 'broker-core'],
   'app-control-plane': ['domain', 'contracts', 'rbac', 'policy', 'secrets', 'runtime-providers', 'telemetry'],
