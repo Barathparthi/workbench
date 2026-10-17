@@ -15,7 +15,7 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | ------------------------------------ | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
 | 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                       | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
-| 02 — Theia product shell             | Not started (next)                                                                          | `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`          |
+| 02 — Theia product shell             | **Built — gate proposed CONDITIONAL** (internal Open VSX mirror, D7)                        | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
 | 03 – 19                              | Not started                                                                                 | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
@@ -26,7 +26,8 @@ Milestones: M1 (end of Phase 06) — not reached.
    D12) to the owning teams, A8 with a licence review; hold the architecture review (tech lead + security)
    before Phase 05.
 2. Decide how to carry the `ssh2` certificate patch (S4): `patch-package` + upstream PR is the recommendation.
-3. Phase 02: Theia product shell on Theia 1.76.0, applying the S1, S2, S3 and S5 findings.
+3. Phase 02 review: ratify ADR-012; name the Open VSX mirror (D7) and re-pin plugin hashes from it; decide D13
+   (docs URL) and D14 (Theia AI/MCP). Then Phase 03 (control plane and database).
 4. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
 
 ---
@@ -253,3 +254,35 @@ Process note: the first combined A+B run failed B's save behind an overwrite dia
 `hello.txt` while an editor restored from the previous group was still open — clearing `localStorage` before a
 reload does not help because Theia stores the layout again on unload. The checks now run "Reset Workbench
 Layout" before each group.
+
+### 2026-10-17 — PR #5 merged; Phase 02: Theia product shell
+
+@Barathparthi merged [PR #5](https://github.com/Barathparthi/workbench/pull/5) (S3, ADR-006, Phase 00 gate
+CONDITIONAL) and approved the Phase 02 plan with three choices: pinned and hashed plugins instead of
+`theia download:plugins`, no in-IDE marketplace, no native rebuild for Electron.
+
+Built, one commit per step (details in [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md)):
+
+- **Tooling**: `tsconfig.theia.json` (CommonJS + decorators, keeps `@qe/source`), Theia output ignored by lint
+  and format, Linux build packages in CI, install scripts of Theia's native modules approved explicitly.
+- **`extensions/qe-core`**: QE commands (About works, three placeholders), `QeEnvironment` parsed once at backend
+  startup from `QE_MODE` / `QE_CONTROL_PLANE_URL` / `QE_WORKSPACE_ID` with Zod and served over Theia RPC (never
+  from the URL; Electron is always desktop; bad configuration exits 78), `qe.*` preferences (telemetry only in
+  Electron), mode status bar item, QE welcome page, About dialog, favicon, placeholder logo.
+- **Apps**: `@qe/ide-browser` and `@qe/ide-electron` with the same 20 Theia extensions; the version guard fails
+  on drift, ranges, a missing extension in one app or `@theia/vsx-registry`.
+- **Plugins**: nine built-in `vscode.*` plugins pinned by SHA-256, verified and unpacked by `scripts/plugins.ts`.
+  CI caught that Theia 1.76 deploys only unpacked system plugins, hence the small ZIP extractor.
+- **Runtime image**: multi-stage, digest-pinned, UID 1000, tini; built and checked in the `ide` workflow.
+- **Smoke tests**: browser (branding, QE commands, settings, explorer, editor save, terminal, search, git,
+  same-origin traffic) and Electron (branding, desktop mode, QE commands, desktop-only setting).
+
+Decisions and deviations: ADR-012; Electron 42.8.1 → 42.11.10 (four high-severity advisories); the
+`QeEnvironment` comes over RPC instead of a new `/qe/env` HTTP route; electron-builder configuration only
+(installers are Phase 10); runtime image defaults to `QE_MODE=hosted` (self-review finding). New org decisions
+D13 (docs URL) and D14 (Theia AI/MCP pulled in by `@theia/plugin-ext`); D7 and D12 updated; risks R16 mitigated,
+R14 updated, R18 and R19 added.
+
+Environment notes: this container cannot reach Open VSX or the Debian mirrors (egress policy), so the plugin hashes
+and the runtime image come from GitHub's runners; the built app was checked locally as UID 1000 from a
+read-only mount.

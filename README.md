@@ -16,23 +16,35 @@ built from it. Where things stand, and what was done when, is in **[`docs/PROJEC
 |---|---|
 | 00 — Environment, decisions & spikes | Gate proposed CONDITIONAL: toolchain pinned (Theia 1.76.0); spikes S1–S5 done; ADR-005 (path routing) and ADR-006 (Theia frontend extension for remote terminal/FS) accepted; org answers and architecture review pending |
 | 01 — Monorepo foundation | Done — gate PASS (CI green on Ubuntu and Windows, branch protection on) |
-| 02 — Theia product shell | Next |
+| 02 — Theia product shell | Built: browser + Electron apps, qe-core, pinned plugins, runtime image, smoke tests — gate in review |
 
-Prerequisites: Node.js **24.22.0** (`.nvmrc`; `nvm install`), npm 11, Git. Docker is needed from Phase 03.
+Prerequisites: Node.js **24.22.0** (`.nvmrc`; `nvm install`), npm 11, Git. On Linux, Theia's native modules
+need `libx11-dev libxkbfile-dev libsecret-1-dev`. Docker builds the runtime image (and is needed from Phase 03).
 
 ```bash
 npm ci                 # or scripts/bootstrap.sh  /  scripts/bootstrap.ps1
 npm run typecheck
 npm run lint
 npm run test:unit
-npm run build
-npm run verify         # everything CI runs
+npm run build          # libraries, qe-core and both IDE apps
+npm run verify         # everything the verify CI job runs
+
+# IDE (Phase 02)
+QE_VSX_URL=https://<open-vsx mirror> npm run plugins:download   # pinned, hash-checked built-in plugins
+npm run start -w @qe/ide-browser                                  # http://127.0.0.1:3000 (local web mode)
+node node_modules/electron/install.js && npm run start -w @qe/ide-electron
+npm run test:e2e       # Playwright smoke tests (Linux: run under xvfb-run for Electron)
+docker build -f images/workspace-runtime/Dockerfile --build-arg QE_VSX_URL -t qews/runtime:dev .
 ```
 
 | Path | What |
 |---|---|
 | `packages/*` | Library packages (`@qe/domain`, `contracts`, `rbac`, `policy`, `broker-core`, …) |
-| `tests/lint/` | Proof that the package-boundary rules hold |
+| `extensions/qe-core` | Theia extension: QE commands, `QeEnvironment`, `qe.*` settings, branding |
+| `apps/ide-browser`, `apps/ide-electron` | The IDE as a browser app (hosted/local web) and an Electron app (desktop) |
+| `config/vscode-plugins.json`, `scripts/plugins.ts` | Built-in VS Code plugins, pinned by version and SHA-256 |
+| `images/workspace-runtime` | Workspace runtime image (development version; hardened in Phase 05) |
+| `tests/lint/`, `tests/e2e/` | Package-boundary and version guards; Playwright smoke tests |
 | `docs/` | Project log, org decisions, phase-gate evidence, spike reports |
 | `spikes/` | Throwaway Phase 00 spikes (own `package.json`, outside the product build) |
 | `CLAUDE.md` / `AGENTS.md` | Rules for coding agents working in this repo |

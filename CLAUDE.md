@@ -29,7 +29,9 @@ The kit is not copied into `docs/` (no duplicate to drift). `docs/` holds produc
 - Typecheck: `npm run typecheck` · Lint: `npm run lint` · Format check: `npm run format:check`
 - Unit: `npm run test:unit` · Integration (Docker needed, from Phase 03): `npm run test:integration`
 - Build all: `npm run build` · Everything CI runs: `npm run verify`
-- From Phase 02: Browser IDE `npm run start -w @qe/ide-browser`
+- From Phase 02: Browser IDE `npm run start -w @qe/ide-browser` · E2E smoke `npm run test:e2e` · Theia version guard
+  `npm run check:theia-versions` · Plugins `QE_VSX_URL=… npm run plugins:download` (pinned in `config/vscode-plugins.json`;
+  never `theia download:plugins`, never `@theia/vsx-registry` — ADR-012)
 - From Phase 03: dev stack `docker compose -f deploy/compose/docker-compose.dev.yml up -d`
 
 ## Non-negotiable rules
