@@ -40,14 +40,19 @@
 |---|---|
 | `.gitignore`, `.gitattributes`, `.editorconfig`, `.nvmrc`, `.npmrc` | Repository hygiene, LF line endings, pinned Node, strict npm |
 | `package.json`, `package-lock.json` | npm workspaces root, exact tool versions, scripts (`verify`, `test:unit`, …) |
-| `tsconfig.base.json`, `tsconfig.build.json`, `tsconfig.tools.json` | Strict compiler options, project-reference build graph, root config typecheck |
+| `tsconfig.base.json`, `tsconfig.build.json`, `tsconfig.tools.json`, `tsconfig.theia.json` | Strict compiler options, project-reference build graph, root config typecheck, base for Theia extensions (CommonJS + decorators) |
 | `eslint.config.js` | Lint rules incl. package boundaries and restricted imports |
 | `vitest.config.ts` | `unit` / `integration` projects and coverage gates |
 | `.prettierrc.json`, `.prettierignore` | Formatting (kit folders excluded) |
 | `packages/*` | Library packages (Phase 01 skeletons; `@qe/domain` implemented) |
-| `tests/lint/` | Boundary-rule proof tests and dependency-graph guard |
-| `scripts/` | `bootstrap.sh`, `bootstrap.ps1`, `clean.mjs` |
-| `.github/` | CI workflow, PR template, CODEOWNERS |
+| `extensions/qe-core/` | Theia extension: QE commands, `QeEnvironment`, `qe.*` preferences, status bar, welcome page, About dialog, favicon |
+| `apps/ide-browser/`, `apps/ide-electron/` | Theia browser and Electron apps (`electron-builder.yml`, `resources/icon.png`) |
+| `config/vscode-plugins.json` | Built-in VS Code plugins pinned by version and SHA-256 |
+| `images/workspace-runtime/`, `.dockerignore` | Workspace runtime development image |
+| `playwright.config.ts`, `tests/e2e/` | Playwright smoke tests (browser + Electron) and sample-repo setup |
+| `tests/lint/` | Boundary-rule proof tests, dependency-graph guard, Theia/Electron version guard |
+| `scripts/` | `bootstrap.sh`, `bootstrap.ps1`, `clean.mjs`, `plugins.ts` (download/verify/unpack plugins) |
+| `.github/` | Workflows `ci` (verify), `ide` (runtime image + smoke), `vscode-plugins` (plugin hashes), PR template, CODEOWNERS |
 | `CLAUDE.md`, `AGENTS.md` | Agent rules adapted to this repository |
 | `CHANGELOG.md` | Release-level change list |
 | `docs/PROJECT_LOG.md` | Dated project history from the initial commit, status snapshot |

@@ -5,6 +5,13 @@ coverage/
 .tsbuild/
 package-lock.json
 
+# Theia build output, generated bundler configs and downloaded VS Code plugins (Phase 02)
+lib/
+src-gen/
+apps/*/gen-esbuild.*.mjs
+apps/*/esbuild.mjs
+plugins/
+
 # Throwaway spikes (own tooling, not part of the product build)
 spikes/
 

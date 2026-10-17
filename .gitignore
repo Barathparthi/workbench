@@ -49,6 +49,8 @@ apps/*/gen-webpack.node.config.js
 # the editable config and is committed.
 apps/*/gen-esbuild.*.mjs
 extensions/*/lib/
+# Built-in VS Code plugins downloaded at build time (scripts/plugins.mjs); the pinned manifest is tracked.
+/plugins/
 
 # Electron packaging output (apps/ide-electron, Phase 02+)
 apps/*/release/

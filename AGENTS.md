@@ -14,4 +14,5 @@ Where things are: architecture `01_ARCHITECTURE/`, phase guides `02_PHASES/`, AD
 `03_PROMPTS/`, project state `docs/PROJECT_LOG.md`.
 
 Commands: `npm ci`, `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run test:unit`,
-`npm run test:integration`, `npm run build`, `npm run verify` (all of the CI checks).
+`npm run test:integration`, `npm run build`, `npm run verify` (all of the CI checks); from Phase 02 also
+`npm run test:e2e`, `npm run check:theia-versions` and `QE_VSX_URL=… npm run plugins:download` (ADR-012).

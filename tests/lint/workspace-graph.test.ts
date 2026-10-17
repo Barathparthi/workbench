@@ -9,7 +9,6 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const repoRoot = resolve(import.meta.dirname, '../..');
-const packagesDir = join(repoRoot, 'packages');
 
 interface PackageJson {
   name: string;
@@ -22,13 +21,22 @@ interface TsConfig {
 
 const readJson = (file: string): unknown => JSON.parse(readFileSync(file, 'utf8'));
 
-const packageDirs = readdirSync(packagesDir).filter((d) => statSync(join(packagesDir, d)).isDirectory());
+/** Library packages are `@qe/<dir>`; Theia extensions are `@qe/theia-<dir>` (02_PHASES/PHASE_02 §2.1). */
+const workspaces = [
+  { folder: 'packages', namePrefix: '@qe/' },
+  { folder: 'extensions', namePrefix: '@qe/theia-' },
+].flatMap(({ folder, namePrefix }) => {
+  const dir = join(repoRoot, folder);
+  return readdirSync(dir)
+    .filter((d) => statSync(join(dir, d)).isDirectory())
+    .map((d) => ({ path: `${folder}/${d}`, expectedName: `${namePrefix}${d}` }));
+});
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) return sourceFiles(full);
-    return entry.name.endsWith('.ts') ? [full] : [];
+    return /\.tsx?$/.test(entry.name) ? [full] : [];
   });
 }
 
@@ -44,8 +52,8 @@ function importedWorkspacePackages(dir: string, self: string): Set<string> {
   return found;
 }
 
-describe.each(packageDirs)('packages/%s', (dir) => {
-  const root = join(packagesDir, dir);
+describe.each(workspaces)('$path', ({ path, expectedName }) => {
+  const root = join(repoRoot, path);
   const pkg = readJson(join(root, 'package.json')) as PackageJson;
   const tsconfig = readJson(join(root, 'tsconfig.json')) as TsConfig;
 
@@ -61,7 +69,7 @@ describe.each(packageDirs)('packages/%s', (dir) => {
   );
 
   it('is named after its folder', () => {
-    expect(pkg.name).toBe(`@qe/${dir}`);
+    expect(pkg.name).toBe(expectedName);
   });
 
   it('references exactly the workspace packages it declares', () => {
@@ -75,6 +83,6 @@ describe.each(packageDirs)('packages/%s', (dir) => {
 
   it('is part of the root build graph', () => {
     const build = readJson(join(repoRoot, 'tsconfig.build.json')) as TsConfig;
-    expect(build.references?.map((r) => r.path)).toContain(`packages/${dir}`);
+    expect(build.references?.map((r) => r.path)).toContain(path);
   });
 });

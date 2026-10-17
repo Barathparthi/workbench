@@ -1,4 +1,4 @@
-# Verify job from 01_ARCHITECTURE/12_CICD_AND_RELEASE.md §2 (Phase 01 scope).
+# Verify job from 01_ARCHITECTURE/12_CICD_AND_RELEASE.md §2 (Phase 01 scope; Theia apps since Phase 02).
 # Integration tests, security scans, images and deploy checks are added in later phases.
 name: ci
 
@@ -24,7 +24,7 @@ jobs:
         # Phase 01 exit criterion: a fresh clone passes on Linux and Windows.
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -33,6 +33,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      # Theia's native modules (native-keymap, keytar) compile from source on Linux (spike S1).
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxkbfile-dev libsecret-1-dev
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint

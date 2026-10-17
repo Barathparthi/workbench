@@ -1,0 +1,50 @@
+{
+  "$comment": "Built-in VS Code plugins bundled with both IDE apps (ADR-010 allowlist). Versions from spike S5. sha256 = SHA-256 of each .vsix, first recorded from open-vsx.org by the vscode-plugins workflow on 2026-10-17 (trust on first use). Change with `node scripts/plugins.ts lock` and review the diff.",
+  "plugins": [
+    {
+      "id": "vscode.git",
+      "version": "1.95.3",
+      "sha256": "44909b81d3266860f02733c08475ab5fc66c0c1d7259b3c1b164e783559d9291"
+    },
+    {
+      "id": "vscode.git-base",
+      "version": "1.95.3",
+      "sha256": "956c41e4e8377a6b113a6a64fcd5308deaad44a827288f6bfcd5cf1c83037483"
+    },
+    {
+      "id": "vscode.json",
+      "version": "1.95.3",
+      "sha256": "53667e2cc9875c6872f8d7eff75314c46f8c0a30398efd9e7bec437b7cb928c3"
+    },
+    {
+      "id": "vscode.json-language-features",
+      "version": "1.95.3",
+      "sha256": "8436d6ffe294bfb93d517ca37c4913a40bb0e035883c7b6aed9daaf1a32f6b80"
+    },
+    {
+      "id": "vscode.markdown",
+      "version": "1.95.3",
+      "sha256": "53591b889e8941db812f263d8e5eaa34ec83718e399ecd7a1e178410bd3877a9"
+    },
+    {
+      "id": "vscode.markdown-language-features",
+      "version": "1.95.3",
+      "sha256": "d2ba7aa2c1265e349862aa542a35daa45f81f2efbec8b51184d672999204d09e"
+    },
+    {
+      "id": "vscode.python",
+      "version": "1.95.3",
+      "sha256": "37c2a0cdfa668bd4dc37265d7d172300a20350098651b1843ee220a30c5e2d88"
+    },
+    {
+      "id": "vscode.theme-defaults",
+      "version": "1.95.3",
+      "sha256": "a29acc604af7a46baf4419d3c51f62c0c4ac8a896ae86f5f4dc8d762d3e4968a"
+    },
+    {
+      "id": "vscode.yaml",
+      "version": "1.95.3",
+      "sha256": "1c60f93adad36f20de0696bc75f8b3829f3fc4c760f4d8022ec9f934436bbeb0"
+    }
+  ]
+}

@@ -41,9 +41,25 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   Theia frontend extension) against a stub session broker, with Playwright checks in browser and Electron;
   report in `docs/spikes/S3_REMOTE_TERMINAL_FS.md`. ADR-006 accepted: Theia frontend extension. Risk R17 added.
 
+- Phase 02 Theia product shell:
+  - `apps/ide-browser` and `apps/ide-electron` on Theia 1.76.0 with identical extension sets (no in-IDE
+    marketplace) and `extensions/qe-core`: QE commands, `QeEnvironment` (hosted / local-web / desktop from
+    validated `QE_*` variables), `qe.*` preferences, mode status bar item, QE welcome page, About dialog, favicon.
+  - Built-in VS Code plugins pinned by version and SHA-256 (`config/vscode-plugins.json`), downloaded, verified
+    and unpacked by `scripts/plugins.ts`; `vscode-plugins` workflow.
+  - Workspace runtime development image (`images/workspace-runtime`, UID 1000, digests pinned).
+  - Playwright smoke tests (`npm run test:e2e`) and the `ide` workflow (runtime image + smoke tests);
+    Theia/Electron version guard (`npm run check:theia-versions`); ADR-012.
+
 ### Changed
 
 - Phase 00 gate record: all spikes done, decision proposed CONDITIONAL (org answers, architecture review).
+- Electron raised from 42.8.1 to 42.11.10 (root `overrides`) for four high-severity advisories.
+
+### Security
+
+- Invalid `QE_*` configuration stops the IDE backend (exit 78); the runtime image defaults to hosted mode.
+- No registry traffic from the IDE: `@theia/vsx-registry` is excluded and the smoke test asserts same-origin requests.
 
 - Phase 01 gate PASS: branch protection ruleset on `main` verified.
 

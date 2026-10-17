@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../../.tsbuild/tests-e2e",
+    "tsBuildInfoFile": "../../.tsbuild/tests-e2e/.tsbuildinfo",
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["*.ts"]
+}

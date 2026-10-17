@@ -1,0 +1,8 @@
+{
+  "name": "@qe/e2e-tests",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright smoke tests of the browser and Electron IDE apps (Phase 02; parity suite later).",
+  "license": "UNLICENSED",
+  "type": "module"
+}
