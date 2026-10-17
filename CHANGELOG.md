@@ -37,7 +37,13 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   checks and a 5-line `ssh2` patch for OpenSSH user certificates; report in `docs/spikes/S4_SSH2.md`; ADR-002 and
   ADR-007 addenda.
 
+- Phase 00 spike S3 (`spikes/s3-remote`): remote terminal + remote files built twice (VS Code web extension vs
+  Theia frontend extension) against a stub session broker, with Playwright checks in browser and Electron;
+  report in `docs/spikes/S3_REMOTE_TERMINAL_FS.md`. ADR-006 accepted: Theia frontend extension. Risk R17 added.
+
 ### Changed
+
+- Phase 00 gate record: all spikes done, decision proposed CONDITIONAL (org answers, architecture review).
 
 - Phase 01 gate PASS: branch protection ruleset on `main` verified.
 

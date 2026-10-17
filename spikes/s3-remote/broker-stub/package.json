@@ -1,0 +1,17 @@
+{
+  "name": "s3-broker-stub",
+  "private": true,
+  "description": "Spike S3 (throwaway): stub broker speaking a subset of the session/stream/fs contract over ssh2.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "ssh2": "1.17.0",
+    "ws": "8.22.0"
+  },
+  "allowScripts": {
+    "ssh2": false,
+    "cpu-features": false
+  }
+}

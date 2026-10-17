@@ -1,0 +1,48 @@
+{
+  "target": "browser",
+  "optionA": {
+    "terminal": {
+      "remoteFile": "REMOTE_A_qeuser_14x129",
+      "ms": 201
+    },
+    "ctrlC": {
+      "remoteFile": "CTRLC_130",
+      "ms": 201
+    },
+    "fileOpened": true,
+    "focusBeforeTyping": "native-edit-context",
+    "fileSaved": {
+      "remoteFile": "hello from the lab host\\nedited via option A in browser",
+      "ms": 401
+    }
+  },
+  "optionB": {
+    "terminal": {
+      "remoteFile": "REMOTE_B_qeuser_14x129",
+      "ms": 199
+    },
+    "ctrlC": {
+      "remoteFile": "CTRLC_130",
+      "ms": 201
+    },
+    "fileOpened": true,
+    "focusBeforeTyping": "native-edit-context",
+    "fileSaved": {
+      "remoteFile": "hello from the lab host\\nedited via option B in browser",
+      "ms": 400
+    }
+  },
+  "webview": {
+    "origin": "http://412923f3-b286-533d-bb70-ce7413bea608.webview.localhost:3000",
+    "path": "/webview/fake.html"
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "failedRequests": [
+    "404 /hostedPlugin/qe_qe_remote_a/package.nls.json"
+  ],
+  "pluginWorkers": [
+    "plugin-worker.js"
+  ]
+}

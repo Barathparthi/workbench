@@ -53,6 +53,6 @@
 | `docs/PROJECT_LOG.md` | Dated project history from the initial commit, status snapshot |
 | `docs/ORG_DECISIONS.md` | Filled decisions sheet and pinned toolchain |
 | `docs/phase-gates/PHASE_xx.md` | Phase-gate evidence records |
-| `docs/spikes/` | Spike reports and screenshots (S1 Theia hello, S2 reverse proxy, S4 `ssh2`, S5 Open VSX) |
-| `spikes/` | Throwaway Phase 00 spike code (`s1-theia-hello`, `s2-proxy`, `s4-ssh2`, `s5-openvsx`), outside the root workspaces and checks |
+| `docs/spikes/` | Spike reports, screenshots and raw results (S1 Theia hello, S2 reverse proxy, S3 remote terminal/FS, S4 `ssh2`, S5 Open VSX) |
+| `spikes/` | Throwaway Phase 00 spike code (`s1-theia-hello`, `s2-proxy`, `s3-remote`, `s4-ssh2`, `s5-openvsx`), outside the root workspaces and checks |
 | `.github/workflows/spike-s5-openvsx.yml` | Throwaway: runs the S5 check on GitHub's runners (sandbox cannot reach Open VSX) |
