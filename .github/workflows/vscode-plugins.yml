@@ -1,0 +1,34 @@
+# Built-in VS Code plugins (config/vscode-plugins.json): prints the registry's current SHA-256 of every
+# pinned version, then downloads and verifies them. Use the printed hashes when adding or upgrading a
+# plugin. This sandbox-independent job exists because development containers may not reach Open VSX.
+name: vscode-plugins
+
+on:
+  push:
+    paths: [config/vscode-plugins.json, scripts/plugins.ts, .github/workflows/vscode-plugins.yml]
+  pull_request:
+    paths: [config/vscode-plugins.json, scripts/plugins.ts, .github/workflows/vscode-plugins.yml]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Stand-in for the internal Open VSX mirror until org decision D7 names it (ADR-010).
+      QE_VSX_URL: https://open-vsx.org
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # The script has no dependencies: no npm install needed.
+      - name: Registry hashes of the pinned versions
+        run: node scripts/plugins.ts lock
+      - name: Download and verify against the manifest
+        run: node scripts/plugins.ts download

@@ -24,7 +24,8 @@
     "test:integration": "vitest run --project integration --passWithNoTests",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test:unit && npm run build",
     "clean": "node scripts/clean.mjs",
-    "check:theia-versions": "vitest run --project unit tests/lint/theia-versions.test.ts"
+    "check:theia-versions": "vitest run --project unit tests/lint/theia-versions.test.ts",
+    "plugins:download": "node scripts/plugins.ts download"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

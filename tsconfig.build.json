@@ -39,6 +39,9 @@
     },
     {
       "path": "tsconfig.tools.json"
+    },
+    {
+      "path": "scripts"
     }
   ]
 }

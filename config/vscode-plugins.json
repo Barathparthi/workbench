@@ -1,0 +1,50 @@
+{
+  "$comment": "Built-in VS Code plugins bundled with both IDE apps (ADR-010 allowlist). Versions from spike S5; hashes are the SHA-256 of each .vsix on Open VSX. Change with `node scripts/plugins.ts lock` and review the diff.",
+  "plugins": [
+    {
+      "id": "vscode.git",
+      "version": "1.95.3",
+      "sha256": ""
+    },
+    {
+      "id": "vscode.git-base",
+      "version": "1.95.3",
+      "sha256": ""
+    },
+    {
+      "id": "vscode.json",
+      "version": "1.95.3",
+      "sha256": ""
+    },
+    {
+      "id": "vscode.json-language-features",
+      "version": "1.95.3",
+      "sha256": ""
+    },
+    {
+      "id": "vscode.markdown",
+      "version": "1.95.3",
+      "sha256": ""
+    },
+    {
+      "id": "vscode.markdown-language-features",
+      "version": "1.95.3",
+      "sha256": ""
+    },
+    {
+      "id": "vscode.python",
+      "version": "1.95.3",
+      "sha256": ""
+    },
+    {
+      "id": "vscode.theme-defaults",
+      "version": "1.95.3",
+      "sha256": ""
+    },
+    {
+      "id": "vscode.yaml",
+      "version": "1.95.3",
+      "sha256": ""
+    }
+  ]
+}
