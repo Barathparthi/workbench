@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Base for Theia extensions (ADR-011): Theia loads extensions as CommonJS and uses inversify decorators.
+  // NodeNext + "type": "commonjs" emits CommonJS and keeps the "@qe/source" condition for workspace imports.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    // CommonJS output: ESM-only import forms would not be emitted verbatim.
+    "verbatimModuleSyntax": false
+  }
+}

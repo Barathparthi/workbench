@@ -69,15 +69,18 @@ export default defineConfig(
       'spikes/**',
       'apps/*/gen-webpack*.js',
       'apps/*/gen-esbuild.*.mjs',
+      // Written by `theia build` on first run; Theia owns its content.
+      'apps/*/esbuild.mjs',
       'apps/*/plugins/**',
+      'plugins/**',
     ],
   },
 
   eslint.configs.recommended,
 
-  // Type-aware TypeScript rules for all TS sources.
+  // Type-aware TypeScript rules for all TS sources (.tsx: Theia React widgets).
   {
-    files: ['**/*.ts'],
+    files: ['**/*.{ts,tsx}'],
     extends: [...tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: {
