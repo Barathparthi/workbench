@@ -38,10 +38,37 @@ jobs:
           test "$(docker exec ws id -u)" = 1000
           if docker exec ws touch /opt/qe-workspace/probe; then echo "qe can write application files"; exit 1; fi
           docker exec ws sh -c 'ls /opt/qe-workspace/plugins'
+          # Plugins deploy after the server listens; wait for the batch that contains them.
+          for _ in $(seq 1 60); do docker logs ws 2>&1 | grep -qE 'Deploy batch of [1-9][0-9]* accepted plugins' && break; sleep 1; done
           docker logs ws 2>&1 | grep -E 'Deploy batch|listening on'
+          docker logs ws 2>&1 | grep -qE 'Deploy batch of [1-9][0-9]* accepted plugins'
       - name: Refuses invalid configuration (exit 78)
         run: |
           code=0; docker run --rm -e QE_MODE=hosted qews/runtime:ci || code=$?
           echo "exit code: $code"; test "$code" = 78
       - name: Image size
         run: docker image ls qews/runtime:ci
+
+  smoke:
+    name: smoke (browser + Electron)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # The git test is skipped without plugins locally; here their absence is a failure.
+      REQUIRE_PLUGINS: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxkbfile-dev libsecret-1-dev
+      - run: npm ci
+      # Electron 42 downloads its binary on demand; the Electron build and smoke test need it.
+      - run: node node_modules/electron/install.js
+      - run: npm run build -w @qe/theia-qe-core && npm run build -w @qe/ide-browser && npm run build -w @qe/ide-electron
+      - run: npm run plugins:download
+      - run: npx playwright install --with-deps chromium
+      - run: xvfb-run -a npx playwright test

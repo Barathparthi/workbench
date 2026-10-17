@@ -17,6 +17,8 @@ interface Manifest {
   overrides?: Record<string, string>;
 }
 
+/** Never shipped: the in-IDE marketplace would reach a registry other than the vetted, pinned plugins (T19). */
+const FORBIDDEN = new Set(['@theia/vsx-registry']);
 /** @theia/* packages only the Electron app needs. */
 const ELECTRON_ONLY = new Set(['@theia/electron']);
 const EXACT = /^\d+\.\d+\.\d+$/;
@@ -35,6 +37,7 @@ export function theiaVersionProblems(
   for (const m of manifests) {
     for (const [name, version] of [...theiaDeps(m, 'dependencies'), ...theiaDeps(m, 'devDependencies')]) {
       if (!EXACT.test(version)) problems.push(`${m.name}: ${name}@${version} is not an exact version`);
+      if (FORBIDDEN.has(name)) problems.push(`${m.name}: ${name} must not be included`);
       versions.add(version);
     }
   }
@@ -139,6 +142,13 @@ describe('theiaVersionProblems detects drift', () => {
     expect(theiaVersionProblems([extra, electron], extra, electron)).toEqual([
       'electron is missing @theia/scm',
     ]);
+  });
+
+  it('flags the in-IDE marketplace', () => {
+    const withMarketplace = app('browser', { ...browser.dependencies, '@theia/vsx-registry': '1.76.0' });
+    expect(theiaVersionProblems([withMarketplace, electron], withMarketplace, electron)).toContain(
+      'browser: @theia/vsx-registry must not be included',
+    );
   });
 
   it('flags @theia/electron in the wrong app', () => {
