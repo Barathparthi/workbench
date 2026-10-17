@@ -14,8 +14,8 @@ built from it. Where things stand, and what was done when, is in **[`docs/PROJEC
 
 | Phase | State |
 |---|---|
-| 00 — Environment, decisions & spikes | In progress: toolchain pinned (Theia 1.76.0), spike S1 done, S2–S5 and org answers pending |
-| 01 — Monorepo foundation | Merged with CI green on Ubuntu and Windows; gate CONDITIONAL on branch protection |
+| 00 — Environment, decisions & spikes | In progress: toolchain pinned (Theia 1.76.0); spikes S1, S2 done, ADR-005 (path routing) accepted; S3–S5 and org answers pending |
+| 01 — Monorepo foundation | Done — gate PASS (CI green on Ubuntu and Windows, branch protection on) |
 | 02 — Theia product shell | Next |
 
 Prerequisites: Node.js **24.22.0** (`.nvmrc`; `nvm install`), npm 11, Git. Docker is needed from Phase 03.

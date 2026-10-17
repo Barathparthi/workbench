@@ -26,7 +26,15 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 - Phase 00 spike S1 (`spikes/s1-theia-hello`): one Theia 1.76.0 extension running in a browser app and an
   Electron app, with Playwright checks; report in `docs/spikes/S1_THEIA_HELLO.md`. Theia pinned to 1.76.0.
 
+- Phase 00 spike S2 (`spikes/s2-proxy`): Theia behind a Fastify reverse proxy at `/w/{id}/` and on a
+  subdomain, with Playwright checks and a two-workspace reconnect test; report in
+  `docs/spikes/S2_REVERSE_PROXY.md`. ADR-005 accepted: path-based routing.
+- Phase 00 spike S5 (`spikes/s5-openvsx`): Open VSX availability checker and a path-filtered CI workflow
+  (`spike-s5-openvsx`) that runs it on GitHub's runners.
+
 ### Changed
+
+- Phase 01 gate PASS: branch protection ruleset on `main` verified.
 
 - `.gitignore` and ESLint ignores cover Theia's esbuild output (`gen-esbuild.*.mjs`); Prettier skips `spikes/`.
 

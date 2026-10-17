@@ -6,7 +6,7 @@
 | ADR-002 | Broker SSH from a trusted backend; browser never holds credentials | Accepted |
 | ADR-003 | Modular monolith: control plane + broker + runtimes, not many microservices | Accepted |
 | ADR-004 | One workspace runtime pod per workspace on Kubernetes (Docker for local/dev) | Accepted |
-| ADR-005 | Workspace routing: path-based `/w/{id}` vs subdomain | Proposed — decide in Phase 00 spike S2 |
+| ADR-005 | Workspace routing: path-based `/w/{id}/` (subdomain rejected for v1) | Accepted (2026-10-17, spike S2; ratify in PR) |
 | ADR-006 | Remote terminal & remote FS integration approach in Theia | Proposed — decide in spike S3 |
 | ADR-007 | Short-lived SSH certificates via Vault SSH CA as default credential | Accepted (pending org Vault) |
 | ADR-008 | Shared broker-core library for hosted and embedded (local) brokers | Accepted |

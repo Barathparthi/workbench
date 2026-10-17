@@ -11,23 +11,22 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 ## Status snapshot (updated 2026-10-17)
 
-| Phase                                | State                                                                | Record                                               |
-| ------------------------------------ | -------------------------------------------------------------------- | ---------------------------------------------------- |
-| 00 — Environment, decisions & spikes | **In progress** — toolchain pinned, S1 done, S2–S5 open              | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
-| 01 — Monorepo foundation             | **Merged (PR #1), CI green — gate CONDITIONAL on branch protection** | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
-| 02 — Theia product shell             | Not started (next)                                                   | `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`          |
-| 03 – 19                              | Not started                                                          | `02_PHASES/`                                         |
+| Phase                                | State                                                                          | Record                                               |
+| ------------------------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| 00 — Environment, decisions & spikes | **In progress** — toolchain pinned; S1, S2 done; S5 running in CI; S3, S4 open | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
+| 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                          | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
+| 02 — Theia product shell             | Not started (next)                                                             | `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`          |
+| 03 – 19                              | Not started                                                                    | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
 
 **Next actions**
 
-1. Enable branch protection on `main` (required `verify` checks, 1 review, no force-push) — closes the
-   Phase 01 gate.
-2. Phase 00: send sections B–E of [`ORG_DECISIONS.md`](ORG_DECISIONS.md) (incl. new D12) to the owning
-   teams; run spikes S2 (reverse proxy), S5 (Open VSX), S4 (`ssh2`), S3 (remote terminal/FS).
-3. Phase 02: Theia product shell on Theia 1.76.0, applying the S1 findings
-   ([report](spikes/S1_THEIA_HELLO.md)).
+1. Phase 00: record the S5 result (running on GitHub's runners); run spikes S4 (`ssh2`) and S3 (remote
+   terminal/FS → ADR-006); send sections B–E of [`ORG_DECISIONS.md`](ORG_DECISIONS.md) (incl. D9, D12) to
+   the owning teams.
+2. Phase 02: Theia product shell on Theia 1.76.0, applying the S1 and S2 findings.
+3. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
 
 ---
 
@@ -162,3 +161,27 @@ even when the Electron rebuild cannot download headers (this sandbox blocks elec
 
 Repository changes: spikes excluded from Prettier (already outside workspaces, lint and tests);
 risk R15 closed, R9 updated, R16 added.
+
+### 2026-10-17 — Phase 02 prerequisites: PR #2 merged, Phase 01 gate PASS
+
+@Barathparthi merged [PR #2](https://github.com/Barathparthi/workbench/pull/2) (spike S1, CI green on both
+operating systems) and added a ruleset on `main`: required `verify (ubuntu-latest)` and
+`verify (windows-latest)` checks on an up-to-date branch, no force-push, no deletion — verified through the
+GitHub API. Pull requests and reviews are not required yet (single maintainer). **Phase 01 gate: PASS.**
+
+### 2026-10-17 — Phase 00 spike S2: Theia behind a reverse proxy → ADR-005
+
+Built [`spikes/s2-proxy/`](../spikes/s2-proxy/): a Fastify proxy in front of the S1 browser app, in path
+(`/w/{id}/`) and subdomain (`{id}.ws.localhost`) modes, plus Playwright checks that record every request and
+WebSocket. Both modes work with Theia unchanged. With two workspaces open in one browser, path routing breaks
+the first workspace on reconnect (`403`): Theia's `theia-connection-token` cookie is `Path=/` and the
+backends overwrite each other's token. Rewriting `Set-Cookie` to `Path=/w/{id}/` at the gateway fixes it
+(reproduced and fixed, 2/2 runs each). Details: [S2 report](spikes/S2_REVERSE_PROXY.md).
+
+Decisions: **ADR-005 accepted — path-based routing** (matches `ideUrl: "/w/{id}/"`), with the gateway
+requirements listed in the ADR; org decision D9 now includes the `*.webview.<host>` wildcard
+certificate; risk R1 mitigated.
+
+Process note: the S2 check scripts initially reported a false failure because a backgrounded tab is throttled
+by Chromium; the final checks bring each tab to the front, and the "no fix" failure was re-confirmed with the
+corrected script (it is the `403`, not throttling).

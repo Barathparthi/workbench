@@ -2,7 +2,7 @@
 
 | ID | Risk | Likelihood | Impact | Mitigation | Owner | Status |
 |---|---|---|---|---|---|---|
-| R1 | Theia base-path routing or webview origins harder than expected | M | H | Spike S2; subdomain fallback (ADR-005) | Tech lead | Open |
+| R1 | Theia base-path routing or webview origins harder than expected | L | H | Spike S2: `/w/{id}/` works unchanged; connection-token cookie collision fixed by `Set-Cookie` path rewrite at the gateway (proven). Webviews through the proxy still to verify in Phase 02; subdomain fallback documented (ADR-005) | Tech lead | Mitigated (2026-10-17) |
 | R2 | Remote terminal/FS integration relies on unstable Theia internals | M | M | Spike S3; prefer public APIs; contract tests; pin versions | IDE eng | Open |
 | R3 | ssh2 certificate auth limitations | M | M | Spike S4; agent shim; vault_key fallback | Backend | Open |
 | R4 | Required VS Code extensions missing on Open VSX (e.g. Pylance) | H | M | Spike S5; open alternatives; communicate early | IDE eng | Open |
