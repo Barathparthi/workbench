@@ -1,0 +1,47 @@
+# IDE checks that need more than the verify job (Phase 02): the workspace runtime image, and (step 8)
+# end-to-end smoke tests of the browser and Electron apps with the built-in plugins.
+# Runs on every push, so branch work gets feedback before a pull request exists.
+name: ide
+
+on:
+  push: {}
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ide-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Stand-in for the internal Open VSX mirror until org decision D7 names it (ADR-010).
+  QE_VSX_URL: https://open-vsx.org
+
+jobs:
+  runtime-image:
+    name: runtime image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        run: docker build -f images/workspace-runtime/Dockerfile --build-arg QE_VSX_URL -t qews/runtime:ci .
+      - name: Serves the IDE as UID 1000 with read-only application files
+        run: |
+          docker run -d --name ws -p 127.0.0.1:3000:3000 qews/runtime:ci
+          for _ in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3000/ && break; sleep 1; done
+          curl -fsS -o /dev/null -w 'GET / -> HTTP %{http_code}\n' http://127.0.0.1:3000/
+          docker exec ws id
+          test "$(docker exec ws id -u)" = 1000
+          if docker exec ws touch /opt/qe-workspace/probe; then echo "qe can write application files"; exit 1; fi
+          docker exec ws sh -c 'ls /opt/qe-workspace/plugins'
+          docker logs ws 2>&1 | grep -E 'Deploy batch|listening on'
+      - name: Refuses invalid configuration (exit 78)
+        run: |
+          code=0; docker run --rm -e QE_MODE=hosted qews/runtime:ci || code=$?
+          echo "exit code: $code"; test "$code" = 78
+      - name: Image size
+        run: docker image ls qews/runtime:ci

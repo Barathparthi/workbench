@@ -1,0 +1,17 @@
+# Build context for images/*: sources and manifests only; dependencies and outputs are rebuilt inside.
+.git
+**/node_modules
+**/dist
+**/lib
+**/src-gen
+apps/*/gen-esbuild.*.mjs
+.tsbuild
+coverage
+plugins
+spikes
+reference
+docs
+0*_*/
+**/*.log
+.env
+.env.*
