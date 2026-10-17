@@ -36,18 +36,18 @@ Last reviewed: 2026-10-17 (Phase 00, after spike S1). Revisit at every milestone
 
 ## C. Remote systems
 
-| #   | Question                                     | Answer                                                     | Status  | Blocks   |
-| --- | -------------------------------------------- | ---------------------------------------------------------- | ------- | -------- |
-| C1  | Target inventory (count, OS, zone)           | Linux lab VMs + some Windows OpenSSH hosts                 | Open    | Phase 07 |
-| C2  | How users authenticate today                 | Personal keys (to be replaced)                             | Assumed | —        |
-| C3  | Target auth at GA                            | SSH certificates (Vault SSH CA), fallback vault-stored key | Assumed | Phase 12 |
-| C4  | Host-key trust source                        | Pinned SHA256 fingerprints, host CA later                  | Assumed | Phase 08 |
-| C5  | Bastion / jump host                          | Yes for lab zone B (Phase 19)                              | Assumed | Phase 19 |
-| C6  | CIDRs/ports the broker may reach             | Lab CIDRs only, port 22 — actual CIDRs needed              | Open    | Phase 07 |
-| C7  | Port forwarding                              | Disabled at GA; governed in Phase 19                       | Assumed | —        |
-| C8  | Session recording                            | Metadata audit only; recording optional                    | Assumed | Phase 12 |
-| C9  | Desktop: personal hosts from `~/.ssh/config` | Yes; managed targets via broker                            | Assumed | Phase 10 |
-| C10 | Other protocols (RDP/VNC/serial)             | Out of scope                                               | Assumed | —        |
+| #   | Question                                     | Answer                                                                                                                  | Status  | Blocks   |
+| --- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- | -------- |
+| C1  | Target inventory (count, OS, zone)           | Linux lab VMs + some Windows OpenSSH hosts                                                                              | Open    | Phase 07 |
+| C2  | How users authenticate today                 | Personal keys (to be replaced)                                                                                          | Assumed | —        |
+| C3  | Target auth at GA                            | SSH certificates (Vault SSH CA), fallback vault-stored key; works with Vault 2.2 + OpenSSH 9.6 given an ssh2 patch (S4) | Assumed | Phase 12 |
+| C4  | Host-key trust source                        | Pinned SHA256 fingerprints, host CA later; pinning verified with ssh2 (S4)                                              | Assumed | Phase 08 |
+| C5  | Bastion / jump host                          | Yes for lab zone B (Phase 19)                                                                                           | Assumed | Phase 19 |
+| C6  | CIDRs/ports the broker may reach             | Lab CIDRs only, port 22 — actual CIDRs needed                                                                           | Open    | Phase 07 |
+| C7  | Port forwarding                              | Disabled at GA; governed in Phase 19                                                                                    | Assumed | —        |
+| C8  | Session recording                            | Metadata audit only; recording optional                                                                                 | Assumed | Phase 12 |
+| C9  | Desktop: personal hosts from `~/.ssh/config` | Yes; managed targets via broker                                                                                         | Assumed | Phase 10 |
+| C10 | Other protocols (RDP/VNC/serial)             | Out of scope                                                                                                            | Assumed | —        |
 
 ## D. Platform & infrastructure
 

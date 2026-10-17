@@ -5,6 +5,7 @@
 
 ## ADR-002 — Broker SSH from trusted backend
 **Decision**: Hosted SSH only via the connection broker; browser gets single-use tickets and a WS stream; runtimes have no lab egress. **Consequences**: + central policy, host-key checks, audit, revocation; − broker is security-critical and must be capacity-planned.
+**Addendum (2026-10-17, spike S4 — [report](../docs/spikes/S4_SSH2.md))**: `ssh2` 1.17.0 confirmed as the SSH library (PTY, exec, SFTP, jump hosts, agent keys; 20/20 checks against OpenSSH 9.6). Binding rules for `packages/broker-core`'s `SshTransport`: (1) **`hostVerifier` is mandatory** — `ssh2` accepts any host key when it is absent; the wrapper refuses to connect without one and a test asserts it; (2) the verifier compares OpenSSH `SHA256:` fingerprints and decides `HOST_KEY_UNKNOWN` vs `HOST_KEY_MISMATCH` itself (proven: a mismatch ends the connection before any `USERAUTH_REQUEST`); (3) interrupts are sent as `\x03` through the PTY — the SSH `signal` request did not interrupt a foreground job; (4) each jump-host hop is pinned separately; (5) algorithm lists are pinned explicitly; (6) `ssh2` errors map to `ErrorCode`s by level (`handshake`, `client-authentication`, `client-timeout`, `client-socket`) as tabulated in the report.
 
 ## ADR-003 — Modular monolith
 **Decision**: Deployables: control-plane, broker, runtime image, desktop app. Strict package boundaries enable later splits. **Consequences**: + simpler ops/debugging; − discipline required on boundaries (lint-enforced).
@@ -20,6 +21,7 @@
 
 ## ADR-007 — Short-lived SSH certificates
 **Decision**: Default credential = ephemeral key signed by Vault SSH CA (TTL ≤ 15 min, user principal). Fallback: Vault-stored key per target. **Consequences**: + no long-lived keys, per-user attribution on targets; − targets must trust CA (onboarding script).
+**Addendum (2026-10-17, spike S4)**: Works end-to-end with Vault 2.2 (ed25519 CA) and OpenSSH 9.6 — wrong-principal and expired certificates are rejected by the target — **but `ssh2` 1.17.0 needs a 5-line patch** (it writes the certificate algorithm name into the signature blob). Carry the patch (`patch-package`), submit it upstream, pin `ssh2` exactly and guard it with an integration test; the `vault_key` fallback needs no patch. Certificates in an agent are not used by `ssh2`, so the broker keeps the ephemeral key in memory only. Set the Vault role's `key_id_format` to include the user identity — the default `vault-token-<hash>` is what target sshd logs.
 
 ## ADR-008 — Shared broker-core
 **Decision**: Same library for hosted broker and embedded (desktop/local) broker with injected TargetSource/CredentialSource/HostKeyStore/AddressGuard/AuditSink. **Consequences**: + parity, one tested SSH stack; − careful dependency boundaries.

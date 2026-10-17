@@ -1,6 +1,6 @@
 # Phase Gate — Phase 00: Environment, Decisions and Technical Spikes
 
-**Date:** 2026-10-17 (interim record, updated after spikes S1, S2, S5 — phase still in progress) · **Branch/PRs:**
+**Date:** 2026-10-17 (interim record, updated after spikes S1, S2, S4, S5 — phase still in progress) · **Branch/PRs:**
 `claude/gallant-goldberg-v788zv` · **Reviewers:** tech lead + security (not yet held)
 
 Template: `06_TEMPLATES/PHASE_GATE_TEMPLATE.md`. Guide: `02_PHASES/PHASE_00_ENVIRONMENT_DECISIONS_SPIKES.md`.
@@ -14,7 +14,7 @@ Template: `06_TEMPLATES/PHASE_GATE_TEMPLATE.md`. Guide: `02_PHASES/PHASE_00_ENVI
 | S1 Theia browser + Electron hello app                     | **done** — same command and terminal work in both                                    | [`docs/spikes/S1_THEIA_HELLO.md`](../spikes/S1_THEIA_HELLO.md)     |
 | S2 Theia behind a reverse proxy at `/w/{id}/`             | **done** — path and subdomain both work; cookie fix proven                           | [`docs/spikes/S2_REVERSE_PROXY.md`](../spikes/S2_REVERSE_PROXY.md) |
 | S3 Remote terminal + remote FS approach                   | missing                                                                              | —                                                                  |
-| S4 `ssh2` deep-check (host keys, certs, agent, jump host) | missing                                                                              | —                                                                  |
+| S4 `ssh2` deep-check (host keys, certs, agent, jump host) | **done** — 20/20 with a 5-line ssh2 patch for certificates                           | [`docs/spikes/S4_SSH2.md`](../spikes/S4_SSH2.md)                   |
 | S5 Open VSX extension availability                        | **done** — all required available and compatible; Pylance → basedpyright             | [`docs/spikes/S5_OPEN_VSX.md`](../spikes/S5_OPEN_VSX.md)           |
 | ADR-005 (routing), ADR-006 (remote terminal/FS)           | ADR-005 **accepted** (path-based); ADR-006 still _Proposed_ (S3)                     | `05_ADR/ADRS.md`                                                   |
 | Risk register initialised                                 | done (R1–R13 from the kit; R14–R15 added)                                            | `07_PLANNING/RISK_REGISTER.md`                                     |
@@ -42,7 +42,7 @@ $ npm view @theia/electron@1.76.0 peerDependencies --json
 
 ## Security review
 
-- Threats touched: none yet. S4 (host-key verification, certificate auth) is the security-relevant spike.
+- Threats touched: host-key spoofing / MITM (S4: pinned SHA256 verification fails closed before credentials are sent; `ssh2`'s default accept-all must be blocked by `SshTransport`), credential theft (S4: short-lived Vault certificates, rejected when expired or for the wrong principal), lateral movement via forwarding (S4: target and bastion refuse forwarding outside policy), cross-workspace session confusion (S2: connection-token cookie collision and its gateway fix).
 
 ## Operational review
 
