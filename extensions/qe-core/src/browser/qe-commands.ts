@@ -17,6 +17,9 @@ export const QeCommands = {
   ABOUT: qeCommand('qe.about', 'About QE Workspace'),
 } as const;
 
+/** Theia's own About command (CommonCommands.ABOUT_COMMAND); it opens the QE-branded About dialog. */
+export const THEIA_ABOUT_COMMAND_ID = 'core.about';
+
 /** Commands implemented by later phases (workspaces: 05, remote: 08, runner: 11). */
 const PLACEHOLDERS: readonly Command[] = [
   QeCommands.OPEN_WORKSPACE,
@@ -29,7 +32,9 @@ export class QeCommandContribution implements CommandContribution {
   @inject(MessageService) protected readonly messages!: MessageService;
 
   registerCommands(registry: CommandRegistry): void {
-    registry.registerCommand(QeCommands.ABOUT, { execute: () => this.messages.info('QE Workspace') });
+    registry.registerCommand(QeCommands.ABOUT, {
+      execute: () => registry.executeCommand(THEIA_ABOUT_COMMAND_ID),
+    });
     for (const command of PLACEHOLDERS) {
       registry.registerCommand(command, {
         execute: () => this.messages.info(`${command.label ?? command.id} is available in a later phase.`),

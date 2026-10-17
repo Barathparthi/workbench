@@ -1,4 +1,5 @@
 import { ConnectionHandler, RpcConnectionHandler } from '@theia/core/lib/common/messaging';
+import { BackendApplicationContribution } from '@theia/core/lib/node/backend-application';
 import { ContainerModule, type interfaces } from '@theia/core/shared/inversify';
 
 import {
@@ -7,6 +8,7 @@ import {
   type QeEnvironment,
 } from '../common/qe-environment';
 import { parseQeEnvironment } from './qe-environment-config';
+import { QeFaviconContribution } from './qe-favicon';
 
 /** Serves the environment, derived once at startup, to the frontend over Theia's authenticated RPC channel. */
 export function bindQeCoreBackend(bind: interfaces.Bind, environment: QeEnvironment): void {
@@ -20,6 +22,8 @@ export function bindQeCoreBackend(bind: interfaces.Bind, environment: QeEnvironm
         ),
     )
     .inSingletonScope();
+  bind(QeFaviconContribution).toSelf().inSingletonScope();
+  bind(BackendApplicationContribution).toService(QeFaviconContribution);
 }
 
 // Parsed while the backend container loads: invalid configuration stops the backend from starting.

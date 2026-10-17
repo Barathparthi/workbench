@@ -1,21 +1,25 @@
 import { CommandRegistry, type CommandContribution, MessageService } from '@theia/core/lib/common';
 import type { ContributionProvider } from '@theia/core/lib/common/contribution-provider';
 import { Container } from '@theia/core/shared/inversify';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
-import { QeCommandContribution, QeCommands } from '../qe-commands';
+import { QeCommandContribution, QeCommands, THEIA_ABOUT_COMMAND_ID } from '../qe-commands';
 
 describe('QeCommandContribution', () => {
   let registry: CommandRegistry;
   let info: ReturnType<typeof vi.fn>;
+  let openAbout: Mock<() => Promise<undefined>>;
 
   beforeEach(() => {
     info = vi.fn(() => Promise.resolve(undefined));
     const container = new Container();
+    openAbout = vi.fn(() => Promise.resolve(undefined));
     container.bind(MessageService).toConstantValue({ info } as unknown as MessageService);
     container.bind(QeCommandContribution).toSelf().inSingletonScope();
     const noContributions: ContributionProvider<CommandContribution> = { getContributions: () => [] };
     registry = new CommandRegistry(noContributions);
+    // Stands in for Theia's core About command, which opens the About dialog.
+    registry.registerCommand({ id: THEIA_ABOUT_COMMAND_ID }, { execute: openAbout });
     container.get(QeCommandContribution).registerCommands(registry);
   });
 
@@ -31,9 +35,10 @@ describe('QeCommandContribution', () => {
     expect(registry.getCommand(QeCommands.ABOUT.id)?.label).toBe('About QE Workspace');
   });
 
-  it('implements About', async () => {
+  it('implements About by opening the (QE-branded) About dialog', async () => {
     await registry.executeCommand(QeCommands.ABOUT.id);
-    expect(info).toHaveBeenCalledWith('QE Workspace');
+    expect(openAbout).toHaveBeenCalledOnce();
+    expect(info).not.toHaveBeenCalled();
   });
 
   it.each([QeCommands.OPEN_WORKSPACE, QeCommands.CONNECT_TARGET, QeCommands.RUN_TESTS])(
@@ -45,6 +50,8 @@ describe('QeCommandContribution', () => {
   );
 
   it('registers nothing outside the QE namespace', () => {
-    expect(registry.commandIds.filter((id) => !id.startsWith('qe.'))).toEqual([]);
+    expect(
+      registry.commandIds.filter((id) => !id.startsWith('qe.') && id !== THEIA_ABOUT_COMMAND_ID),
+    ).toEqual([]);
   });
 });

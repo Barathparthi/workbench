@@ -1,5 +1,7 @@
 import type { PreferenceSchema } from '@theia/core/lib/common/preferences/preference-schema';
 
+export const QE_DOCUMENTATION_URL_PREFERENCE = 'qe.help.documentationUrl';
+
 export const QeRunnerFrameworks = ['auto', 'pytest', 'maven'] as const;
 export type QeRunnerFramework = (typeof QeRunnerFrameworks)[number];
 
@@ -16,6 +18,12 @@ export const qeCorePreferenceSchema: PreferenceSchema = {
       enum: [...QeRunnerFrameworks],
       default: 'auto',
       description: 'Test framework for "QE: Run Tests". "auto" detects pytest or Maven from the project.',
+    },
+    [QE_DOCUMENTATION_URL_PREFERENCE]: {
+      type: 'string',
+      // Until the organisation publishes user documentation (org decision D13).
+      default: 'https://github.com/Barathparthi/workbench/blob/main/04_OPERATIONS/USER_GUIDE.md',
+      description: 'Opened by "Documentation" on the welcome page. Must be an https URL.',
     },
     'qe.runner.junitGlob': {
       type: 'string',

@@ -5,6 +5,7 @@ import { qeCorePreferenceSchema, qeDesktopPreferenceSchema, QeRunnerFrameworks }
 describe('qe.* preference schemas', () => {
   it('contributes the shared settings with typed defaults', () => {
     expect(Object.keys(qeCorePreferenceSchema.properties).sort()).toEqual([
+      'qe.help.documentationUrl',
       'qe.remote.defaultShell',
       'qe.runner.framework',
       'qe.runner.junitGlob',

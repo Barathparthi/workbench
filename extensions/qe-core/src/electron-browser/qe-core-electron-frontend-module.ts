@@ -5,7 +5,7 @@ import { qeDesktopPreferenceSchema } from '../common/qe-preferences';
 import { bindQeCoreFrontend } from '../browser/qe-core-frontend-module';
 
 // Theia loads this instead of the browser frontend module in the Electron app.
-export default new ContainerModule((bind) => {
-  bindQeCoreFrontend(bind);
+export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
+  bindQeCoreFrontend(bind, rebind);
   bind(PreferenceContribution).toConstantValue({ schema: qeDesktopPreferenceSchema });
 });
