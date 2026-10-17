@@ -1,0 +1,43 @@
+{
+  "name": "qe-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "QE Workspace — VS Code-like IDE for browser and desktop with brokered SSH to lab systems",
+  "type": "module",
+  "engines": {
+    "node": ">=24.11.0 <25",
+    "npm": ">=11"
+  },
+  "workspaces": [
+    "packages/*",
+    "extensions/*",
+    "apps/*",
+    "tests/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc -b tsconfig.build.json",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration --passWithNoTests",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test:unit && npm run build",
+    "clean": "node scripts/clean.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "@vitest/coverage-v8": "5.0.5",
+    "eslint": "10.13.0",
+    "eslint-import-resolver-typescript": "4.4.5",
+    "eslint-plugin-boundaries": "7.2.0",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2",
+    "vitest": "5.0.5"
+  },
+  "overrides": {
+    "handlebars": "4.7.10"
+  }
+}

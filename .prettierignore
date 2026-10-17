@@ -1,0 +1,19 @@
+# Generated / installed
+node_modules/
+dist/
+coverage/
+.tsbuild/
+package-lock.json
+
+# Implementation kit (source material, kept in its authored format)
+00_START_HERE/
+01_ARCHITECTURE/
+02_PHASES/
+03_PROMPTS/
+04_OPERATIONS/
+05_ADR/
+06_TEMPLATES/
+07_PLANNING/
+reference/
+README.md
+MANIFEST.md

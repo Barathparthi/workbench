@@ -1,0 +1,17 @@
+# Normalise line endings: LF in the repository and working tree, so shell scripts
+# and snapshots behave identically for Windows contributors.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary files
+*.docx binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
