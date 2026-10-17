@@ -45,6 +45,9 @@ apps/*/src-gen/
 apps/*/plugins/
 apps/*/gen-webpack.config.js
 apps/*/gen-webpack.node.config.js
+# Theia 1.76 bundles with esbuild (spike S1): gen-esbuild.*.mjs is regenerated on every build; esbuild.mjs is
+# the editable config and is committed.
+apps/*/gen-esbuild.*.mjs
 extensions/*/lib/
 
 # Electron packaging output (apps/ide-electron, Phase 02+)
@@ -66,6 +69,10 @@ deploy/helm/**/charts/*.tgz
 spikes/**/node_modules/
 spikes/**/lib/
 spikes/**/src-gen/
+spikes/**/plugins/
+spikes/**/gen-webpack*.js
+spikes/**/gen-esbuild.*.mjs
+spikes/**/verify-*.png
 
 # Environment files and secrets — only the .example variants are tracked
 .env

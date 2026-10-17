@@ -68,6 +68,7 @@ export default defineConfig(
       '.tsbuild/**',
       'spikes/**',
       'apps/*/gen-webpack*.js',
+      'apps/*/gen-esbuild.*.mjs',
       'apps/*/plugins/**',
     ],
   },
