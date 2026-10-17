@@ -1,0 +1,21 @@
+{
+  "name": "s4-ssh2",
+  "private": true,
+  "description": "Phase 00 spike S4 (throwaway): ssh2 host-key verification, key/agent/certificate auth, jump host, PTY and signals against local OpenSSH + Vault.",
+  "type": "module",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "scripts": {
+    "env:up": "./env.sh up",
+    "env:down": "./env.sh down",
+    "checks": "node checks.mjs"
+  },
+  "dependencies": {
+    "ssh2": "1.17.0"
+  },
+  "allowScripts": {
+    "ssh2": false,
+    "cpu-features": false
+  }
+}

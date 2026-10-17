@@ -4,7 +4,7 @@
 |---|---|---|---|---|---|---|
 | R1 | Theia base-path routing or webview origins harder than expected | L | H | Spike S2: `/w/{id}/` works unchanged; connection-token cookie collision fixed by `Set-Cookie` path rewrite at the gateway (proven). Webviews through the proxy still to verify in Phase 02; subdomain fallback documented (ADR-005) | Tech lead | Mitigated (2026-10-17) |
 | R2 | Remote terminal/FS integration relies on unstable Theia internals | M | M | Spike S3; prefer public APIs; contract tests; pin versions | IDE eng | Open |
-| R3 | ssh2 certificate auth limitations | M | M | Spike S4; agent shim; vault_key fallback | Backend | Open |
+| R3 | ssh2 certificate auth limitations | H | M | **Materialised (S4)**: ssh2 1.17.0 has no certificate support and writes the wrong signature format; a 5-line patch makes Vault certificates work (proven). Carry it with patch-package + upstream PR + integration test; `vault_key` fallback; agent shim does not help (ssh2 ignores agent certificates) | Backend | Mitigated with patch (2026-10-17) |
 | R4 | Required VS Code extensions missing on Open VSX (e.g. Pylance) | L | M | Spike S5: all required extensions available and Theia 1.76-compatible; Pylance → basedpyright; Microsoft-published ones lag upstream by months (pin and review at upgrades); licence review for 4 extensions + GitLens | IDE eng | Mitigated (2026-10-17) |
 | R5 | Org Vault / SSH CA not available in time | M | H | Start with vault_key; parallel request to platform team | Platform | Open |
 | R6 | Lab targets can't trust a user CA quickly (many owners) | H | M | Onboarding script; per-lab waves; shared-account interim policy | QE rep | Open |

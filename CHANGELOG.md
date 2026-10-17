@@ -33,6 +33,10 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   (`spike-s5-openvsx`) that runs it on GitHub's runners; report and proposed extension allowlist in
   `docs/spikes/S5_OPEN_VSX.md`.
 
+- Phase 00 spike S4 (`spikes/s4-ssh2`): local OpenSSH target/bastion + Vault SSH CA environment, 20 `ssh2`
+  checks and a 5-line `ssh2` patch for OpenSSH user certificates; report in `docs/spikes/S4_SSH2.md`; ADR-002 and
+  ADR-007 addenda.
+
 ### Changed
 
 - Phase 01 gate PASS: branch protection ruleset on `main` verified.

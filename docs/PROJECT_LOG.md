@@ -13,7 +13,7 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 | Phase                                | State                                                            | Record                                               |
 | ------------------------------------ | ---------------------------------------------------------------- | ---------------------------------------------------- |
-| 00 — Environment, decisions & spikes | **In progress** — toolchain pinned; S1, S2, S5 done; S3, S4 open | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
+| 00 — Environment, decisions & spikes | **In progress** — toolchain pinned; S1, S2, S4, S5 done; S3 open | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
 | 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)            | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
 | 02 — Theia product shell             | Not started (next)                                               | `02_PHASES/PHASE_02_THEIA_PRODUCT_SHELL.md`          |
 | 03 – 19                              | Not started                                                      | `02_PHASES/`                                         |
@@ -22,10 +22,11 @@ Milestones: M1 (end of Phase 06) — not reached.
 
 **Next actions**
 
-1. Phase 00: run spikes S4 (`ssh2`) and S3 (remote terminal/FS → ADR-006); send sections A8 and B–E of
+1. Phase 00: run spike S3 (remote terminal/FS → ADR-006), then gate Phase 00; send sections A8 and B–E of
    [`ORG_DECISIONS.md`](ORG_DECISIONS.md) (incl. D9, D12) to the owning teams, A8 with a licence review.
-2. Phase 02: Theia product shell on Theia 1.76.0, applying the S1 and S2 findings.
-3. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
+2. Decide how to carry the `ssh2` certificate patch (S4): `patch-package` + upstream PR is the recommendation.
+3. Phase 02: Theia product shell on Theia 1.76.0, applying the S1, S2 and S5 findings.
+4. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
 
 ---
 
@@ -195,3 +196,26 @@ stub registry. **All required extensions are available from verified publishers 
 replaces Remote-SSH. Microsoft-published extensions lag their VS Code releases by months, and five need a
 licence review. Details and a proposed allowlist: [S5 report](spikes/S5_OPEN_VSX.md). A8 updated (still to be
 confirmed by the QE rep and legal); risk R4 mitigated.
+
+### 2026-10-17 — PR #3 merged; Phase 00 spike S4: `ssh2` deep-check
+
+@Barathparthi merged [PR #3](https://github.com/Barathparthi/workbench/pull/3) (S2, S5, Phase 01 gate PASS).
+
+Built [`spikes/s4-ssh2/`](../spikes/s4-ssh2/): a local OpenSSH 9.6 target and bastion plus a Vault 2.2 dev server
+as SSH user CA (Docker is not available in the sandbox, so `env.sh` runs real `sshd` processes), and 20 checks
+with `ssh2` 1.17.0. Results ([S4 report](spikes/S4_SSH2.md)):
+
+- Pinned `SHA256:` host-key verification matches `ssh-keygen`, works asynchronously, and on mismatch fails during
+  key exchange **before any credential is sent**. Without a verifier `ssh2` accepts any host key, so
+  `SshTransport` must make it mandatory.
+- **Vault certificates need a 5-line `ssh2` patch** (risk R3 materialised): `ssh2` writes the certificate
+  algorithm name into the signature blob. With the patch: 20/20 checks, twice; wrong-principal and expired
+  certificates stay rejected. Agent-held certificates are not used by `ssh2`.
+- Jump host with separately pinned hops; bastion `PermitOpen` and target `AllowTcpForwarding no` enforced.
+- PTY resize works; **Ctrl+C must be `\x03` through the PTY** (26 ms) — the SSH `signal` request did not
+  interrupt a foreground job.
+- `ssh2` error levels map cleanly to our `ErrorCode`s (table in the report).
+
+Decisions: ADR-002 and ADR-007 addenda (binding rules for `SshTransport`; carry the patch + upstream PR, keep
+the ephemeral key in memory, set Vault `key_id_format` to include the user). Org decisions C3/C4 annotated;
+risk R3 mitigated with the patch. Not tested here: Windows/macOS agents (Phase 10).
