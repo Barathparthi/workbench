@@ -51,15 +51,29 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   - Playwright smoke tests (`npm run test:e2e`) and the `ide` workflow (runtime image + smoke tests);
     Theia/Electron version guard (`npm run check:theia-versions`); ADR-012.
 
+- Phase 03 control plane and database:
+  - `@qe/contracts`: Zod v1 DTOs (workspaces, templates), `ProblemDetails`, audit metadata allowlist.
+  - `apps/control-plane`: Fastify 5 server with fail-fast config, problem+json errors, request IDs, redacting
+    logger, rate limits, health endpoints, graceful shutdown and generated `openapi.json`; workspace API
+    (list/create/get/update/delete, templates).
+  - PostgreSQL schema `0001_init.sql` and template seed, checksummed migration runner, Kysely repositories,
+    hash-chained append-only audit log.
+  - `deploy/compose/docker-compose.dev.yml` (PostgreSQL 18.6), Testcontainers integration tests and the CI job
+    `integration + coverage`.
+
 ### Changed
 
 - Phase 00 gate record: all spikes done, decision proposed CONDITIONAL (org answers, architecture review).
 - Electron raised from 42.8.1 to 42.11.10 (root `overrides`) for four high-severity advisories.
+- CI: the `verify` job runs unit tests without coverage; the new `integration + coverage` job enforces coverage.
 
 ### Security
 
 - Invalid `QE_*` configuration stops the IDE backend (exit 78); the runtime image defaults to hosted mode.
 - No registry traffic from the IDE: `@theia/vsx-registry` is excluded and the smoke test asserts same-origin requests.
+- Control plane: every route declares permission, audit and rate limit; authentication fails closed; foreign
+  Origins are refused on unsafe methods; the application database role cannot change the schema or rewrite audit
+  events; audit writes fail closed.
 
 - Phase 01 gate PASS: branch protection ruleset on `main` verified.
 

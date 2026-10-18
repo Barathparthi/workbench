@@ -1,0 +1,26 @@
+# Development stack (Phase 03): one PostgreSQL 18.6 on loopback only. Development credentials only —
+# never reuse them anywhere else. Start: docker compose -f deploy/compose/docker-compose.dev.yml up -d
+name: qews-dev
+
+services:
+  postgres:
+    # Same digest as the integration tests (apps/control-plane/src/__tests__/postgres.ts).
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    environment:
+      POSTGRES_DB: qews
+      # Superuser and migrator in development. Production uses a separate migrator role (06 §5).
+      POSTGRES_USER: qews
+      POSTGRES_PASSWORD: devonly
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - qews-pg:/var/lib/postgresql
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U qews -d qews']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  qews-pg: {}

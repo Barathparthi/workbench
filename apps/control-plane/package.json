@@ -1,0 +1,34 @@
+{
+  "name": "@qe/control-plane",
+  "version": "0.0.0",
+  "private": true,
+  "description": "QE Workspace control plane: Fastify API on PostgreSQL (workspaces, audit; auth and RBAC from Phase 04).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b && node --env-file-if-exists=.env dist/db/migrate-cli.js && node --env-file-if-exists=.env dist/main.js",
+    "migrate": "node --env-file-if-exists=.env dist/db/migrate-cli.js",
+    "openapi:generate": "tsc -b && node dist/openapi-cli.js openapi.json"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "@fastify/helmet": "13.1.1",
+    "@fastify/rate-limit": "11.2.0",
+    "@fastify/sensible": "6.0.6",
+    "@fastify/swagger": "9.9.1",
+    "@qe/contracts": "0.0.0",
+    "@qe/domain": "0.0.0",
+    "fastify": "5.12.5",
+    "fastify-type-provider-zod": "7.0.0",
+    "kysely": "0.29.6",
+    "pg": "8.23.1",
+    "uuid": "14.0.2",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "12.2.0",
+    "@types/pg": "8.23.1"
+  }
+}

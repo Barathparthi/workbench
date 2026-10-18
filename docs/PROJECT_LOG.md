@@ -9,14 +9,15 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 ---
 
-## Status snapshot (updated 2026-10-17)
+## Status snapshot (updated 2026-10-18)
 
 | Phase                                | State                                                                                       | Record                                               |
 | ------------------------------------ | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
 | 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                       | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
-| 02 — Theia product shell             | **Built — gate proposed CONDITIONAL** (internal Open VSX mirror, D7)                        | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
-| 03 – 19                              | Not started                                                                                 | `02_PHASES/`                                         |
+| 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
+| 03 — Control plane and database      | **Built — gate proposed PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7))  | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
+| 04 – 19                              | Not started                                                                                 | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
 
@@ -26,9 +27,10 @@ Milestones: M1 (end of Phase 06) — not reached.
    D12) to the owning teams, A8 with a licence review; hold the architecture review (tech lead + security)
    before Phase 05.
 2. Decide how to carry the `ssh2` certificate patch (S4): `patch-package` + upstream PR is the recommendation.
-3. Phase 02 review: ratify ADR-012; name the Open VSX mirror (D7) and re-pin plugin hashes from it; decide D13
-   (docs URL) and D14 (Theia AI/MCP). Then Phase 03 (control plane and database).
-4. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
+3. Phase 02 follow-ups: ratify ADR-012; name the Open VSX mirror (D7) and re-pin plugin hashes from it; decide
+   D13 (docs URL) and D14 (Theia AI/MCP).
+4. Phase 03 review, then Phase 04 (identity: OIDC, sessions, CSRF, RBAC). Needs D2 (identity provider).
+5. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
 
 ---
 
@@ -286,3 +288,35 @@ R14 updated, R18 and R19 added.
 Environment notes: this container cannot reach Open VSX or the Debian mirrors (egress policy), so the plugin hashes
 and the runtime image come from GitHub's runners; the built app was checked locally as UID 1000 from a
 read-only mount.
+
+### 2026-10-18 — PR #6 merged; Phase 03: control plane and database
+
+@Barathparthi merged [PR #6](https://github.com/Barathparthi/workbench/pull/6) (Phase 02). For the database the
+owner first offered a Supabase URL, then decided: **one self-hosted PostgreSQL, no Supabase** (D4 confirmed).
+Development uses Docker Compose, tests use Testcontainers, both on PostgreSQL 18.6 pinned by digest; the migrator
+and application roles stay separate.
+
+Built (details in [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md)):
+
+- **`@qe/contracts`**: Zod v1 DTOs for workspaces and templates, `ProblemDetails`, and an allowlist of audit
+  metadata per action.
+- **`apps/control-plane`** (Fastify 5 + Zod type provider): fail-fast config (exit 78), problem+json errors,
+  request IDs, pino with redaction, helmet, per-route rate limits, Origin allowlist on unsafe methods, health
+  endpoints, graceful SIGTERM shutdown, OpenAPI generated from the routes (`openapi.json`, drift test).
+  Every route must declare `permission`, `audit` and `rateLimit` or the server refuses to register it.
+- **Database**: `0001_init.sql` (06 §2 schema, `qews_app` role with DML only, append-only audit triggers),
+  `0002` template seed, a checksummed migration runner under an advisory lock; Kysely repositories with
+  membership-scoped reads and compare-and-set state transitions; hash-chained audit writer that fails closed
+  inside the caller's transaction.
+- **Workspace API**: list, create, get, update, delete and templates. Non-members get 404, editors may update but
+  not delete, only stopped/created/failed workspaces can be deleted. Create and delete write audit events.
+- **Dev stack and CI**: `deploy/compose/docker-compose.dev.yml`, `.env.example`; `npm run dev -w @qe/control-plane`
+  migrates and starts; new CI job `integration + coverage` (unit + Testcontainers, coverage thresholds).
+
+Decisions and deviations: D4 confirmed; partial unique index on workspace names; `audit_events.seq` and
+append-only triggers; no 501 lifecycle stubs; no `WORKSPACE_UPDATE` audit action; a seeded dev principal until
+Phase 04 (refused in production). The `verify` job now runs unit tests without coverage; the coverage gate moved
+to the integration job, which sees the database code.
+
+Self-review findings fixed before the PR: unhandled pool `error` event (process crash on a database restart),
+unused `ALLOWED_ORIGINS`, routes without a permission skipping authentication.

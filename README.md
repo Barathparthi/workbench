@@ -16,10 +16,11 @@ built from it. Where things stand, and what was done when, is in **[`docs/PROJEC
 |---|---|
 | 00 — Environment, decisions & spikes | Gate proposed CONDITIONAL: toolchain pinned (Theia 1.76.0); spikes S1–S5 done; ADR-005 (path routing) and ADR-006 (Theia frontend extension for remote terminal/FS) accepted; org answers and architecture review pending |
 | 01 — Monorepo foundation | Done — gate PASS (CI green on Ubuntu and Windows, branch protection on) |
-| 02 — Theia product shell | Built: browser + Electron apps, qe-core, pinned plugins, runtime image, smoke tests — gate in review |
+| 02 — Theia product shell | Merged — gate CONDITIONAL (internal Open VSX mirror, D7): browser + Electron apps, qe-core, pinned plugins, runtime image, smoke tests |
+| 03 — Control plane and database | Built — gate in review: Fastify control plane, PostgreSQL schema and migrations, workspace API, audit log, Testcontainers tests |
 
 Prerequisites: Node.js **24.22.0** (`.nvmrc`; `nvm install`), npm 11, Git. On Linux, Theia's native modules
-need `libx11-dev libxkbfile-dev libsecret-1-dev`. Docker builds the runtime image (and is needed from Phase 03).
+need `libx11-dev libxkbfile-dev libsecret-1-dev`. Docker builds the runtime image and runs PostgreSQL for development and integration tests.
 
 ```bash
 npm ci                 # or scripts/bootstrap.sh  /  scripts/bootstrap.ps1
@@ -35,6 +36,12 @@ npm run start -w @qe/ide-browser                                  # http://127.0
 node node_modules/electron/install.js && npm run start -w @qe/ide-electron
 npm run test:e2e       # Playwright smoke tests (Linux: run under xvfb-run for Electron)
 docker build -f images/workspace-runtime/Dockerfile --build-arg QE_VSX_URL -t qews/runtime:dev .
+
+# Control plane (Phase 03)
+docker compose -f deploy/compose/docker-compose.dev.yml up -d --wait          # PostgreSQL 18.6 on 127.0.0.1:5432
+cp apps/control-plane/.env.example apps/control-plane/.env
+npm run dev -w @qe/control-plane          # migrates, then serves http://127.0.0.1:8080 (/readyz, /api/v1/…)
+npm run test:integration                  # Testcontainers; needs Docker
 ```
 
 | Path | What |
@@ -43,6 +50,8 @@ docker build -f images/workspace-runtime/Dockerfile --build-arg QE_VSX_URL -t qe
 | `extensions/qe-core` | Theia extension: QE commands, `QeEnvironment`, `qe.*` settings, branding |
 | `apps/ide-browser`, `apps/ide-electron` | The IDE as a browser app (hosted/local web) and an Electron app (desktop) |
 | `config/vscode-plugins.json`, `scripts/plugins.ts` | Built-in VS Code plugins, pinned by version and SHA-256 |
+| `apps/control-plane` | Control plane API (Fastify + PostgreSQL): workspaces, audit log, migrations, `openapi.json` |
+| `deploy/compose` | Development stack (PostgreSQL) |
 | `images/workspace-runtime` | Workspace runtime image (development version; hardened in Phase 05) |
 | `tests/lint/`, `tests/e2e/` | Package-boundary and version guards; Playwright smoke tests |
 | `docs/` | Project log, org decisions, phase-gate evidence, spike reports |

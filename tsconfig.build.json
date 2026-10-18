@@ -35,6 +35,9 @@
       "path": "extensions/qe-core"
     },
     {
+      "path": "apps/control-plane"
+    },
+    {
       "path": "tests/lint"
     },
     {

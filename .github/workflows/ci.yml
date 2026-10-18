@@ -1,5 +1,5 @@
-# Verify job from 01_ARCHITECTURE/12_CICD_AND_RELEASE.md §2 (Phase 01 scope; Theia apps since Phase 02).
-# Integration tests, security scans, images and deploy checks are added in later phases.
+# Verify job from 01_ARCHITECTURE/12_CICD_AND_RELEASE.md §2 (Phase 01 scope; Theia apps since Phase 02);
+# integration tests against PostgreSQL since Phase 03. Security scans, images and deploy checks come later.
 name: ci
 
 on:
@@ -40,5 +40,23 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
-      - run: npm run test:unit -- --coverage
+      - run: npm run test:unit
       - run: npm run build
+
+  integration:
+    name: integration + coverage
+    # Testcontainers needs Docker, which only the Linux runners have.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxkbfile-dev libsecret-1-dev
+      - run: npm ci
+      # Unit and integration together, so the coverage thresholds see the database code too.
+      - run: npx vitest run --coverage
