@@ -9,6 +9,11 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ### Added
 
+- Phase 04 development identity and RBAC: `@qe/rbac` permission matrix and group → role mapping; OIDC login
+  (code + PKCE) with server-side sessions, idle/absolute expiry and session-bound CSRF tokens; authorization on every
+  route with audited denials; `/api/v1/me`; migration `0003_web_sessions`; Keycloak dev realm in compose; authz
+  matrix and Keycloak integration tests; `ControlPlaneClient` in `@qe/client-sdk`.
+
 - `.gitignore` for the Node/TypeScript/Theia/Electron monorepo, environment files and private keys.
 - Phase 00 (partial): pinned toolchain — Node.js 24.22.0 LTS, TypeScript 5.9.3, Theia 1.76.0 candidate —
   and `docs/ORG_DECISIONS.md` with kit defaults marked as assumed.

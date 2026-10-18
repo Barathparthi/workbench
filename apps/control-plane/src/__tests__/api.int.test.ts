@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { verifyAuditChain } from '../audit/audit-writer.js';
-import type { Principal } from '../auth.js';
+import { makePrincipal, type Principal } from '../auth.js';
 import { loadMigrations, migrationsUpToDate } from '../db/migrator.js';
 import { pingDatabase } from '../db/pool.js';
 import { MembersRepo } from '../repos/members.js';
@@ -19,7 +19,7 @@ let editor: Principal;
 let stranger: Principal;
 const apps: FastifyInstance[] = [];
 
-/** One server per principal, all on the same database (dev auth stands in for OIDC until Phase 04). */
+/** One server per principal, all on the same database (dev auth; OIDC sessions are covered in auth.int.test). */
 async function serverAs(principal: Principal): Promise<FastifyInstance> {
   const migrations = await loadMigrations();
   const app = await buildServer(testConfig(), {
@@ -38,15 +38,17 @@ async function serverAs(principal: Principal): Promise<FastifyInstance> {
   return app;
 }
 
-const user = async (name: string): Promise<Principal> => ({
-  userId: await new UsersRepo(t.db).upsertIdentity({
-    issuer: 'test',
-    subject: name,
+const user = async (name: string): Promise<Principal> =>
+  makePrincipal({
+    userId: await new UsersRepo(t.db).upsertIdentity({
+      issuer: 'test',
+      subject: name,
+      username: name,
+      displayName: name,
+    }),
     username: name,
-    displayName: name,
-  }),
-  username: name,
-});
+    roles: ['qe.user'],
+  });
 
 beforeAll(async () => {
   t = await startTestDatabase();

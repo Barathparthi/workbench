@@ -17,7 +17,7 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                             | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
 | 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                      | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
 | 03 — Control plane and database      | **Done — gate PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7) merged, CI green) | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
-| 04 — Dev identity & RBAC             | **Next** — no org decision needed (local Keycloak)                                                | `02_PHASES/PHASE_04_DEV_IDENTITY_AND_RBAC.md`        |
+| 04 — Dev identity & RBAC             | **Built — gate CONDITIONAL** (unit green locally; integration suites need the CI run)             | [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md) |
 | 05 – 19                              | Not started                                                                                       | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
@@ -30,8 +30,8 @@ Milestones: M1 (end of Phase 06) — not reached.
 2. Decide how to carry the `ssh2` certificate patch (S4): `patch-package` + upstream PR is the recommendation.
 3. Phase 02 follow-ups: ratify ADR-012; name the Open VSX mirror (D7) and re-pin plugin hashes from it; decide
    D13 (docs URL) and D14 (Theia AI/MCP).
-4. Phase 04 (dev identity: OIDC against a local Keycloak, sessions, CSRF, RBAC). Needs no org decision; the
-   corporate IdP (B1) is Phase 12. Work can continue on a local machine: [`LOCAL_DEVELOPMENT.md`](LOCAL_DEVELOPMENT.md).
+4. Phase 04: push `phase-04-identity-rbac`, open the PR, confirm `integration + coverage` is green, then mark PASS.
+   Next is Phase 05 (workspace runtime and routing).
 5. Add `integration + coverage` to the required status checks of the `main` ruleset.
 6. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
 
@@ -340,3 +340,24 @@ setup for Linux, macOS and Windows (Node 24.22.0, native toolchain, Docker, Git)
 control plane and IDE, the per-phase PR workflow, continuing with Claude Code locally, differences from the cloud
 session, a command cheat sheet, troubleshooting and the open owner decisions. `CLAUDE.md`, `AGENTS.md`, README and
 MANIFEST point to it.
+
+### 2026-10-18 — Phase 04: development identity and RBAC (branch `phase-04-identity-rbac`)
+
+Built on the owner's local Windows machine (Node 24.22.0, no Docker — owner chose unit tests locally and
+Docker-based tests in CI; dependencies installed with `--ignore-scripts` because Visual Studio Build Tools are not
+installed). Details: [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md).
+
+- **`@qe/rbac`**: 22 permissions, role matrix (`qe.user`, `qe.lead`, `qe.admin`, `auditor`, `lab.<name>.user`),
+  `permissionsFor`, `ROLE_MAPPINGS` parser (unknown roles refused), workspace-role ranking.
+- **Control plane**: OIDC login/callback/logout with `openid-client` 6.8.8 (PKCE S256, state, nonce) behind an
+  `OidcProvider` interface; server-side sessions (`0003_web_sessions.sql`, hash-only tokens, idle/absolute expiry,
+  disabled users); session-bound CSRF tokens; authorization in `onRequest` for every route; `/api/v1/me`; five new
+  audit actions; config for OIDC/sessions with production rules (https, secure cookies).
+- **Dev stack**: Keycloak 26.8.1 (by digest) with realm `qe` and four dev users in compose; `.env.example` updated.
+- **Tests**: authz matrix (every route × persona), hook/route/config/OIDC unit tests, session lifecycle against
+  PostgreSQL, full login against Keycloak (integration, CI only here). 639 unit tests pass locally.
+- **`@qe/client-sdk`**: `ControlPlaneClient` (credentials, CSRF echo, 401 → login URL, problem+json errors).
+
+Deviations: authorization in `onRequest` (not `preHandler`); Bearer tokens deferred to Phase 10; status-bar user
+display deferred to Phase 05; authz matrix kept in the control-plane test folder. A Phase 03 rule was kept on
+purpose: unknown paths need a session (no anonymous route enumeration).
