@@ -74,8 +74,33 @@ export interface AuditEventsTable {
   hash: Buffer;
 }
 
+export interface RolesTable {
+  id: string;
+  name: string;
+}
+
+export interface UserRolesTable {
+  user_id: string;
+  role_id: string;
+  source: 'idp_group' | 'manual';
+}
+
+/** migrations/0003_web_sessions.sql — browser sessions; tokens are stored as SHA-256 only. */
+export interface WebSessionsTable {
+  id: string;
+  token_hash: Buffer;
+  csrf_hash: Buffer;
+  user_id: string;
+  created_at: Timestamp;
+  last_seen_at: Timestamp;
+  expires_at: Date;
+}
+
 export interface Database {
   users: UsersTable;
+  roles: RolesTable;
+  user_roles: UserRolesTable;
+  web_sessions: WebSessionsTable;
   workspace_templates: WorkspaceTemplatesTable;
   workspaces: WorkspacesTable;
   workspace_members: WorkspaceMembersTable;

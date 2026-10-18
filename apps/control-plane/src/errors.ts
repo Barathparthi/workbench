@@ -5,6 +5,7 @@ import { hasZodFastifySchemaValidationErrors, isResponseSerializationError } fro
 
 const TITLES: Partial<Record<ErrorCode, string>> = {
   AUTH_REQUIRED: 'Authentication required',
+  CSRF_REJECTED: 'The request was not sent from QE Workspace',
   FORBIDDEN: 'You do not have permission for this action',
   NOT_FOUND: 'Not found',
   INVALID_REQUEST: 'The request is not valid',

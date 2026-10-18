@@ -1,5 +1,6 @@
 import { Writable } from 'node:stream';
 
+import { makePrincipal } from '../auth.js';
 import type { Config } from '../config.js';
 import type { HealthDeps } from '../routes/health.js';
 import type { WorkspaceService } from '../workspace-service.js';
@@ -18,6 +19,13 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   BUILD_VERSION: '1.2.3',
   BUILD_COMMIT: 'abc123',
   BUILD_TIME: '2026-10-18T00:00:00Z',
+  DEV_ROLES: ['qe.user'],
+  OIDC_SCOPES: 'openid profile email',
+  OIDC_GROUPS_CLAIM: 'groups',
+  ROLE_MAPPINGS: {},
+  SESSION_IDLE_MINUTES: 30,
+  SESSION_ABSOLUTE_HOURS: 8,
+  COOKIE_SECURE: true,
   ...overrides,
 });
 
@@ -41,7 +49,11 @@ export const fakeHealth = (checkReady: () => Promise<void> = () => Promise.resol
   build: { version: '1.2.3', commit: 'abc123', builtAt: '2026-10-18T00:00:00Z' },
 });
 
-export const devPrincipal = { userId: '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d70', username: 'dev' };
+export const devPrincipal = makePrincipal({
+  userId: '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d70',
+  username: 'dev',
+  roles: ['qe.user'],
+});
 
 /** Collects log lines written by the server. */
 export function logSink(): { stream: Writable; text: () => string } {

@@ -2,7 +2,7 @@
   "name": "@qe/control-plane",
   "version": "0.0.0",
   "private": true,
-  "description": "QE Workspace control plane: Fastify API on PostgreSQL (workspaces, audit; auth and RBAC from Phase 04).",
+  "description": "QE Workspace control plane: Fastify API on PostgreSQL (workspaces, audit, OIDC sessions, RBAC).",
   "license": "UNLICENSED",
   "type": "module",
   "main": "./dist/main.js",
@@ -20,15 +20,18 @@
     "@fastify/swagger": "9.9.1",
     "@qe/contracts": "0.0.0",
     "@qe/domain": "0.0.0",
+    "@qe/rbac": "0.0.0",
     "fastify": "5.12.5",
     "fastify-type-provider-zod": "7.0.0",
     "kysely": "0.29.6",
+    "openid-client": "6.8.8",
     "pg": "8.23.1",
     "uuid": "14.0.2",
     "zod": "4.6.7"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "12.2.0",
-    "@types/pg": "8.23.1"
+    "@types/pg": "8.23.1",
+    "testcontainers": "12.2.0"
   }
 }

@@ -5,6 +5,7 @@ import type {
   WorkspaceTemplate,
 } from '@qe/contracts';
 import { DomainError, type WorkspaceState } from '@qe/domain';
+import { hasWorkspaceRole } from '@qe/rbac';
 import type { Kysely } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 
@@ -60,7 +61,6 @@ export function createWorkspaceService(
     if (row === undefined) throw new DomainError('NOT_FOUND');
     return row;
   };
-  const writable = (role: string) => role === 'owner' || role === 'editor';
 
   return {
     async list(ctx, limit) {
@@ -108,7 +108,7 @@ export function createWorkspaceService(
 
     async update(ctx, id, input) {
       const current = await visible(id, ctx.principal.userId);
-      if (!writable(current.member_role)) throw new DomainError('FORBIDDEN');
+      if (!hasWorkspaceRole(current.member_role, 'editor')) throw new DomainError('FORBIDDEN');
       try {
         const row = await new WorkspacesRepo(db).update(id, {
           ...(input.name !== undefined && { name: input.name }),
@@ -123,7 +123,7 @@ export function createWorkspaceService(
 
     async remove(ctx, id) {
       const current = await visible(id, ctx.principal.userId);
-      if (current.member_role !== 'owner') throw new DomainError('FORBIDDEN');
+      if (!hasWorkspaceRole(current.member_role, 'owner')) throw new DomainError('FORBIDDEN');
       if (!DELETABLE.includes(current.state)) {
         throw new DomainError('CONFLICT', `a ${current.state} workspace cannot be deleted; stop it first`);
       }
