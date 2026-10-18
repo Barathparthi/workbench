@@ -8,6 +8,24 @@ import { z } from 'zod';
 const short = z.string().max(200);
 
 export const AuditMetadata = {
+  // Phase 04 — authentication and authorization. Roles are names only, never tokens or claims.
+  AUTH_LOGIN_SUCCESS: z.strictObject({
+    method: z.literal('oidc'),
+    roles: z.array(short).max(50),
+  }),
+  AUTH_LOGIN_FAILURE: z.strictObject({
+    reason: z.enum([
+      'invalid_transaction',
+      'idp_error',
+      'token_exchange',
+      'invalid_claims',
+      'user_disabled',
+      'username_conflict',
+    ]),
+  }),
+  AUTH_LOGOUT: z.strictObject({}),
+  AUTH_SESSION_EXPIRED: z.strictObject({ reason: z.enum(['idle', 'absolute', 'user_disabled']) }),
+  ACCESS_DENIED: z.strictObject({ permission: short, method: short, route: short }),
   WORKSPACE_CREATE: z.strictObject({ name: short, templateId: short }),
   WORKSPACE_DELETE: z.strictObject({ name: short }),
   WORKSPACE_MEMBER_CHANGE: z.strictObject({
