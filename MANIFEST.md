@@ -58,6 +58,7 @@
 | `CLAUDE.md`, `AGENTS.md` | Agent rules adapted to this repository |
 | `CHANGELOG.md` | Release-level change list |
 | `docs/PROJECT_LOG.md` | Dated project history from the initial commit, status snapshot |
+| `docs/LOCAL_DEVELOPMENT.md` | System requirements and step-by-step local setup; how to continue the phases |
 | `docs/ORG_DECISIONS.md` | Filled decisions sheet and pinned toolchain |
 | `docs/phase-gates/PHASE_xx.md` | Phase-gate evidence records |
 | `docs/spikes/` | Spike reports, screenshots and raw results (S1 Theia hello, S2 reverse proxy, S3 remote terminal/FS, S4 `ssh2`, S5 Open VSX) |

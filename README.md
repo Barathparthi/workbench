@@ -11,13 +11,16 @@
 
 This repository holds the implementation kit (folders `00_…07_`, `reference/`) **and** the product code
 built from it. Where things stand, and what was done when, is in **[`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)**.
+To set up a local machine (requirements, step-by-step setup, how to continue), read
+**[`docs/LOCAL_DEVELOPMENT.md`](docs/LOCAL_DEVELOPMENT.md)**.
 
 | Phase | State |
 |---|---|
 | 00 — Environment, decisions & spikes | Gate proposed CONDITIONAL: toolchain pinned (Theia 1.76.0); spikes S1–S5 done; ADR-005 (path routing) and ADR-006 (Theia frontend extension for remote terminal/FS) accepted; org answers and architecture review pending |
 | 01 — Monorepo foundation | Done — gate PASS (CI green on Ubuntu and Windows, branch protection on) |
 | 02 — Theia product shell | Merged — gate CONDITIONAL (internal Open VSX mirror, D7): browser + Electron apps, qe-core, pinned plugins, runtime image, smoke tests |
-| 03 — Control plane and database | Built — gate in review: Fastify control plane, PostgreSQL schema and migrations, workspace API, audit log, Testcontainers tests |
+| 03 — Control plane and database | Done — gate PASS: Fastify control plane, PostgreSQL schema and migrations, workspace API, audit log, Testcontainers tests |
+| 04 — Dev identity & RBAC | Next |
 
 Prerequisites: Node.js **24.22.0** (`.nvmrc`; `nvm install`), npm 11, Git. On Linux, Theia's native modules
 need `libx11-dev libxkbfile-dev libsecret-1-dev`. Docker builds the runtime image and runs PostgreSQL for development and integration tests.

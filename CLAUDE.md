@@ -32,7 +32,9 @@ The kit is not copied into `docs/` (no duplicate to drift). `docs/` holds produc
 - From Phase 02: Browser IDE `npm run start -w @qe/ide-browser` · E2E smoke `npm run test:e2e` · Theia version guard
   `npm run check:theia-versions` · Plugins `QE_VSX_URL=… npm run plugins:download` (pinned in `config/vscode-plugins.json`;
   never `theia download:plugins`, never `@theia/vsx-registry` — ADR-012)
-- From Phase 03: dev stack `docker compose -f deploy/compose/docker-compose.dev.yml up -d`
+- From Phase 03: dev stack `docker compose -f deploy/compose/docker-compose.dev.yml up -d --wait`, then
+  `cp apps/control-plane/.env.example apps/control-plane/.env` and `npm run dev -w @qe/control-plane` (migrates, serves :8080)
+- Local machine setup, system requirements and how to continue: `docs/LOCAL_DEVELOPMENT.md`
 
 ## Non-negotiable rules
 

@@ -15,4 +15,6 @@ Where things are: architecture `01_ARCHITECTURE/`, phase guides `02_PHASES/`, AD
 
 Commands: `npm ci`, `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm run test:unit`,
 `npm run test:integration`, `npm run build`, `npm run verify` (all of the CI checks); from Phase 02 also
-`npm run test:e2e`, `npm run check:theia-versions` and `QE_VSX_URL=… npm run plugins:download` (ADR-012).
+`npm run test:e2e`, `npm run check:theia-versions` and `QE_VSX_URL=… npm run plugins:download` (ADR-012); from
+Phase 03 the dev stack (`deploy/compose/docker-compose.dev.yml`) and `npm run dev -w @qe/control-plane`. Local machine
+setup and requirements: `docs/LOCAL_DEVELOPMENT.md`.

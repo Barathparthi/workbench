@@ -11,13 +11,14 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 ## Status snapshot (updated 2026-10-18)
 
-| Phase                                | State                                                                                       | Record                                               |
-| ------------------------------------ | ------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
-| 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                       | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
-| 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
-| 03 — Control plane and database      | **Built — gate proposed PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7))  | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
-| 04 – 19                              | Not started                                                                                 | `02_PHASES/`                                         |
+| Phase                                | State                                                                                             | Record                                               |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open       | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
+| 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                             | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
+| 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                      | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
+| 03 — Control plane and database      | **Done — gate PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7) merged, CI green) | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
+| 04 — Dev identity & RBAC             | **Next** — no org decision needed (local Keycloak)                                                | `02_PHASES/PHASE_04_DEV_IDENTITY_AND_RBAC.md`        |
+| 05 – 19                              | Not started                                                                                       | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
 
@@ -29,8 +30,10 @@ Milestones: M1 (end of Phase 06) — not reached.
 2. Decide how to carry the `ssh2` certificate patch (S4): `patch-package` + upstream PR is the recommendation.
 3. Phase 02 follow-ups: ratify ADR-012; name the Open VSX mirror (D7) and re-pin plugin hashes from it; decide
    D13 (docs URL) and D14 (Theia AI/MCP).
-4. Phase 03 review, then Phase 04 (identity: OIDC, sessions, CSRF, RBAC). Needs D2 (identity provider).
-5. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
+4. Phase 04 (dev identity: OIDC against a local Keycloak, sessions, CSRF, RBAC). Needs no org decision; the
+   corporate IdP (B1) is Phase 12. Work can continue on a local machine: [`LOCAL_DEVELOPMENT.md`](LOCAL_DEVELOPMENT.md).
+5. Add `integration + coverage` to the required status checks of the `main` ruleset.
+6. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
 
 ---
 
@@ -320,3 +323,20 @@ to the integration job, which sees the database code.
 
 Self-review findings fixed before the PR: unhandled pool `error` event (process crash on a database restart),
 unused `ALLOWED_ORIGINS`, routes without a permission skipping authentication.
+
+### 2026-10-18 — PR #7 merged (Phase 03 PASS); local development guide
+
+@Barathparthi merged [PR #7](https://github.com/Barathparthi/workbench/pull/7) with all five checks green on GitHub
+(`verify` on ubuntu and windows, `integration + coverage`, `runtime image`, `smoke (browser + Electron)`); the
+Phase 03 gate is PASS.
+
+Correction: the Phase 03 PR and the previous next-actions list said Phase 04 needs "D2 (identity provider)". D2 is
+the ingress controller, and Phase 04 needs no org decision: it runs against a local Keycloak in Docker Compose. The
+corporate identity provider is B1, needed in Phase 12.
+
+At the owner's request, the work continues on a local machine instead of the cloud session. Added
+[`LOCAL_DEVELOPMENT.md`](LOCAL_DEVELOPMENT.md): project status, hardware/OS/software/network requirements, step-by-step
+setup for Linux, macOS and Windows (Node 24.22.0, native toolchain, Docker, Git), verification, running the database,
+control plane and IDE, the per-phase PR workflow, continuing with Claude Code locally, differences from the cloud
+session, a command cheat sheet, troubleshooting and the open owner decisions. `CLAUDE.md`, `AGENTS.md`, README and
+MANIFEST point to it.

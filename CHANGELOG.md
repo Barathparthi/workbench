@@ -61,6 +61,9 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   - `deploy/compose/docker-compose.dev.yml` (PostgreSQL 18.6), Testcontainers integration tests and the CI job
     `integration + coverage`.
 
+- `docs/LOCAL_DEVELOPMENT.md`: system requirements and a step-by-step guide to continue development on a local
+  machine (Linux, macOS, Windows).
+
 ### Changed
 
 - Phase 00 gate record: all spikes done, decision proposed CONDITIONAL (org answers, architecture review).
