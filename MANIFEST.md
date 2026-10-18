@@ -47,12 +47,14 @@
 | `packages/*` | Library packages (Phase 01 skeletons; `@qe/domain` implemented) |
 | `extensions/qe-core/` | Theia extension: QE commands, `QeEnvironment`, `qe.*` preferences, status bar, welcome page, About dialog, favicon |
 | `apps/ide-browser/`, `apps/ide-electron/` | Theia browser and Electron apps (`electron-builder.yml`, `resources/icon.png`) |
+| `apps/control-plane/` | Control plane (Fastify): config, routes, repositories, audit writer, `migrations/`, `openapi.json`, `.env.example` |
+| `deploy/compose/` | Development stack: PostgreSQL 18.6 and its init script |
 | `config/vscode-plugins.json` | Built-in VS Code plugins pinned by version and SHA-256 |
 | `images/workspace-runtime/`, `.dockerignore` | Workspace runtime development image |
 | `playwright.config.ts`, `tests/e2e/` | Playwright smoke tests (browser + Electron) and sample-repo setup |
 | `tests/lint/` | Boundary-rule proof tests, dependency-graph guard, Theia/Electron version guard |
 | `scripts/` | `bootstrap.sh`, `bootstrap.ps1`, `clean.mjs`, `plugins.ts` (download/verify/unpack plugins) |
-| `.github/` | Workflows `ci` (verify), `ide` (runtime image + smoke), `vscode-plugins` (plugin hashes), PR template, CODEOWNERS |
+| `.github/` | Workflows `ci` (verify, integration + coverage), `ide` (runtime image + smoke), `vscode-plugins` (plugin hashes), PR template, CODEOWNERS |
 | `CLAUDE.md`, `AGENTS.md` | Agent rules adapted to this repository |
 | `CHANGELOG.md` | Release-level change list |
 | `docs/PROJECT_LOG.md` | Dated project history from the initial commit, status snapshot |
