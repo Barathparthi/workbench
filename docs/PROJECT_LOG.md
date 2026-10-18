@@ -16,7 +16,7 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
 | 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                       | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
 | 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
-| 03 — Control plane and database      | **Built — gate proposed PASS** (PR in review)                                               | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
+| 03 — Control plane and database      | **Built — gate proposed PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7))  | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
 | 04 – 19                              | Not started                                                                                 | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.

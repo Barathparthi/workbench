@@ -1,6 +1,6 @@
 # Phase Gate — Phase 03: Control Plane and Database
 
-**Date:** 2026-10-18 · **Branch/PRs:** `claude/gallant-goldberg-v788zv` → PR (link added on opening) · **Reviewers:** @Barathparthi
+**Date:** 2026-10-18 · **Branch/PRs:** `claude/gallant-goldberg-v788zv` → [PR #7](https://github.com/Barathparthi/workbench/pull/7) · **Reviewers:** @Barathparthi
 (database decision 2026-10-18: one self-hosted PostgreSQL, no Supabase — D4)
 
 Template: `06_TEMPLATES/PHASE_GATE_TEMPLATE.md`. Guide: `02_PHASES/PHASE_03_CONTROL_PLANE_AND_DATABASE.md`.
