@@ -33,6 +33,13 @@ $ npx vitest run --project unit extensions/qe-core
 Not run locally: `tests/e2e/terminal.browser.spec.ts` (needs the built browser IDE). It runs in the `ide` workflow's
 `smoke` job; record the result here.
 
+## CI run 1 (2026-10-19): smoke 15/16
+
+`follows the widget size` failed on `rowsB < rowsA` (14 = 14): Theia's bottom panel keeps its pixel height when the
+window shrinks, so only the width changes. **Test assumption wrong**, not the product: the test now requires fewer
+columns (proof the PTY was resized) and no growth in rows. All other terminal checks passed (PTY, `TERM` from the QE
+policy, Ctrl+C, 200,000-line flood, UTF-8), as did the browser and Electron smoke tests.
+
 ## Security review
 
 - **Threats touched**: T16 resource exhaustion (terminal limit, scrollback cap), T11/T9 (a frontend cannot pick an

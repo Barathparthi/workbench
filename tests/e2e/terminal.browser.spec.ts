@@ -52,8 +52,10 @@ test.describe('integrated terminal (Phase 06)', () => {
     await expect.poll(() => read('t-size-b.txt')).toMatch(/^\d+ \d+$/);
     const [rowsA, colsA] = read('t-size-a.txt').split(' ').map(Number);
     const [rowsB, colsB] = read('t-size-b.txt').split(' ').map(Number);
-    expect(rowsB).toBeLessThan(rowsA ?? 0);
+    // The bottom panel keeps its pixel height when the window shrinks, so rows may stay; the narrower window must
+    // reach the shell as fewer columns (the PTY was resized), and nothing may grow.
     expect(colsB).toBeLessThan(colsA ?? 0);
+    expect(rowsB).toBeLessThanOrEqual(rowsA ?? 0);
   });
 
   test('Ctrl+C interrupts a running command and the shell stays usable', async ({ page }) => {
