@@ -58,7 +58,7 @@ export class KubernetesProvider implements WorkspaceRuntimeProvider {
     if (!ok.includes(res.status)) {
       const message =
         typeof res.body === 'object' && res.body !== null && 'message' in res.body
-          ? String((res.body as { message: unknown }).message)
+          ? String(res.body.message)
           : `${method} ${path}`;
       throw new KubernetesApiError(res.status, message);
     }

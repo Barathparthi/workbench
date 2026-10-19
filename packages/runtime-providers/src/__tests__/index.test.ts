@@ -94,7 +94,10 @@ function fakeDocker(opts: { cloneExit?: number; pullable?: boolean } = {}) {
           return ok(
             200,
             [...containers.values()]
-              .filter((c) => !c.body.Labels || 'qews.workspace-id' in (c.body.Labels as object))
+              .filter((c) => {
+                const labels = c.body.Labels;
+                return typeof labels === 'object' && labels !== null && 'qews.workspace-id' in labels;
+              })
               .map((c) => ({ Labels: c.body.Labels })),
           );
         }
@@ -247,7 +250,7 @@ describe('Kubernetes manifests', () => {
   });
 });
 
-function fakeKube(podBody: unknown = undefined) {
+function fakeKube(podBody?: unknown) {
   const objects = new Map<string, unknown>();
   const calls: string[] = [];
   const api: KubeApi = {
