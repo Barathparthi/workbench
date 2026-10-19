@@ -9,6 +9,24 @@ export { ErrorCodes, ErrorHttpStatus, type ErrorCode } from '@qe/domain';
 export { PROBLEM_TYPE_BASE, ProblemDetails } from './problem.js';
 export { CallbackQuery, LoginQuery, Me } from './auth.js';
 export {
+  ClientControl,
+  CloseCodes,
+  FRAME_INPUT,
+  FRAME_OUTPUT,
+  MAX_INPUT_BYTES,
+  MAX_MESSAGE_BYTES,
+  MAX_OUTPUT_BYTES,
+  QEWS_PROTOCOL,
+  TICKET_PROTOCOL_PREFIX,
+  decodeClientFrame,
+  encodeInput,
+  encodeOutput,
+  ticketFromProtocols,
+  type ClientFrame,
+  type CloseCode,
+  type ServerControl,
+} from './terminal-protocol.js';
+export {
   AddHostKeyRequest,
   CapabilityName,
   ConnectionPolicy,
