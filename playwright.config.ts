@@ -26,7 +26,7 @@ export default defineConfig({
     }),
   },
   projects: [
-    { name: 'browser', testMatch: 'smoke.browser.spec.ts' },
+    { name: 'browser', testMatch: /\.browser\.spec\.ts$/ },
     { name: 'electron', testMatch: 'smoke.electron.spec.ts' },
   ],
   webServer: {
@@ -34,6 +34,9 @@ export default defineConfig({
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
     timeout: 60_000,
+    // One backend serves every browser test, and terminals outlive page reloads: raise the QE limit (default 10,
+    // unit-tested) so the suite never hits it.
+    env: { QE_MAX_TERMINALS: '50' },
     stdout: 'ignore',
     stderr: 'pipe',
   },
