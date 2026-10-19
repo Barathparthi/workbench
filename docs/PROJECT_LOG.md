@@ -19,8 +19,9 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 03 — Control plane and database      | **Done — gate PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7) merged, CI green)                            | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
 | 04 — Dev identity & RBAC             | **Done — gate PASS** ([PR #9](https://github.com/Barathparthi/workbench/pull/9); Keycloak + session integration green in CI) | [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md) |
 | 05 — Workspace runtime & routing     | **Done** ([PR #10](https://github.com/Barathparthi/workbench/pull/10), CI green) — M1 end-to-end run with Docker still open  | [`phase-gates/PHASE_05.md`](phase-gates/PHASE_05.md) |
-| 06 — Terminal hardening              | **Built locally — gate CONDITIONAL** (CI `smoke` run pending)                                                                | [`phase-gates/PHASE_06.md`](phase-gates/PHASE_06.md) |
-| 07 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
+| 06 — Terminal hardening              | **Done** (merged to `main`, `1771c61`; CI smoke green after resize-test fix)                                                 | [`phase-gates/PHASE_06.md`](phase-gates/PHASE_06.md) |
+| 07 — Target registry & policy        | **Built locally — gate CONDITIONAL** (CI integration pending)                                                                | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
+| 08 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
 
@@ -401,3 +402,14 @@ The owner reported CI green and merged `phase-05-workspace-runtime` as PR #10 (`
 web, terminal limit, `TERM`/`LANG` defaults), scrollback default 10,000, UTF-8 locale in the runtime image, and a
 browser E2E suite for PTY, resize, Ctrl+C, output flood and UTF-8 (runs in CI). Details:
 [`phase-gates/PHASE_06.md`](phase-gates/PHASE_06.md).
+
+### 2026-10-19 — Phase 06 merged; Phase 07 targets and connection policy (branch `phase-07-targets-policy`)
+
+Phase 06 was merged to `main` (`1771c61`). While Phase 07 was in progress its uncommitted files were stashed
+("phrase 7") and the checkout moved; they were restored from the stash on `phase-07-targets-policy` with nothing lost.
+
+Built: `@qe/policy` (SSRF address guard with pinned address, pure connection decision), target/policy/host-key/
+credential-reference contracts, control-plane admin APIs (audited), role-filtered target list, session opening with
+single-use Origin-bound tickets, internal ticket redeem for the broker (service token), `internal` route kind.
+958 unit tests pass locally; PostgreSQL integration test for the whole flow runs in CI. UI deferred to Phase 08.
+Details: [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md).
