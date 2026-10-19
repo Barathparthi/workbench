@@ -18,8 +18,9 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                                                 | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
 | 03 — Control plane and database      | **Done — gate PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7) merged, CI green)                            | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
 | 04 — Dev identity & RBAC             | **Done — gate PASS** ([PR #9](https://github.com/Barathparthi/workbench/pull/9); Keycloak + session integration green in CI) | [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md) |
-| 05 — Workspace runtime & routing     | **Built locally — gate CONDITIONAL** (CI integration + M1 run with Docker pending)                                           | [`phase-gates/PHASE_05.md`](phase-gates/PHASE_05.md) |
-| 06 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
+| 05 — Workspace runtime & routing     | **Done** ([PR #10](https://github.com/Barathparthi/workbench/pull/10), CI green) — M1 end-to-end run with Docker still open  | [`phase-gates/PHASE_05.md`](phase-gates/PHASE_05.md) |
+| 06 — Terminal hardening              | **Built locally — gate CONDITIONAL** (CI `smoke` run pending)                                                                | [`phase-gates/PHASE_06.md`](phase-gates/PHASE_06.md) |
+| 07 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
 
@@ -392,3 +393,11 @@ The owner shared the `integration + coverage` log. Phase 04's integration suites
 lifecycle on PostgreSQL) passed → **Phase 04 gate PASS**. Eight Phase 05 failures had two causes: a product bug in
 workspace delete (the `→ DELETING` transition was lost in an edit) and shared-user quota exhaustion in the lifecycle
 tests. Both fixed on `phase-05-workspace-runtime`; details in the Phase 05 gate record.
+
+### 2026-10-19 — PR #10 merged (Phase 05, CI green); Phase 06 terminal hardening
+
+The owner reported CI green and merged `phase-05-workspace-runtime` as PR #10 (`56a7dfb`). Phase 06 built on
+`phase-06-terminal`: a QE terminal policy decorating Theia's shell terminal server (shell allowlist in hosted/local
+web, terminal limit, `TERM`/`LANG` defaults), scrollback default 10,000, UTF-8 locale in the runtime image, and a
+browser E2E suite for PTY, resize, Ctrl+C, output flood and UTF-8 (runs in CI). Details:
+[`phase-gates/PHASE_06.md`](phase-gates/PHASE_06.md).

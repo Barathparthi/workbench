@@ -9,6 +9,9 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ### Added
 
+- Phase 06 terminal hardening: QE terminal policy on Theia's terminal server (shell allowlist, open-terminal limit,
+  `TERM`/`LANG` defaults), 10,000-line scrollback default, UTF-8 runtime locale, browser E2E suite for the terminal.
+
 - Phase 05 workspace runtime and routing: `@qe/runtime-providers` (Docker, Kubernetes), workspace start/stop/events
   API with quota and audit, reconciler with idle stop, `/w/{id}/` HTTP + WebSocket router with membership checks and
   cookie scoping, runtime removal on delete, signed-in user in the IDE status bar, setuid-free runtime image.
