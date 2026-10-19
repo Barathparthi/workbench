@@ -47,6 +47,7 @@ export {
   RemoteSessionList,
   SessionIdParams,
   SessionKind,
+  SessionStateReport,
   Target,
   TargetHost,
   TargetIdParams,

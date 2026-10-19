@@ -15,6 +15,7 @@ import {
   RemoteSession,
   RemoteSessionList,
   SessionIdParams,
+  SessionStateReport,
   Target,
   TargetIdParams,
   TargetList,
@@ -179,5 +180,15 @@ export function targetRoutes(
     },
     config: { permission: 'internal', audit: false, rateLimit: { max: 600, timeWindow: '1 minute' } },
     handler: async (request) => sessions.redeem(request.body.ticket, request.body.origin),
+  });
+  r.post('/internal/v1/sessions/:id/state', {
+    schema: {
+      tags: ['internal'],
+      params: SessionIdParams,
+      body: SessionStateReport,
+      response: { 200: z.object({ state: z.string() }), ...errors },
+    },
+    config: { permission: 'internal', audit: true, rateLimit: { max: 1200, timeWindow: '1 minute' } },
+    handler: async (request) => sessions.reportState(request.params.id, request.body),
   });
 }

@@ -41,6 +41,7 @@ const actions = async () =>
   );
 
 let policyId = '';
+const brokerCloses: string[] = [];
 let targetId = '';
 
 beforeAll(async () => {
@@ -260,6 +261,81 @@ describe('sessions and tickets', () => {
     const s = await open(bob);
     await expect(sessions.close(ctx(carol), s.sessionId)).rejects.toMatchObject({ code: 'NOT_FOUND' });
     expect((await sessions.close(ctx(admin), s.sessionId)).closeReason).toBe('revoked_by_admin');
+  });
+
+  it('records broker reports: ACTIVE, admin revocation reaching the broker, CLOSED with byte counts', async () => {
+    clock = new Date(clock.getTime() + 2 * 60 * 60_000);
+    const s = await open(bob);
+    await sessions.redeem(s.ticket, ORIGIN);
+    const report = {
+      brokerInstance: 'broker-1',
+      hostKey: { outcome: 'match' as const, algorithm: 'ssh-ed25519', fingerprintSha256: FP },
+    };
+    expect(await sessions.reportState(s.sessionId, { state: 'ACTIVE', reason: 'opened', ...report })).toEqual(
+      { state: 'ACTIVE' },
+    );
+    expect((await sessions.close(ctx(admin), s.sessionId)).state).toBe('REVOKED');
+    expect(brokerCloses).toContain(s.sessionId);
+    expect(
+      await sessions.reportState(s.sessionId, {
+        state: 'CLOSED',
+        reason: 'revoked',
+        bytesIn: 10,
+        bytesOut: 2048,
+        ...report,
+      }),
+    ).toEqual({ state: 'CLOSED' });
+    // A late or repeated report changes nothing.
+    expect(await sessions.reportState(s.sessionId, { state: 'ACTIVE', reason: 'opened', ...report })).toEqual(
+      { state: 'CLOSED' },
+    );
+    const row = await t.db
+      .selectFrom('sessions')
+      .selectAll()
+      .where('id', '=', s.sessionId)
+      .executeTakeFirstOrThrow();
+    expect(row).toMatchObject({
+      state: 'CLOSED',
+      close_reason: 'revoked_by_admin',
+      broker_instance: 'broker-1',
+    });
+    const all = await actions();
+    expect(all).toContain('SSH_SESSION_OPENED');
+    expect(all).toContain('SSH_SESSION_CLOSED');
+  });
+
+  it('audits a failed connect with the host-key mismatch and the refused address as security events', async () => {
+    clock = new Date(clock.getTime() + 2 * 60 * 60_000);
+    const a = await open(bob);
+    await sessions.redeem(a.ticket, ORIGIN);
+    await sessions.reportState(a.sessionId, {
+      state: 'FAILED',
+      reason: 'HOST_KEY_MISMATCH',
+      brokerInstance: 'broker-1',
+      hostKey: {
+        outcome: 'mismatch',
+        algorithm: 'ssh-ed25519',
+        fingerprintSha256: `SHA256:${'Q'.repeat(43)}`,
+      },
+    });
+    const b = await open(bob);
+    await sessions.redeem(b.ticket, ORIGIN);
+    await sessions.reportState(b.sessionId, {
+      state: 'FAILED',
+      reason: 'TARGET_ADDRESS_FORBIDDEN',
+      brokerInstance: 'broker-1',
+    });
+    const all = await actions();
+    expect(all).toContain('SSH_CONNECT_FAILED:HOST_KEY_MISMATCH');
+    expect(all).toContain('SSH_HOST_KEY_MISMATCH:mismatch');
+    expect(all).toContain('SSRF_BLOCKED:at_connect');
+    await expect(
+      sessions.reportState('0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d00', {
+        state: 'ACTIVE',
+        reason: 'x',
+        brokerInstance: 'b',
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('revoking the last host key makes the target pending again (no connects)', async () => {

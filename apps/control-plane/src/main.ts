@@ -124,6 +124,14 @@ const remote = {
   sessions: createRemoteSessionService(db, {
     ticketTtlMs: config.SESSION_TICKET_TTL_SEC * 1000,
     allowedOrigins: config.ALLOWED_ORIGINS,
+    closeOnBroker: async (sessionId: string) => {
+      if (config.BROKER_INTERNAL_URL === undefined || config.INTERNAL_SERVICE_TOKEN === undefined) return;
+      await fetch(new URL(`/internal/v1/sessions/${sessionId}/close`, config.BROKER_INTERNAL_URL), {
+        method: 'POST',
+        headers: { authorization: `Bearer ${config.INTERNAL_SERVICE_TOKEN}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+    },
   }),
 };
 
