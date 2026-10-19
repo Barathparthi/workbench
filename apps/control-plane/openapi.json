@@ -37,9 +37,7 @@
     },
     "/api/v1/me": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -76,14 +74,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "id",
-                    "username",
-                    "displayName",
-                    "email",
-                    "roles",
-                    "permissions"
-                  ],
+                  "required": ["id", "username", "displayName", "email", "roles", "permissions"],
                   "additionalProperties": false
                 }
               }
@@ -143,13 +134,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -160,9 +145,7 @@
     },
     "/api/v1/workspaces": {
       "get": {
-        "tags": [
-          "workspaces"
-        ],
+        "tags": ["workspaces"],
         "parameters": [
           {
             "schema": {
@@ -230,16 +213,10 @@
                             "properties": {
                               "profile": {
                                 "type": "string",
-                                "enum": [
-                                  "small",
-                                  "standard",
-                                  "large"
-                                ]
+                                "enum": ["small", "standard", "large"]
                               }
                             },
-                            "required": [
-                              "profile"
-                            ],
+                            "required": ["profile"],
                             "additionalProperties": false
                           },
                           "git": {
@@ -258,10 +235,7 @@
                                 "pattern": "^[A-Za-z0-9._/-]+$"
                               }
                             },
-                            "required": [
-                              "url",
-                              "ref"
-                            ],
+                            "required": ["url", "ref"],
                             "additionalProperties": false
                           },
                           "lastActiveAt": {
@@ -298,9 +272,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "items"
-                  ],
+                  "required": ["items"],
                   "additionalProperties": false
                 }
               }
@@ -360,13 +332,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -426,13 +392,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -492,13 +452,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -558,13 +512,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -624,13 +572,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -639,9 +581,7 @@
         }
       },
       "post": {
-        "tags": [
-          "workspaces"
-        ],
+        "tags": ["workspaces"],
         "requestBody": {
           "required": true,
           "content": {
@@ -674,33 +614,21 @@
                         "pattern": "^[A-Za-z0-9._/-]+$"
                       }
                     },
-                    "required": [
-                      "url",
-                      "ref"
-                    ]
+                    "required": ["url", "ref"]
                   },
                   "resources": {
                     "type": "object",
                     "properties": {
                       "profile": {
                         "type": "string",
-                        "enum": [
-                          "small",
-                          "standard",
-                          "large"
-                        ]
+                        "enum": ["small", "standard", "large"]
                       }
                     },
-                    "required": [
-                      "profile"
-                    ],
+                    "required": ["profile"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "name",
-                  "templateId"
-                ],
+                "required": ["name", "templateId"],
                 "additionalProperties": false
               }
             }
@@ -755,16 +683,10 @@
                       "properties": {
                         "profile": {
                           "type": "string",
-                          "enum": [
-                            "small",
-                            "standard",
-                            "large"
-                          ]
+                          "enum": ["small", "standard", "large"]
                         }
                       },
-                      "required": [
-                        "profile"
-                      ],
+                      "required": ["profile"],
                       "additionalProperties": false
                     },
                     "git": {
@@ -783,10 +705,7 @@
                           "pattern": "^[A-Za-z0-9._/-]+$"
                         }
                       },
-                      "required": [
-                        "url",
-                        "ref"
-                      ],
+                      "required": ["url", "ref"],
                       "additionalProperties": false
                     },
                     "lastActiveAt": {
@@ -878,13 +797,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -944,13 +857,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1010,13 +917,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1076,13 +977,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1142,13 +1037,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1159,9 +1048,7 @@
     },
     "/api/v1/workspaces/{id}": {
       "get": {
-        "tags": [
-          "workspaces"
-        ],
+        "tags": ["workspaces"],
         "parameters": [
           {
             "schema": {
@@ -1223,16 +1110,10 @@
                       "properties": {
                         "profile": {
                           "type": "string",
-                          "enum": [
-                            "small",
-                            "standard",
-                            "large"
-                          ]
+                          "enum": ["small", "standard", "large"]
                         }
                       },
-                      "required": [
-                        "profile"
-                      ],
+                      "required": ["profile"],
                       "additionalProperties": false
                     },
                     "git": {
@@ -1251,10 +1132,7 @@
                           "pattern": "^[A-Za-z0-9._/-]+$"
                         }
                       },
-                      "required": [
-                        "url",
-                        "ref"
-                      ],
+                      "required": ["url", "ref"],
                       "additionalProperties": false
                     },
                     "lastActiveAt": {
@@ -1346,13 +1224,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1412,13 +1284,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1478,13 +1344,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1544,13 +1404,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1610,13 +1464,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1625,9 +1473,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "workspaces"
-        ],
+        "tags": ["workspaces"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1657,10 +1503,7 @@
                         "pattern": "^[A-Za-z0-9._/-]+$"
                       }
                     },
-                    "required": [
-                      "url",
-                      "ref"
-                    ]
+                    "required": ["url", "ref"]
                   }
                 },
                 "additionalProperties": false
@@ -1729,16 +1572,10 @@
                       "properties": {
                         "profile": {
                           "type": "string",
-                          "enum": [
-                            "small",
-                            "standard",
-                            "large"
-                          ]
+                          "enum": ["small", "standard", "large"]
                         }
                       },
-                      "required": [
-                        "profile"
-                      ],
+                      "required": ["profile"],
                       "additionalProperties": false
                     },
                     "git": {
@@ -1757,10 +1594,7 @@
                           "pattern": "^[A-Za-z0-9._/-]+$"
                         }
                       },
-                      "required": [
-                        "url",
-                        "ref"
-                      ],
+                      "required": ["url", "ref"],
                       "additionalProperties": false
                     },
                     "lastActiveAt": {
@@ -1852,13 +1686,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1918,13 +1746,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -1984,13 +1806,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2050,13 +1866,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2116,13 +1926,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2131,9 +1935,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "workspaces"
-        ],
+        "tags": ["workspaces"],
         "parameters": [
           {
             "schema": {
@@ -2154,9 +1956,7 @@
                 "schema": {
                   "type": "string",
                   "nullable": true,
-                  "enum": [
-                    null
-                  ]
+                  "enum": [null]
                 }
               }
             }
@@ -2215,13 +2015,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2281,13 +2075,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2347,13 +2135,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2413,13 +2195,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2479,13 +2255,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2496,9 +2266,7 @@
     },
     "/api/v1/workspace-templates": {
       "get": {
-        "tags": [
-          "workspaces"
-        ],
+        "tags": ["workspaces"],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -2521,25 +2289,15 @@
                           },
                           "defaultProfile": {
                             "type": "string",
-                            "enum": [
-                              "small",
-                              "standard",
-                              "large"
-                            ]
+                            "enum": ["small", "standard", "large"]
                           }
                         },
-                        "required": [
-                          "id",
-                          "displayName",
-                          "defaultProfile"
-                        ],
+                        "required": ["id", "displayName", "defaultProfile"],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": [
-                    "items"
-                  ],
+                  "required": ["items"],
                   "additionalProperties": false
                 }
               }
@@ -2599,13 +2357,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2665,13 +2417,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2731,13 +2477,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2797,13 +2537,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2863,13 +2597,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -2880,9 +2608,7 @@
     },
     "/api/v1/policies": {
       "get": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -2965,9 +2691,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "items"
-                  ],
+                  "required": ["items"],
                   "additionalProperties": false
                 }
               }
@@ -3027,13 +2751,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3093,13 +2811,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3159,13 +2871,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3225,13 +2931,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3291,13 +2991,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3357,13 +3051,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3372,9 +3060,7 @@
         }
       },
       "post": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3407,9 +3093,7 @@
                     }
                   },
                   "allowedPorts": {
-                    "default": [
-                      22
-                    ],
+                    "default": [22],
                     "minItems": 1,
                     "maxItems": 20,
                     "type": "array",
@@ -3425,13 +3109,7 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "terminal",
-                        "file_read",
-                        "file_write",
-                        "exec",
-                        "port_forward"
-                      ]
+                      "enum": ["terminal", "file_read", "file_write", "exec", "port_forward"]
                     }
                   },
                   "idleTimeoutSec": {
@@ -3453,12 +3131,7 @@
                     "maximum": 50
                   }
                 },
-                "required": [
-                  "name",
-                  "allowedRoles",
-                  "allowedCidrs",
-                  "capabilities"
-                ],
+                "required": ["name", "allowedRoles", "allowedCidrs", "capabilities"],
                 "additionalProperties": false
               }
             }
@@ -3596,13 +3269,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3662,13 +3329,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3728,13 +3389,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3794,13 +3449,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3860,13 +3509,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3926,13 +3569,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -3943,9 +3580,7 @@
     },
     "/api/v1/policies/{id}": {
       "patch": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3974,9 +3609,7 @@
                     }
                   },
                   "allowedPorts": {
-                    "default": [
-                      22
-                    ],
+                    "default": [22],
                     "minItems": 1,
                     "maxItems": 20,
                     "type": "array",
@@ -3992,13 +3625,7 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "terminal",
-                        "file_read",
-                        "file_write",
-                        "exec",
-                        "port_forward"
-                      ]
+                      "enum": ["terminal", "file_read", "file_write", "exec", "port_forward"]
                     }
                   },
                   "idleTimeoutSec": {
@@ -4169,13 +3796,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4235,13 +3856,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4301,13 +3916,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4367,13 +3976,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4433,13 +4036,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4499,13 +4096,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4516,9 +4107,7 @@
     },
     "/api/v1/credential-refs": {
       "post": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4528,21 +4117,11 @@
                 "properties": {
                   "provider": {
                     "type": "string",
-                    "enum": [
-                      "vault",
-                      "azure_kv",
-                      "aws_sm",
-                      "gcp_sm",
-                      "file_dev"
-                    ]
+                    "enum": ["vault", "azure_kv", "aws_sm", "gcp_sm", "file_dev"]
                   },
                   "method": {
                     "type": "string",
-                    "enum": [
-                      "ssh_certificate",
-                      "vault_key",
-                      "vault_password"
-                    ]
+                    "enum": ["ssh_certificate", "vault_key", "vault_password"]
                   },
                   "providerPath": {
                     "type": "string",
@@ -4567,11 +4146,7 @@
                     }
                   }
                 },
-                "required": [
-                  "provider",
-                  "method",
-                  "providerPath"
-                ],
+                "required": ["provider", "method", "providerPath"],
                 "additionalProperties": false
               }
             }
@@ -4607,14 +4182,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "id",
-                    "provider",
-                    "method",
-                    "providerPath",
-                    "metadata",
-                    "createdAt"
-                  ],
+                  "required": ["id", "provider", "method", "providerPath", "metadata", "createdAt"],
                   "additionalProperties": false
                 }
               }
@@ -4674,13 +4242,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4740,13 +4302,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4806,13 +4362,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4872,13 +4422,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -4938,13 +4482,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5004,13 +4542,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5021,9 +4553,7 @@
     },
     "/api/v1/targets": {
       "get": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -5057,12 +4587,7 @@
                           },
                           "os": {
                             "type": "string",
-                            "enum": [
-                              "linux",
-                              "windows",
-                              "macos",
-                              "other"
-                            ]
+                            "enum": ["linux", "windows", "macos", "other"]
                           },
                           "principalTemplate": {
                             "type": "string"
@@ -5095,11 +4620,7 @@
                           },
                           "status": {
                             "type": "string",
-                            "enum": [
-                              "pending_host_key",
-                              "active",
-                              "disabled"
-                            ]
+                            "enum": ["pending_host_key", "active", "disabled"]
                           },
                           "hostKeys": {
                             "type": "array",
@@ -5119,23 +4640,14 @@
                                 },
                                 "status": {
                                   "type": "string",
-                                  "enum": [
-                                    "trusted",
-                                    "revoked"
-                                  ]
+                                  "enum": ["trusted", "revoked"]
                                 },
                                 "approvedAt": {
                                   "nullable": true,
                                   "type": "string"
                                 }
                               },
-                              "required": [
-                                "id",
-                                "algorithm",
-                                "fingerprintSha256",
-                                "status",
-                                "approvedAt"
-                              ],
+                              "required": ["id", "algorithm", "fingerprintSha256", "status", "approvedAt"],
                               "additionalProperties": false
                             }
                           },
@@ -5168,9 +4680,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "items"
-                  ],
+                  "required": ["items"],
                   "additionalProperties": false
                 }
               }
@@ -5230,13 +4740,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5296,13 +4800,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5362,13 +4860,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5428,13 +4920,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5494,13 +4980,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5560,13 +5040,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5575,9 +5049,7 @@
         }
       },
       "post": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "requestBody": {
           "required": true,
           "content": {
@@ -5607,21 +5079,14 @@
                   "os": {
                     "default": "linux",
                     "type": "string",
-                    "enum": [
-                      "linux",
-                      "windows",
-                      "macos",
-                      "other"
-                    ]
+                    "enum": ["linux", "windows", "macos", "other"]
                   },
                   "principalTemplate": {
                     "default": "{{user.username}}",
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": [
-                          "{{user.username}}"
-                        ]
+                        "enum": ["{{user.username}}"]
                       },
                       {
                         "type": "string",
@@ -5659,12 +5124,7 @@
                     }
                   }
                 },
-                "required": [
-                  "name",
-                  "host",
-                  "remoteRoot",
-                  "policyId"
-                ],
+                "required": ["name", "host", "remoteRoot", "policyId"],
                 "additionalProperties": false
               }
             }
@@ -5698,12 +5158,7 @@
                     },
                     "os": {
                       "type": "string",
-                      "enum": [
-                        "linux",
-                        "windows",
-                        "macos",
-                        "other"
-                      ]
+                      "enum": ["linux", "windows", "macos", "other"]
                     },
                     "principalTemplate": {
                       "type": "string"
@@ -5736,11 +5191,7 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": [
-                        "pending_host_key",
-                        "active",
-                        "disabled"
-                      ]
+                      "enum": ["pending_host_key", "active", "disabled"]
                     },
                     "hostKeys": {
                       "type": "array",
@@ -5760,23 +5211,14 @@
                           },
                           "status": {
                             "type": "string",
-                            "enum": [
-                              "trusted",
-                              "revoked"
-                            ]
+                            "enum": ["trusted", "revoked"]
                           },
                           "approvedAt": {
                             "nullable": true,
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "id",
-                          "algorithm",
-                          "fingerprintSha256",
-                          "status",
-                          "approvedAt"
-                        ],
+                        "required": ["id", "algorithm", "fingerprintSha256", "status", "approvedAt"],
                         "additionalProperties": false
                       }
                     },
@@ -5864,13 +5306,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5930,13 +5366,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -5996,13 +5426,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6062,13 +5486,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6128,13 +5546,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6194,13 +5606,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6211,9 +5617,7 @@
     },
     "/api/v1/targets/{id}": {
       "get": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "parameters": [
           {
             "schema": {
@@ -6254,12 +5658,7 @@
                     },
                     "os": {
                       "type": "string",
-                      "enum": [
-                        "linux",
-                        "windows",
-                        "macos",
-                        "other"
-                      ]
+                      "enum": ["linux", "windows", "macos", "other"]
                     },
                     "principalTemplate": {
                       "type": "string"
@@ -6292,11 +5691,7 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": [
-                        "pending_host_key",
-                        "active",
-                        "disabled"
-                      ]
+                      "enum": ["pending_host_key", "active", "disabled"]
                     },
                     "hostKeys": {
                       "type": "array",
@@ -6316,23 +5711,14 @@
                           },
                           "status": {
                             "type": "string",
-                            "enum": [
-                              "trusted",
-                              "revoked"
-                            ]
+                            "enum": ["trusted", "revoked"]
                           },
                           "approvedAt": {
                             "nullable": true,
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "id",
-                          "algorithm",
-                          "fingerprintSha256",
-                          "status",
-                          "approvedAt"
-                        ],
+                        "required": ["id", "algorithm", "fingerprintSha256", "status", "approvedAt"],
                         "additionalProperties": false
                       }
                     },
@@ -6420,13 +5806,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6486,13 +5866,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6552,13 +5926,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6618,13 +5986,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6684,13 +6046,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6750,13 +6106,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -6765,9 +6115,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "requestBody": {
           "required": true,
           "content": {
@@ -6789,9 +6137,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": [
-                          "{{user.username}}"
-                        ]
+                        "enum": ["{{user.username}}"]
                       },
                       {
                         "type": "string",
@@ -6825,10 +6171,7 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": [
-                      "active",
-                      "disabled"
-                    ]
+                    "enum": ["active", "disabled"]
                   }
                 },
                 "additionalProperties": false
@@ -6876,12 +6219,7 @@
                     },
                     "os": {
                       "type": "string",
-                      "enum": [
-                        "linux",
-                        "windows",
-                        "macos",
-                        "other"
-                      ]
+                      "enum": ["linux", "windows", "macos", "other"]
                     },
                     "principalTemplate": {
                       "type": "string"
@@ -6914,11 +6252,7 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": [
-                        "pending_host_key",
-                        "active",
-                        "disabled"
-                      ]
+                      "enum": ["pending_host_key", "active", "disabled"]
                     },
                     "hostKeys": {
                       "type": "array",
@@ -6938,23 +6272,14 @@
                           },
                           "status": {
                             "type": "string",
-                            "enum": [
-                              "trusted",
-                              "revoked"
-                            ]
+                            "enum": ["trusted", "revoked"]
                           },
                           "approvedAt": {
                             "nullable": true,
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "id",
-                          "algorithm",
-                          "fingerprintSha256",
-                          "status",
-                          "approvedAt"
-                        ],
+                        "required": ["id", "algorithm", "fingerprintSha256", "status", "approvedAt"],
                         "additionalProperties": false
                       }
                     },
@@ -7042,13 +6367,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7108,13 +6427,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7174,13 +6487,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7240,13 +6547,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7306,13 +6607,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7372,13 +6667,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7387,9 +6676,7 @@
         }
       },
       "delete": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "parameters": [
           {
             "schema": {
@@ -7410,9 +6697,7 @@
                 "schema": {
                   "type": "string",
                   "nullable": true,
-                  "enum": [
-                    null
-                  ]
+                  "enum": [null]
                 }
               }
             }
@@ -7471,13 +6756,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7537,13 +6816,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7603,13 +6876,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7669,13 +6936,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7735,13 +6996,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7801,13 +7056,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -7818,9 +7067,7 @@
     },
     "/api/v1/targets/{id}/host-keys": {
       "post": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "requestBody": {
           "required": true,
           "content": {
@@ -7836,9 +7083,7 @@
                         "pattern": "^(ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|rsa-sha2-512|rsa-sha2-256|ssh-rsa) [A-Za-z0-9+/]+={0,3}( [^\\r\\n]{0,200})?$"
                       }
                     },
-                    "required": [
-                      "publicKey"
-                    ],
+                    "required": ["publicKey"],
                     "additionalProperties": false
                   },
                   {
@@ -7861,10 +7106,7 @@
                         "pattern": "^SHA256:[A-Za-z0-9+/]{43}$"
                       }
                     },
-                    "required": [
-                      "algorithm",
-                      "fingerprintSha256"
-                    ],
+                    "required": ["algorithm", "fingerprintSha256"],
                     "additionalProperties": false
                   }
                 ]
@@ -7912,12 +7154,7 @@
                     },
                     "os": {
                       "type": "string",
-                      "enum": [
-                        "linux",
-                        "windows",
-                        "macos",
-                        "other"
-                      ]
+                      "enum": ["linux", "windows", "macos", "other"]
                     },
                     "principalTemplate": {
                       "type": "string"
@@ -7950,11 +7187,7 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": [
-                        "pending_host_key",
-                        "active",
-                        "disabled"
-                      ]
+                      "enum": ["pending_host_key", "active", "disabled"]
                     },
                     "hostKeys": {
                       "type": "array",
@@ -7974,23 +7207,14 @@
                           },
                           "status": {
                             "type": "string",
-                            "enum": [
-                              "trusted",
-                              "revoked"
-                            ]
+                            "enum": ["trusted", "revoked"]
                           },
                           "approvedAt": {
                             "nullable": true,
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "id",
-                          "algorithm",
-                          "fingerprintSha256",
-                          "status",
-                          "approvedAt"
-                        ],
+                        "required": ["id", "algorithm", "fingerprintSha256", "status", "approvedAt"],
                         "additionalProperties": false
                       }
                     },
@@ -8078,13 +7302,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8144,13 +7362,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8210,13 +7422,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8276,13 +7482,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8342,13 +7542,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8408,13 +7602,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8425,9 +7613,7 @@
     },
     "/api/v1/targets/{id}/host-keys/{keyId}": {
       "delete": {
-        "tags": [
-          "targets"
-        ],
+        "tags": ["targets"],
         "parameters": [
           {
             "schema": {
@@ -8478,12 +7664,7 @@
                     },
                     "os": {
                       "type": "string",
-                      "enum": [
-                        "linux",
-                        "windows",
-                        "macos",
-                        "other"
-                      ]
+                      "enum": ["linux", "windows", "macos", "other"]
                     },
                     "principalTemplate": {
                       "type": "string"
@@ -8516,11 +7697,7 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": [
-                        "pending_host_key",
-                        "active",
-                        "disabled"
-                      ]
+                      "enum": ["pending_host_key", "active", "disabled"]
                     },
                     "hostKeys": {
                       "type": "array",
@@ -8540,23 +7717,14 @@
                           },
                           "status": {
                             "type": "string",
-                            "enum": [
-                              "trusted",
-                              "revoked"
-                            ]
+                            "enum": ["trusted", "revoked"]
                           },
                           "approvedAt": {
                             "nullable": true,
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "id",
-                          "algorithm",
-                          "fingerprintSha256",
-                          "status",
-                          "approvedAt"
-                        ],
+                        "required": ["id", "algorithm", "fingerprintSha256", "status", "approvedAt"],
                         "additionalProperties": false
                       }
                     },
@@ -8644,13 +7812,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8710,13 +7872,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8776,13 +7932,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8842,13 +7992,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8908,13 +8052,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8974,13 +8112,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -8991,9 +8123,7 @@
     },
     "/api/v1/targets/{id}/sessions": {
       "post": {
-        "tags": [
-          "sessions"
-        ],
+        "tags": ["sessions"],
         "requestBody": {
           "required": true,
           "content": {
@@ -9003,11 +8133,7 @@
                 "properties": {
                   "kind": {
                     "type": "string",
-                    "enum": [
-                      "terminal",
-                      "files",
-                      "exec"
-                    ]
+                    "enum": ["terminal", "files", "exec"]
                   },
                   "workspaceId": {
                     "type": "string",
@@ -9028,16 +8154,11 @@
                         "maximum": 500
                       }
                     },
-                    "required": [
-                      "cols",
-                      "rows"
-                    ],
+                    "required": ["cols", "rows"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "kind"
-                ],
+                "required": ["kind"],
                 "additionalProperties": false
               }
             }
@@ -9070,17 +8191,11 @@
                     },
                     "kind": {
                       "type": "string",
-                      "enum": [
-                        "terminal",
-                        "files",
-                        "exec"
-                      ]
+                      "enum": ["terminal", "files", "exec"]
                     },
                     "state": {
                       "type": "string",
-                      "enum": [
-                        "AUTHORIZED"
-                      ]
+                      "enum": ["AUTHORIZED"]
                     },
                     "streamUrl": {
                       "type": "string"
@@ -9163,13 +8278,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9229,13 +8338,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9295,13 +8398,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9361,13 +8458,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9427,13 +8518,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9493,13 +8578,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9510,9 +8589,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "tags": [
-          "sessions"
-        ],
+        "tags": ["sessions"],
         "responses": {
           "200": {
             "description": "Default Response",
@@ -9533,11 +8610,7 @@
                           },
                           "kind": {
                             "type": "string",
-                            "enum": [
-                              "terminal",
-                              "files",
-                              "exec"
-                            ]
+                            "enum": ["terminal", "files", "exec"]
                           },
                           "state": {
                             "type": "string"
@@ -9584,9 +8657,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "items"
-                  ],
+                  "required": ["items"],
                   "additionalProperties": false
                 }
               }
@@ -9646,13 +8717,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9712,13 +8777,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9778,13 +8837,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9844,13 +8897,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9910,13 +8957,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9976,13 +9017,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -9993,9 +9028,7 @@
     },
     "/api/v1/sessions/{id}": {
       "delete": {
-        "tags": [
-          "sessions"
-        ],
+        "tags": ["sessions"],
         "parameters": [
           {
             "schema": {
@@ -10023,11 +9056,7 @@
                     },
                     "kind": {
                       "type": "string",
-                      "enum": [
-                        "terminal",
-                        "files",
-                        "exec"
-                      ]
+                      "enum": ["terminal", "files", "exec"]
                     },
                     "state": {
                       "type": "string"
@@ -10129,13 +9158,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -10195,13 +9218,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -10261,13 +9278,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -10327,13 +9338,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -10393,13 +9398,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -10459,13 +9458,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -10476,9 +9469,7 @@
     },
     "/internal/v1/tickets:redeem": {
       "post": {
-        "tags": [
-          "internal"
-        ],
+        "tags": ["internal"],
         "requestBody": {
           "required": true,
           "content": {
@@ -10496,10 +9487,7 @@
                     "maxLength": 256
                   }
                 },
-                "required": [
-                  "ticket",
-                  "origin"
-                ],
+                "required": ["ticket", "origin"],
                 "additionalProperties": false
               }
             }
@@ -10520,11 +9508,7 @@
                     },
                     "kind": {
                       "type": "string",
-                      "enum": [
-                        "terminal",
-                        "files",
-                        "exec"
-                      ]
+                      "enum": ["terminal", "files", "exec"]
                     },
                     "expiresAt": {
                       "type": "string"
@@ -10540,10 +9524,7 @@
                           "type": "number"
                         }
                       },
-                      "required": [
-                        "cols",
-                        "rows"
-                      ],
+                      "required": ["cols", "rows"],
                       "additionalProperties": false
                     },
                     "user": {
@@ -10558,10 +9539,7 @@
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "id",
-                        "username"
-                      ],
+                      "required": ["id", "username"],
                       "additionalProperties": false
                     },
                     "target": {
@@ -10583,12 +9561,7 @@
                         },
                         "os": {
                           "type": "string",
-                          "enum": [
-                            "linux",
-                            "windows",
-                            "macos",
-                            "other"
-                          ]
+                          "enum": ["linux", "windows", "macos", "other"]
                         },
                         "principal": {
                           "type": "string"
@@ -10674,10 +9647,7 @@
                             "type": "string"
                           }
                         },
-                        "required": [
-                          "algorithm",
-                          "fingerprintSha256"
-                        ],
+                        "required": ["algorithm", "fingerprintSha256"],
                         "additionalProperties": false
                       }
                     },
@@ -10699,12 +9669,7 @@
                           "additionalProperties": {}
                         }
                       },
-                      "required": [
-                        "provider",
-                        "method",
-                        "providerPath",
-                        "metadata"
-                      ],
+                      "required": ["provider", "method", "providerPath", "metadata"],
                       "additionalProperties": false
                     }
                   },
@@ -10778,13 +9743,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -10844,13 +9803,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -10910,13 +9863,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -10976,13 +9923,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11042,13 +9983,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11108,13 +10043,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11125,9 +10054,7 @@
     },
     "/internal/v1/sessions/{id}/state": {
       "post": {
-        "tags": [
-          "internal"
-        ],
+        "tags": ["internal"],
         "requestBody": {
           "required": true,
           "content": {
@@ -11137,11 +10064,7 @@
                 "properties": {
                   "state": {
                     "type": "string",
-                    "enum": [
-                      "ACTIVE",
-                      "CLOSED",
-                      "FAILED"
-                    ]
+                    "enum": ["ACTIVE", "CLOSED", "FAILED"]
                   },
                   "reason": {
                     "type": "string",
@@ -11156,11 +10079,7 @@
                     "properties": {
                       "outcome": {
                         "type": "string",
-                        "enum": [
-                          "match",
-                          "mismatch",
-                          "unknown"
-                        ]
+                        "enum": ["match", "mismatch", "unknown"]
                       },
                       "algorithm": {
                         "type": "string",
@@ -11171,11 +10090,7 @@
                         "maxLength": 80
                       }
                     },
-                    "required": [
-                      "outcome",
-                      "algorithm",
-                      "fingerprintSha256"
-                    ],
+                    "required": ["outcome", "algorithm", "fingerprintSha256"],
                     "additionalProperties": false
                   },
                   "bytesIn": {
@@ -11189,11 +10104,7 @@
                     "maximum": 9007199254740991
                   }
                 },
-                "required": [
-                  "state",
-                  "reason",
-                  "brokerInstance"
-                ],
+                "required": ["state", "reason", "brokerInstance"],
                 "additionalProperties": false
               }
             }
@@ -11223,9 +10134,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "state"
-                  ],
+                  "required": ["state"],
                   "additionalProperties": false
                 }
               }
@@ -11285,13 +10194,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11351,13 +10254,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11417,13 +10314,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11483,13 +10374,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11549,13 +10434,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11615,13 +10494,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11632,9 +10505,7 @@
     },
     "/api/v1/workspaces/{id}/start": {
       "post": {
-        "tags": [
-          "workspaces"
-        ],
+        "tags": ["workspaces"],
         "parameters": [
           {
             "schema": {
@@ -11696,16 +10567,10 @@
                       "properties": {
                         "profile": {
                           "type": "string",
-                          "enum": [
-                            "small",
-                            "standard",
-                            "large"
-                          ]
+                          "enum": ["small", "standard", "large"]
                         }
                       },
-                      "required": [
-                        "profile"
-                      ],
+                      "required": ["profile"],
                       "additionalProperties": false
                     },
                     "git": {
@@ -11724,10 +10589,7 @@
                           "pattern": "^[A-Za-z0-9._/-]+$"
                         }
                       },
-                      "required": [
-                        "url",
-                        "ref"
-                      ],
+                      "required": ["url", "ref"],
                       "additionalProperties": false
                     },
                     "lastActiveAt": {
@@ -11819,13 +10681,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11885,13 +10741,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -11951,13 +10801,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12017,13 +10861,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12083,13 +10921,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12100,9 +10932,7 @@
     },
     "/api/v1/workspaces/{id}/stop": {
       "post": {
-        "tags": [
-          "workspaces"
-        ],
+        "tags": ["workspaces"],
         "parameters": [
           {
             "schema": {
@@ -12164,16 +10994,10 @@
                       "properties": {
                         "profile": {
                           "type": "string",
-                          "enum": [
-                            "small",
-                            "standard",
-                            "large"
-                          ]
+                          "enum": ["small", "standard", "large"]
                         }
                       },
-                      "required": [
-                        "profile"
-                      ],
+                      "required": ["profile"],
                       "additionalProperties": false
                     },
                     "git": {
@@ -12192,10 +11016,7 @@
                           "pattern": "^[A-Za-z0-9._/-]+$"
                         }
                       },
-                      "required": [
-                        "url",
-                        "ref"
-                      ],
+                      "required": ["url", "ref"],
                       "additionalProperties": false
                     },
                     "lastActiveAt": {
@@ -12287,13 +11108,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12353,13 +11168,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12419,13 +11228,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12485,13 +11288,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12551,13 +11348,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12568,9 +11359,7 @@
     },
     "/api/v1/workspaces/{id}/events": {
       "get": {
-        "tags": [
-          "workspaces"
-        ],
+        "tags": ["workspaces"],
         "parameters": [
           {
             "schema": {
@@ -12638,13 +11427,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12704,13 +11487,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12770,13 +11547,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12836,13 +11607,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -12902,13 +11667,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -13165,9 +11924,7 @@
     },
     "/auth/login": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "parameters": [
           {
             "schema": {
@@ -13234,13 +11991,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -13300,13 +12051,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -13366,13 +12111,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -13383,9 +12122,7 @@
     },
     "/auth/callback": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "parameters": [
           {
             "schema": {
@@ -13470,13 +12207,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -13536,13 +12267,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -13602,13 +12327,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -13619,9 +12338,7 @@
     },
     "/auth/logout": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "204": {
             "description": "Default Response",
@@ -13630,9 +12347,7 @@
                 "schema": {
                   "type": "string",
                   "nullable": true,
-                  "enum": [
-                    null
-                  ]
+                  "enum": [null]
                 }
               }
             }
@@ -13691,13 +12406,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -13757,13 +12466,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
@@ -13823,13 +12526,7 @@
                       "additionalProperties": {}
                     }
                   },
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code",
-                    "requestId"
-                  ],
+                  "required": ["type", "title", "status", "code", "requestId"],
                   "additionalProperties": false
                 }
               }
