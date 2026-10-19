@@ -33,6 +33,8 @@ export interface AuthRouteOptions {
   readonly redirectUrl: string;
   readonly publicOrigin: string;
   readonly cookieSecure: boolean;
+  /** Called after a logout, e.g. to close the session's proxied WebSockets. */
+  readonly onLogout?: (sessionId: string) => void;
 }
 
 function readTransaction(request: FastifyRequest): LoginTransaction | undefined {
@@ -115,7 +117,10 @@ export function authRoutes(app: FastifyInstance, options: AuthRouteOptions): voi
     schema: { tags: ['auth'], response: { 204: z.null(), ...errors } },
     config: { permission: 'authenticated', audit: true, rateLimit: authLimit },
     handler: async (request, reply) => {
-      if (request.webSession !== undefined) await options.auth.logout(request.webSession, request.id);
+      if (request.webSession !== undefined) {
+        await options.auth.logout(request.webSession, request.id);
+        options.onLogout?.(request.webSession.sessionId);
+      }
       return clearSession(reply).code(204).send(null);
     },
   });

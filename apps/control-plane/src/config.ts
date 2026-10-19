@@ -42,6 +42,33 @@ const Config = z
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug']).default('info'),
     SHUTDOWN_GRACE_MS: z.coerce.number().int().min(0).default(30_000),
     RUNTIME_KIND: z.enum(['kubernetes', 'docker', 'local']).default('docker'),
+
+    // Workspace runtimes (Phase 05).
+    /** Docker Engine socket; defaults to the platform's (named pipe on Windows, /var/run/docker.sock). */
+    DOCKER_SOCKET: z.string().min(1).optional(),
+    /** Bridge network for workspace containers (Docker). */
+    RUNTIME_NETWORK: z
+      .string()
+      .regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$/)
+      .default('qews-workspaces'),
+    /** published: IDE port on 127.0.0.1 (control plane on the host); network: shared Docker network. */
+    RUNTIME_ENDPOINT_MODE: z.enum(['published', 'network']).default('published'),
+    K8S_NAMESPACE: z
+      .string()
+      .regex(/^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/)
+      .default('qews-workspaces'),
+    K8S_STORAGE_CLASS: z.string().min(1).optional(),
+    /** How the runtime reaches the control plane (QE_CONTROL_PLANE_URL inside the IDE). */
+    CONTROL_PLANE_INTERNAL_URL: httpUrl.optional(),
+    WORKSPACE_START_TIMEOUT_SEC: z.coerce.number().int().min(10).max(1800).default(180),
+    WORKSPACE_IDLE_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(5)
+      .max(7 * 24 * 60)
+      .default(60),
+    MAX_RUNNING_WORKSPACES_PER_USER: z.coerce.number().int().min(1).max(50).default(2),
+    RECONCILE_INTERVAL_SEC: z.coerce.number().int().min(5).max(600).default(30),
     BUILD_VERSION: z.string().default('0.0.0-dev'),
     BUILD_COMMIT: z.string().default('unknown'),
     BUILD_TIME: z.string().default('unknown'),

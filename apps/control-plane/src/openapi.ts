@@ -1,5 +1,6 @@
 import type { SessionAuth } from './auth/session-auth.js';
 import { loadConfig } from './config.js';
+import { WorkspaceEvents, type WorkspaceLifecycle } from './workspace-lifecycle.js';
 import { buildServer } from './server.js';
 import type { WorkspaceService } from './workspace-service.js';
 
@@ -41,8 +42,14 @@ export async function generateOpenApi(): Promise<Record<string, unknown>> {
     finishLogin: unused,
     logout: unused,
   };
+  const lifecycle = {
+    events: new WorkspaceEvents(),
+    start: unused,
+    stop: unused,
+  } as unknown as WorkspaceLifecycle;
   const app = await buildServer(config, {
     workspaces,
+    runtime: { lifecycle, lookup: unused, touch: unused },
     sessions: {
       auth,
       redirectUrl: 'https://qe-workspace.example/auth/callback',

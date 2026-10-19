@@ -11,6 +11,7 @@ import { qeCorePreferenceSchema } from '../common/qe-preferences';
 import { QeAboutDialog } from './qe-about-dialog';
 import { QeCommandContribution } from './qe-commands';
 import { QeStatusBarContribution } from './qe-status-bar';
+import { QeUserStatusContribution } from './qe-user-status';
 import { QeWelcomeWidget } from './qe-welcome-widget';
 
 /** Bindings shared by the browser and Electron frontends. */
@@ -24,6 +25,9 @@ export function bindQeCoreFrontend(bind: interfaces.Bind, rebind: interfaces.Reb
   bind(CommandContribution).toService(QeCommandContribution);
   bind(QeStatusBarContribution).toSelf().inSingletonScope();
   bind(FrontendApplicationContribution).toService(QeStatusBarContribution);
+  bind(QeUserStatusContribution).toSelf().inSingletonScope();
+  bind(FrontendApplicationContribution).toService(QeUserStatusContribution);
+  bind(CommandContribution).toService(QeUserStatusContribution);
   bind(PreferenceContribution).toConstantValue({ schema: qeCorePreferenceSchema });
   // Branding: Theia's About dialog (titled with the application name) and welcome page, with QE content.
   rebind(AboutDialog).to(QeAboutDialog).inSingletonScope();

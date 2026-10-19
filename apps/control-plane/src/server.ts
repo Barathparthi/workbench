@@ -17,6 +17,9 @@ import {
   type Principal,
 } from './auth.js';
 import { authRoutes, meRoutes, type AuthRouteOptions } from './routes/auth.js';
+import { lifecycleRoutes } from './routes/lifecycle.js';
+import { registerWorkspaceRouter, type RouteLookup } from './router/workspace-router.js';
+import type { WorkspaceLifecycle } from './workspace-lifecycle.js';
 import type { Config } from './config.js';
 import { errorHandler, notFoundHandler } from './errors.js';
 import { loggerOptions } from './logger.js';
@@ -32,6 +35,14 @@ export interface ServerDeps {
   readonly devPrincipal?: Principal | undefined;
   /** AUTH_MODE=oidc: browser sessions and the login routes. Takes precedence over devPrincipal. */
   readonly sessions?: (AuthRouteOptions & { readonly cookieSecret: string }) | undefined;
+  /** Workspace runtimes (Phase 05): lifecycle routes and the /w/{id}/ router. Absent in local mode. */
+  readonly runtime?:
+    | {
+        readonly lifecycle: WorkspaceLifecycle;
+        readonly lookup: RouteLookup;
+        readonly touch: (workspaceId: string) => Promise<void>;
+      }
+    | undefined;
   /** Test hook: sees every registered route (the authz matrix test enumerates them). */
   readonly onRouteRegistered?: (route: RouteOptions) => void;
   /** Test hook: where logs go. */
@@ -96,8 +107,28 @@ export async function buildServer(config: Config, deps: ServerDeps): Promise<Fas
   app.addHook('onRequest', authorize(authenticator));
 
   healthRoutes(app, deps.health);
-  if (deps.sessions !== undefined) authRoutes(app, deps.sessions);
   meRoutes(app);
   workspaceRoutes(app, deps.workspaces);
+
+  let closeSession: ((sessionId: string) => void) | undefined;
+  if (deps.runtime !== undefined) {
+    lifecycleRoutes(app, deps.runtime.lifecycle, deps.workspaces);
+    const router = await registerWorkspaceRouter(app, {
+      lookup: deps.runtime.lookup,
+      touch: deps.runtime.touch,
+      authenticator,
+      allowedOrigins: config.ALLOWED_ORIGINS,
+      log: app.log,
+    });
+    deps.runtime.lifecycle.events.onAny((e) => {
+      if (e.state !== 'RUNNING') router.closeWorkspace(e.id);
+    });
+    closeSession = (sessionId) => {
+      router.closeSession(sessionId);
+    };
+  }
+  if (deps.sessions !== undefined) {
+    authRoutes(app, { ...deps.sessions, ...(closeSession !== undefined && { onLogout: closeSession }) });
+  }
   return app;
 }

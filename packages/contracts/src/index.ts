@@ -21,6 +21,7 @@ export {
   WorkspaceIdParams,
   WorkspaceList,
   WorkspaceName,
+  WorkspaceStateEvent,
   WorkspaceTemplate,
   WorkspaceTemplateList,
 } from './workspaces.js';
