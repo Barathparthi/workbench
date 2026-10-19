@@ -9,6 +9,10 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ### Added
 
+- Phase 05 workspace runtime and routing: `@qe/runtime-providers` (Docker, Kubernetes), workspace start/stop/events
+  API with quota and audit, reconciler with idle stop, `/w/{id}/` HTTP + WebSocket router with membership checks and
+  cookie scoping, runtime removal on delete, signed-in user in the IDE status bar, setuid-free runtime image.
+
 - Phase 04 development identity and RBAC: `@qe/rbac` permission matrix and group → role mapping; OIDC login
   (code + PKCE) with server-side sessions, idle/absolute expiry and session-bound CSRF tokens; authorization on every
   route with audited denials; `/api/v1/me`; migration `0003_web_sessions`; Keycloak dev realm in compose; authz
