@@ -28,6 +28,12 @@ export const AuditMetadata = {
   ACCESS_DENIED: z.strictObject({ permission: short, method: short, route: short }),
   WORKSPACE_CREATE: z.strictObject({ name: short, templateId: short }),
   WORKSPACE_DELETE: z.strictObject({ name: short }),
+  // Phase 05 — runtime lifecycle. `reason` says who or what stopped it; failures carry a short code.
+  WORKSPACE_START: z.strictObject({ name: short, profile: short }),
+  WORKSPACE_STOP: z.strictObject({
+    name: short,
+    reason: z.enum(['user', 'idle', 'runtime_lost', 'start_failed', 'stuck_stopping']),
+  }),
   WORKSPACE_MEMBER_CHANGE: z.strictObject({
     memberId: z.uuid(),
     role: z.enum(['owner', 'editor', 'viewer', 'removed']),

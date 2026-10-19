@@ -112,4 +112,53 @@ export class WorkspacesRepo {
         .executeTakeFirst()) ?? null
     );
   }
+
+  /** Without a membership check — for background jobs only (lifecycle, reconciler). */
+  async findById(id: string): Promise<WorkspaceRow | undefined> {
+    return this.db.selectFrom('workspaces').selectAll().where('id', '=', id).executeTakeFirst();
+  }
+
+  /** Workspaces counting against the per-user running quota. */
+  async countActiveForOwner(ownerId: string): Promise<number> {
+    const r = await this.db
+      .selectFrom('workspaces')
+      .select((eb) => eb.fn.countAll<string>().as('n'))
+      .where('owner_id', '=', ownerId)
+      .where('state', 'in', ['STARTING', 'RUNNING'])
+      .executeTakeFirstOrThrow();
+    return Number(r.n);
+  }
+
+  /** Records where the runtime answers (provider endpoint) once it is RUNNING. */
+  async setRuntimeRef(id: string, runtimeRef: string | null, at: Date): Promise<void> {
+    await this.db
+      .updateTable('workspaces')
+      .set({ runtime_ref: runtimeRef, last_active_at: at, updated_at: at })
+      .where('id', '=', id)
+      .execute();
+  }
+
+  async touchActivity(id: string, at: Date): Promise<void> {
+    await this.db.updateTable('workspaces').set({ last_active_at: at }).where('id', '=', id).execute();
+  }
+
+  /** What the router needs for one request: state and endpoint, only if `userId` is a member. */
+  async routeFor(
+    id: string,
+    userId: string,
+  ): Promise<{ state: WorkspaceState; runtime_ref: string | null } | undefined> {
+    return this.db
+      .selectFrom('workspaces')
+      .innerJoin('workspace_members', 'workspace_members.workspace_id', 'workspaces.id')
+      .select(['workspaces.state', 'workspaces.runtime_ref'])
+      .where('workspaces.id', '=', id)
+      .where('workspace_members.user_id', '=', userId)
+      .where('workspaces.state', '<>', 'DELETED')
+      .executeTakeFirst();
+  }
+
+  /** Every workspace the reconciler may need to act on. */
+  async listForReconcile(): Promise<WorkspaceRow[]> {
+    return this.db.selectFrom('workspaces').selectAll().where('state', '<>', 'DELETED').execute();
+  }
 }

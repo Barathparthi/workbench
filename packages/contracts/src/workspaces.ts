@@ -79,3 +79,11 @@ export type WorkspaceTemplate = z.infer<typeof WorkspaceTemplate>;
 export const WorkspaceTemplateList = z.object({ items: z.array(WorkspaceTemplate) });
 
 export const WorkspaceIdParams = z.strictObject({ id: WorkspaceId });
+
+/** Server-sent event on `GET /api/v1/workspaces/{id}/events` (Phase 05 §5.4). */
+export const WorkspaceStateEvent = z.object({
+  id: WorkspaceId,
+  state: z.enum(WorkspaceStates),
+  reason: z.string().nullable(),
+});
+export type WorkspaceStateEvent = z.infer<typeof WorkspaceStateEvent>;
