@@ -131,6 +131,8 @@ export function createWorkspaceService(
       }
       await db.transaction().execute(async (tx) => {
         const repo = new WorkspacesRepo(tx);
+        const deleting = await repo.transition(id, current.state, 'DELETING', 'deleted by owner');
+        if (deleting === null) throw new DomainError('CONFLICT', 'the workspace changed state; retry');
         // Without a runtime provider there is nothing to remove, so DELETING completes at once.
         if (finishDelete === undefined) await repo.transition(id, 'DELETING', 'DELETED');
         await writeAuditEvent(tx, {
