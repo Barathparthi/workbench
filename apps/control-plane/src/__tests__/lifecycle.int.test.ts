@@ -87,7 +87,8 @@ beforeEach(() => {
   lifecycle = createWorkspaceLifecycle(
     t.db,
     provider,
-    { startTimeoutMs: 2_000, maxRunningPerUser: 2, controlPlaneUrl: 'http://cp.internal', pollMs: 10 },
+    // Tests share users and leave workspaces running: the quota has its own test with its own lifecycle.
+    { startTimeoutMs: 2_000, maxRunningPerUser: 1000, controlPlaneUrl: 'http://cp.internal', pollMs: 10 },
     () => Promise.resolve(true),
   );
   service = createWorkspaceService(t.db, 'docker', (id) => lifecycle.finishDelete(id));
@@ -171,10 +172,21 @@ describe('start and stop', () => {
     const a = await newWorkspace(owner);
     const b = await newWorkspace(owner);
     const c = await newWorkspace(owner);
-    await lifecycle.start(ctx(owner), a.id);
-    await lifecycle.start(ctx(owner), b.id);
-    await expect(lifecycle.start(ctx(owner), c.id)).rejects.toMatchObject({ code: 'QUOTA_EXCEEDED' });
-    await lifecycle.idle();
+    const limited = createWorkspaceLifecycle(
+      t.db,
+      provider,
+      { startTimeoutMs: 2_000, maxRunningPerUser: 2, controlPlaneUrl: 'http://cp', pollMs: 10 },
+      () => Promise.resolve(true),
+    );
+    await limited.start(ctx(owner), a.id);
+    await limited.start(ctx(owner), b.id);
+    await expect(limited.start(ctx(owner), c.id)).rejects.toMatchObject({ code: 'QUOTA_EXCEEDED' });
+    await limited.idle();
+    // Stopping one frees a slot.
+    await limited.stop(ctx(owner), a.id);
+    await limited.idle();
+    expect((await limited.start(ctx(owner), c.id)).state).toBe('STARTING');
+    await limited.idle();
   });
 
   it('hides workspaces from non-members and refuses viewers', async () => {
