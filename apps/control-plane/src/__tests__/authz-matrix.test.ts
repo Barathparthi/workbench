@@ -10,7 +10,9 @@ import { describe, expect, it } from 'vitest';
 
 import { makePrincipal, sha256, type AuthInput } from '../auth.js';
 import type { SessionAuth } from '../auth/session-auth.js';
+import type { RemoteSessionService } from '../remote-session-service.js';
 import { buildServer } from '../server.js';
+import type { TargetService } from '../target-service.js';
 import { WorkspaceEvents, type WorkspaceLifecycle } from '../workspace-lifecycle.js';
 import { fakeHealth, fakeWorkspaces, logSink, testConfig } from './fixtures.js';
 
@@ -71,6 +73,10 @@ const app = await buildServer(testConfig({ AUTH_MODE: 'oidc' }), {
     lookup: () => Promise.resolve(undefined),
     touch: () => Promise.resolve(),
   },
+  remote: {
+    targets: new Proxy({}, { get: () => notFound }) as unknown as TargetService,
+    sessions: new Proxy({}, { get: () => notFound }) as unknown as RemoteSessionService,
+  },
   onRouteRegistered: (r) => routes.push(r),
 });
 await app.ready();
@@ -85,7 +91,9 @@ const cases = routes
     })),
   );
 
-const concrete = (url: string) => url.replace(/:[a-zA-Z]+/g, '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d6f');
+// `:param` becomes an id; `::` is Fastify's escape for a literal colon (e.g. `tickets::redeem`).
+const concrete = (url: string) =>
+  url.replace(/(?<!:):[a-zA-Z]+/g, '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d6f').replaceAll('::', ':');
 
 describe('authorization matrix', () => {
   it('found the routes to check', () => {
@@ -104,6 +112,13 @@ describe('authorization matrix', () => {
           ...(cookie && { cookie: `qews_session=${cookie}` }),
         },
       });
+
+    if (permission === 'internal') {
+      it('refuses every browser session (service token only)', async () => {
+        for (const persona of [undefined, ...personas]) expect((await inject(persona)).statusCode).toBe(401);
+      });
+      return;
+    }
 
     if (permission === 'public') {
       it('is reachable without a session', async () => {

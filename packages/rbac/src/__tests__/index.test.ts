@@ -35,8 +35,8 @@ describe('permissions', () => {
     expect(isRoutePermission(p)).toBe(true);
   });
 
-  it('accepts authenticated and public as route permissions only', () => {
-    for (const p of ['authenticated', 'public']) {
+  it('accepts authenticated, public and internal as route permissions only', () => {
+    for (const p of ['authenticated', 'public', 'internal']) {
       expect(isPermission(p)).toBe(false);
       expect(isRoutePermission(p)).toBe(true);
     }

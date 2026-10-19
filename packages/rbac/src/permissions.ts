@@ -29,12 +29,15 @@ export const Permissions = [
 
 export type Permission = (typeof Permissions)[number];
 
-/** What a route may declare: a permission, any signed-in user, or no authentication at all. */
-export type RoutePermission = Permission | 'authenticated' | 'public';
+/**
+ * What a route may declare: a permission, any signed-in user, no authentication at all, or `internal` — service to
+ * service (broker → control plane) with the internal service token, never a browser session.
+ */
+export type RoutePermission = Permission | 'authenticated' | 'public' | 'internal';
 
 const known = new Set<string>(Permissions);
 
 export const isPermission = (value: string): value is Permission => known.has(value);
 
 export const isRoutePermission = (value: string): value is RoutePermission =>
-  value === 'authenticated' || value === 'public' || isPermission(value);
+  value === 'authenticated' || value === 'public' || value === 'internal' || isPermission(value);

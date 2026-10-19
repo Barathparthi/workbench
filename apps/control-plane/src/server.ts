@@ -18,6 +18,9 @@ import {
 } from './auth.js';
 import { authRoutes, meRoutes, type AuthRouteOptions } from './routes/auth.js';
 import { lifecycleRoutes } from './routes/lifecycle.js';
+import { targetRoutes } from './routes/targets.js';
+import type { RemoteSessionService } from './remote-session-service.js';
+import type { TargetService } from './target-service.js';
 import { registerWorkspaceRouter, type RouteLookup } from './router/workspace-router.js';
 import type { WorkspaceLifecycle } from './workspace-lifecycle.js';
 import type { Config } from './config.js';
@@ -43,6 +46,8 @@ export interface ServerDeps {
         readonly touch: (workspaceId: string) => Promise<void>;
       }
     | undefined;
+  /** Remote targets, policies and sessions (Phase 07). */
+  readonly remote?: { readonly targets: TargetService; readonly sessions: RemoteSessionService } | undefined;
   /** Test hook: sees every registered route (the authz matrix test enumerates them). */
   readonly onRouteRegistered?: (route: RouteOptions) => void;
   /** Test hook: where logs go. */
@@ -104,11 +109,12 @@ export async function buildServer(config: Config, deps: ServerDeps): Promise<Fas
     deps.sessions?.auth ??
     (deps.devPrincipal === undefined ? noAuthenticator : devAuthenticator(deps.devPrincipal));
   // onRequest: refuse unauthenticated or unauthorized callers before their body is even parsed.
-  app.addHook('onRequest', authorize(authenticator));
+  app.addHook('onRequest', authorize(authenticator, config.INTERNAL_SERVICE_TOKEN));
 
   healthRoutes(app, deps.health);
   meRoutes(app);
   workspaceRoutes(app, deps.workspaces);
+  if (deps.remote !== undefined) targetRoutes(app, deps.remote.targets, deps.remote.sessions);
 
   let closeSession: ((sessionId: string) => void) | undefined;
   if (deps.runtime !== undefined) {

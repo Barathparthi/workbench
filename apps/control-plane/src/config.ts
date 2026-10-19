@@ -1,3 +1,4 @@
+import { isValidCidr } from '@qe/policy';
 import { isKnownRole, parseRoleMappings, type RoleMappings } from '@qe/rbac';
 import { z } from 'zod';
 
@@ -69,6 +70,19 @@ const Config = z
       .default(60),
     MAX_RUNNING_WORKSPACES_PER_USER: z.coerce.number().int().min(1).max(50).default(2),
     RECONCILE_INTERVAL_SEC: z.coerce.number().int().min(5).max(600).default(30),
+
+    // Remote targets (Phase 07).
+    /**
+     * Networks no target may resolve to, on top of the built-in denials: cluster pod/service CIDRs, the platform's
+     * own networks. Comma-separated CIDRs.
+     */
+    TARGET_DENY_CIDRS: csv
+      .pipe(z.array(z.string().refine(isValidCidr, { message: 'invalid CIDR' })))
+      .default([]),
+    /** Lifetime of a session ticket (single use). */
+    SESSION_TICKET_TTL_SEC: z.coerce.number().int().min(10).max(300).default(60),
+    /** Shared secret the broker presents on /internal/* (until mTLS, Phase 16). Internal routes are off without it. */
+    INTERNAL_SERVICE_TOKEN: z.string().min(32).optional(),
     BUILD_VERSION: z.string().default('0.0.0-dev'),
     BUILD_COMMIT: z.string().default('unknown'),
     BUILD_TIME: z.string().default('unknown'),

@@ -26,6 +26,23 @@ export const AuditMetadata = {
   AUTH_LOGOUT: z.strictObject({}),
   AUTH_SESSION_EXPIRED: z.strictObject({ reason: z.enum(['idle', 'absolute', 'user_disabled']) }),
   ACCESS_DENIED: z.strictObject({ permission: short, method: short, route: short }),
+  // Phase 07 — targets, policies, credentials (names and ids only; never secret material).
+  TARGET_CREATE: z.strictObject({ name: short, host: short, policyId: z.uuid() }),
+  TARGET_UPDATE: z.strictObject({ name: short, fields: z.array(short).max(20) }),
+  TARGET_DELETE: z.strictObject({ name: short }),
+  TARGET_HOST_KEY_APPROVED: z.strictObject({ algorithm: short, fingerprintSha256: short }),
+  TARGET_HOST_KEY_REVOKED: z.strictObject({ fingerprintSha256: short }),
+  POLICY_CREATE: z.strictObject({ name: short }),
+  POLICY_UPDATE: z.strictObject({ name: short, version: z.number().int() }),
+  CREDENTIAL_REF_CREATE: z.strictObject({ provider: short, method: short }),
+  SSRF_BLOCKED: z.strictObject({ host: short, reason: short }),
+  REMOTE_CONNECT_ALLOWED: z.strictObject({
+    targetId: z.uuid(),
+    kind: short,
+    policyVersion: z.number().int(),
+  }),
+  REMOTE_CONNECT_DENIED: z.strictObject({ targetId: z.uuid(), kind: short, reason: short }),
+  REMOTE_SESSION_CLOSED: z.strictObject({ reason: short }),
   WORKSPACE_CREATE: z.strictObject({ name: short, templateId: short }),
   WORKSPACE_DELETE: z.strictObject({ name: short }),
   // Phase 05 — runtime lifecycle. `reason` says who or what stopped it; failures carry a short code.

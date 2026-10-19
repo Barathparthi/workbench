@@ -1,6 +1,6 @@
 import type { ColumnType, Generated } from 'kysely';
 
-import type { WorkspaceState } from '@qe/domain';
+import type { SessionState, WorkspaceState } from '@qe/domain';
 
 /** Kysely table types for the tables the control plane uses (migrations/0001_init.sql). */
 type Timestamp = ColumnType<Date, Date | string | undefined, Date | string>;
@@ -96,7 +96,96 @@ export interface WebSessionsTable {
   expires_at: Date;
 }
 
+/** Phase 07: remote targets and sessions (migrations/0001_init.sql). */
+export interface ConnectionPoliciesTable {
+  id: string;
+  name: string;
+  allowed_roles: string[];
+  allowed_cidrs: string[];
+  allowed_ports: number[];
+  capabilities: string[];
+  idle_timeout_sec: number;
+  max_session_sec: number;
+  max_sessions_per_user: number;
+  require_jump_host: Generated<boolean>;
+  version: Generated<number>;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface CredentialRefsTable {
+  id: string;
+  provider: string;
+  method: string;
+  provider_path: string;
+  metadata_json: Json;
+  created_at: Timestamp;
+}
+
+export interface TargetsTable {
+  id: string;
+  name: string;
+  description: string | null;
+  host: string;
+  port: number;
+  os: 'linux' | 'windows' | 'macos' | 'other';
+  principal_template: string;
+  remote_root: string;
+  credential_ref_id: string | null;
+  policy_id: string;
+  jump_host_id: string | null;
+  tags: string[];
+  status: 'pending_host_key' | 'active' | 'disabled';
+  created_by: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface TargetHostKeysTable {
+  id: string;
+  target_id: string;
+  algorithm: string;
+  fingerprint_sha256: string;
+  public_key: string;
+  status: 'trusted' | 'revoked';
+  approved_by: string | null;
+  approved_at: Date | null;
+}
+
+export interface SessionsTable {
+  id: string;
+  user_id: string;
+  workspace_id: string | null;
+  target_id: string | null;
+  kind: 'terminal' | 'files' | 'exec';
+  state: SessionState;
+  close_reason: string | null;
+  broker_instance: string | null;
+  policy_version: number | null;
+  client_ip: string | null;
+  created_at: Timestamp;
+  activated_at: Date | null;
+  last_activity_at: Date | null;
+  expires_at: Date;
+  closed_at: Date | null;
+}
+
+export interface SessionTicketsTable {
+  ticket_hash: Buffer;
+  session_id: string;
+  user_id: string;
+  origin: string;
+  expires_at: Date;
+  redeemed_at: Date | null;
+}
+
 export interface Database {
+  connection_policies: ConnectionPoliciesTable;
+  credential_refs: CredentialRefsTable;
+  targets: TargetsTable;
+  target_host_keys: TargetHostKeysTable;
+  sessions: SessionsTable;
+  session_tickets: SessionTicketsTable;
   users: UsersTable;
   roles: RolesTable;
   user_roles: UserRolesTable;
