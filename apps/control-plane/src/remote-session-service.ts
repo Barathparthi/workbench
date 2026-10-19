@@ -19,6 +19,8 @@ export interface RemoteSessionSettings {
   readonly now?: () => Date;
   /** Tells the broker holding a live session to close it (revocation); best effort, the broker also expires it. */
   readonly closeOnBroker?: (sessionId: string) => Promise<void>;
+  /** Origin of the broker's public stream endpoint when it is not the IDE's own (local development). */
+  readonly brokerPublicUrl?: string | undefined;
 }
 
 /** Sessions that count against a user's limit: open, or authorized with a ticket still usable. */
@@ -183,7 +185,7 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
         sessionId,
         kind: input.kind,
         state: 'AUTHORIZED' as const,
-        streamUrl: `/api/v1/sessions/${sessionId}/stream`,
+        streamUrl: `${settings.brokerPublicUrl === undefined ? '' : new URL(settings.brokerPublicUrl).origin}/api/v1/sessions/${sessionId}/stream`,
         ticket,
         expiresAt: expiresAt.toISOString(),
         idleTimeoutSec: decision.idleTimeoutSec,

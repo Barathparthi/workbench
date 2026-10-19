@@ -124,6 +124,7 @@ const remote = {
   sessions: createRemoteSessionService(db, {
     ticketTtlMs: config.SESSION_TICKET_TTL_SEC * 1000,
     allowedOrigins: config.ALLOWED_ORIGINS,
+    brokerPublicUrl: config.BROKER_PUBLIC_URL,
     closeOnBroker: async (sessionId: string) => {
       if (config.BROKER_INTERNAL_URL === undefined || config.INTERNAL_SERVICE_TOKEN === undefined) return;
       await fetch(new URL(`/internal/v1/sessions/${sessionId}/close`, config.BROKER_INTERNAL_URL), {

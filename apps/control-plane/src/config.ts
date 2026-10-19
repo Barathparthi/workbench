@@ -85,6 +85,11 @@ const Config = z
     INTERNAL_SERVICE_TOKEN: z.string().min(32).optional(),
     /** The broker's internal API, to close revoked sessions (Phase 08). */
     BROKER_INTERNAL_URL: httpUrl.optional(),
+    /**
+     * Where browsers reach the broker's stream endpoint. Unset (production): same origin as the IDE, the ingress
+     * routes /api/v1/sessions/{id}/stream to the broker. Local development: http://localhost:8082.
+     */
+    BROKER_PUBLIC_URL: httpUrl.optional(),
     BUILD_VERSION: z.string().default('0.0.0-dev'),
     BUILD_COMMIT: z.string().default('unknown'),
     BUILD_TIME: z.string().default('unknown'),
