@@ -45,7 +45,8 @@
         },
         "preferences": {
           "files.enableTrash": false,
-          "security.workspace.trust.enabled": true
+          "security.workspace.trust.enabled": true,
+          "terminal.integrated.scrollback": 10000
         }
       }
     },

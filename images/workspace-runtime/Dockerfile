@@ -38,7 +38,8 @@ RUN find / -xdev -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true
 COPY --from=build /usr/local/bin/node /usr/local/bin/node
 # Application files belong to root: the qe user can read and run them but not change them.
 COPY --from=build --chown=root:root /src /opt/qe-workspace
-ENV NODE_ENV=production QE_MODE=hosted
+# UTF-8 terminals and tools by default (Phase 06); TERM is set per terminal by the QE terminal policy.
+ENV NODE_ENV=production QE_MODE=hosted LANG=C.UTF-8 LC_ALL=C.UTF-8
 USER 1000:1000
 WORKDIR /home/qe/project
 EXPOSE 3000
