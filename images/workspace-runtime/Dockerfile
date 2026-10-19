@@ -33,6 +33,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --create-home --uid 1000 --shell /bin/bash qe \
  && install -d -o qe -g qe /home/qe/project
+# Phase 05 hardening: no setuid/setgid binaries, so the user's shell has no route to root.
+RUN find / -xdev -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true
 COPY --from=build /usr/local/bin/node /usr/local/bin/node
 # Application files belong to root: the qe user can read and run them but not change them.
 COPY --from=build --chown=root:root /src /opt/qe-workspace
