@@ -38,10 +38,16 @@ export interface ResolvedSession {
   readonly csrfHash: Buffer;
 }
 
+/** What authentication looks at: cookies only (HTTP requests and WebSocket upgrades alike). */
+export interface AuthInput {
+  readonly cookies: Readonly<Record<string, string | undefined>>;
+  readonly requestId: string;
+}
+
 /** How a request proves who it is. Dev mode and OIDC sessions are the two implementations. */
 export interface Authenticator {
   /** `undefined` when the request carries no (valid) credentials. */
-  authenticate(request: FastifyRequest): Promise<Authenticated | undefined>;
+  authenticate(input: AuthInput): Promise<Authenticated | undefined>;
   /** Called when an audited route is refused for lack of permission (best effort). */
   recordDenied?(request: FastifyRequest, principal: Principal, permission: Permission): Promise<void>;
 }
@@ -56,6 +62,11 @@ declare module 'fastify' {
     permission?: RoutePermission;
     /** Whether the route emits audit events (and so audits its denials). */
     audit?: boolean;
+    /**
+     * `origin`: unsafe methods need an allowed Origin header instead of the CSRF token — for the workspace
+     * router, whose IDE traffic cannot add our header. SameSite=Lax already keeps the cookie off cross-site POSTs.
+     */
+    csrf?: 'token' | 'origin';
   }
   interface FastifyRequest {
     principal?: Principal;
@@ -99,7 +110,7 @@ export function authorize(authenticator: Authenticator) {
     // Routes without a valid declaration never register (assertRouteDeclarations); be defensive anyway.
     if (permission === undefined || !isRoutePermission(permission)) throw new DomainError('FORBIDDEN');
 
-    const result = await authenticator.authenticate(request);
+    const result = await authenticator.authenticate({ cookies: request.cookies, requestId: request.id });
     if (result === undefined) throw new DomainError('AUTH_REQUIRED');
     const principal = result.kind === 'dev' ? result.principal : result.session.principal;
     request.principal = principal;
@@ -108,6 +119,7 @@ export function authorize(authenticator: Authenticator) {
       request.webSession = result.session;
       if (
         !SAFE_METHODS.has(request.method) &&
+        request.routeOptions.config.csrf !== 'origin' &&
         !csrfMatches(request.headers[CSRF_HEADER], result.session.csrfHash)
       ) {
         throw new DomainError('CSRF_REJECTED');
@@ -139,7 +151,12 @@ export function checkOrigin(allowedOrigins: readonly string[]) {
   const allowed = new Set(allowedOrigins.map((o) => new URL(o).origin));
   return async (request: FastifyRequest): Promise<void> => {
     const origin = request.headers.origin;
-    if (SAFE_METHODS.has(request.method) || origin === undefined) return;
+    if (SAFE_METHODS.has(request.method)) return;
+    if (origin === undefined) {
+      // Routes that rely on Origin instead of a CSRF token must receive one.
+      if (request.routeOptions.config.csrf === 'origin') throw new DomainError('CSRF_REJECTED');
+      return;
+    }
     if (!allowed.has(origin)) throw new DomainError('CSRF_REJECTED');
     await Promise.resolve();
   };

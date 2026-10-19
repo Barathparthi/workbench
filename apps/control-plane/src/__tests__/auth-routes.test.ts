@@ -1,7 +1,7 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
 
-import { makePrincipal, sha256 } from '../auth.js';
+import { makePrincipal, sha256, type AuthInput } from '../auth.js';
 import { LoginError } from '../auth/oidc.js';
 import { safeReturnTo } from '../auth/return-to.js';
 import type { LoginTransaction, SessionAuth } from '../auth/session-auth.js';
@@ -21,7 +21,7 @@ const alice = makePrincipal({
 
 function fakeAuth(overrides: Partial<SessionAuth> = {}) {
   const auth = {
-    authenticate: (request: FastifyRequest) =>
+    authenticate: (request: AuthInput) =>
       Promise.resolve(
         request.cookies.qews_session === SESSION_TOKEN
           ? {

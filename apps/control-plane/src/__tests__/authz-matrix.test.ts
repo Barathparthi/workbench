@@ -5,20 +5,21 @@
  */
 import { DomainError } from '@qe/domain';
 import { permissionsFor } from '@qe/rbac';
-import type { FastifyRequest, RouteOptions } from 'fastify';
+import type { RouteOptions } from 'fastify';
 import { describe, expect, it } from 'vitest';
 
-import { makePrincipal, sha256 } from '../auth.js';
+import { makePrincipal, sha256, type AuthInput } from '../auth.js';
 import type { SessionAuth } from '../auth/session-auth.js';
 import { buildServer } from '../server.js';
-import { fakeHealth, fakeWorkspaces, testConfig } from './fixtures.js';
+import { WorkspaceEvents, type WorkspaceLifecycle } from '../workspace-lifecycle.js';
+import { fakeHealth, fakeWorkspaces, logSink, testConfig } from './fixtures.js';
 
 const personas = ['qe.user', 'qe.lead', 'qe.admin', 'auditor', 'lab.a.user', 'no-role'] as const;
 const CSRF = 'csrf';
 
 const notFound = () => Promise.reject(new DomainError('NOT_FOUND'));
 const auth: SessionAuth = {
-  authenticate: (request: FastifyRequest) => {
+  authenticate: (request: AuthInput) => {
     const persona = request.cookies.qews_session;
     if (persona === undefined || !(personas as readonly string[]).includes(persona))
       return Promise.resolve(undefined);
@@ -53,12 +54,22 @@ const app = await buildServer(testConfig({ AUTH_MODE: 'oidc' }), {
     templates: notFound,
   }),
   health: fakeHealth(),
+  logStream: logSink().stream,
   sessions: {
     auth,
     redirectUrl: 'https://qe.example/auth/callback',
     publicOrigin: 'https://qe.example',
     cookieSecure: true,
     cookieSecret: 'x'.repeat(32),
+  },
+  runtime: {
+    lifecycle: {
+      events: new WorkspaceEvents(),
+      start: notFound,
+      stop: notFound,
+    } as unknown as WorkspaceLifecycle,
+    lookup: () => Promise.resolve(undefined),
+    touch: () => Promise.resolve(),
   },
   onRouteRegistered: (r) => routes.push(r),
 });

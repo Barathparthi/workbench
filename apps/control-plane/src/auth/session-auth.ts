@@ -7,7 +7,14 @@ import type { Kysely, Transaction } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 
 import { writeAuditEvent, type AuditEventInput } from '../audit/audit-writer.js';
-import { makePrincipal, sha256, type Authenticator, type Principal, type ResolvedSession } from '../auth.js';
+import {
+  makePrincipal,
+  sha256,
+  type AuthInput,
+  type Authenticator,
+  type Principal,
+  type ResolvedSession,
+} from '../auth.js';
 import type { OidcSettings } from '../config.js';
 import type { Database } from '../db/schema.js';
 import { UsersRepo } from '../repos/users.js';
@@ -104,23 +111,23 @@ export function createSessionAuth(
   };
 
   return {
-    async authenticate(request: FastifyRequest) {
-      const token = request.cookies[SESSION_COOKIE];
+    async authenticate(input: AuthInput) {
+      const token = input.cookies[SESSION_COOKIE];
       if (token === undefined || token.length === 0 || token.length > 128) return undefined;
       const row = await new WebSessionsRepo(db).findByTokenHash(sha256(token));
       if (row === undefined) return undefined;
 
       const at = now();
       if (row.user.status !== 'active') {
-        await expire(row.id, row.userId, 'user_disabled', request.id);
+        await expire(row.id, row.userId, 'user_disabled', input.requestId);
         return undefined;
       }
       if (at.getTime() >= row.expiresAt.getTime()) {
-        await expire(row.id, row.userId, 'absolute', request.id);
+        await expire(row.id, row.userId, 'absolute', input.requestId);
         return undefined;
       }
       if (at.getTime() - row.lastSeenAt.getTime() >= settings.idleMs) {
-        await expire(row.id, row.userId, 'idle', request.id);
+        await expire(row.id, row.userId, 'idle', input.requestId);
         return undefined;
       }
       if (at.getTime() - row.lastSeenAt.getTime() >= TOUCH_EVERY_MS) {

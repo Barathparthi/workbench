@@ -26,6 +26,13 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   SESSION_IDLE_MINUTES: 30,
   SESSION_ABSOLUTE_HOURS: 8,
   COOKIE_SECURE: true,
+  RUNTIME_NETWORK: 'qews-workspaces',
+  RUNTIME_ENDPOINT_MODE: 'published',
+  K8S_NAMESPACE: 'qews-workspaces',
+  WORKSPACE_START_TIMEOUT_SEC: 180,
+  WORKSPACE_IDLE_MINUTES: 60,
+  MAX_RUNNING_WORKSPACES_PER_USER: 2,
+  RECONCILE_INTERVAL_SEC: 30,
   ...overrides,
 });
 

@@ -10,6 +10,8 @@ const TITLES: Partial<Record<ErrorCode, string>> = {
   NOT_FOUND: 'Not found',
   INVALID_REQUEST: 'The request is not valid',
   CONFLICT: 'The request conflicts with the current state',
+  WORKSPACE_NOT_READY: 'The workspace is not running',
+  QUOTA_EXCEEDED: 'Quota exceeded',
   RATE_LIMITED: 'Too many requests',
   INTERNAL_ERROR: 'Internal error',
 };

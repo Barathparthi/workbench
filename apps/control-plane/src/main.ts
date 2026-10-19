@@ -8,6 +8,17 @@ import { loadMigrations, migrationsUpToDate } from './db/migrator.js';
 import { createDatabase, createPool, pingDatabase } from './db/pool.js';
 import { UsersRepo } from './repos/users.js';
 import { WebSessionsRepo } from './repos/web-sessions.js';
+import { WorkspacesRepo } from './repos/workspaces.js';
+import { reconcileOnce, startReconciler } from './reconciler.js';
+import { createWorkspaceLifecycle } from './workspace-lifecycle.js';
+import {
+  DockerProvider,
+  inClusterConnection,
+  kubeApi,
+  KubernetesProvider,
+  socketEngine,
+  type WorkspaceRuntimeProvider,
+} from '@qe/runtime-providers';
 import { buildServer } from './server.js';
 import { createShutdown } from './shutdown.js';
 import { createWorkspaceService } from './workspace-service.js';
@@ -63,8 +74,58 @@ const sessions =
         cookieSecret: oidc.sessionSecret,
       };
 
+// Workspace runtimes (Phase 05): Docker for development and single hosts, Kubernetes when hosted.
+// RUNTIME_KIND=local (desktop/local web) has no control-plane runtimes.
+const provider: WorkspaceRuntimeProvider | undefined =
+  config.RUNTIME_KIND === 'docker'
+    ? new DockerProvider({
+        engine: socketEngine(config.DOCKER_SOCKET),
+        network: config.RUNTIME_NETWORK,
+        endpointMode: config.RUNTIME_ENDPOINT_MODE,
+      })
+    : config.RUNTIME_KIND === 'kubernetes'
+      ? new KubernetesProvider({
+          api: kubeApi(inClusterConnection()),
+          namespace: config.K8S_NAMESPACE,
+          storageClass: config.K8S_STORAGE_CLASS,
+        })
+      : undefined;
+let logWarn = (obj: object, msg: string) => {
+  console.warn(msg, obj);
+};
+const lifecycle =
+  provider === undefined
+    ? undefined
+    : createWorkspaceLifecycle(
+        db,
+        provider,
+        {
+          startTimeoutMs: config.WORKSPACE_START_TIMEOUT_SEC * 1000,
+          maxRunningPerUser: config.MAX_RUNNING_WORKSPACES_PER_USER,
+          controlPlaneUrl: config.CONTROL_PLANE_INTERNAL_URL ?? config.PUBLIC_ORIGIN,
+        },
+        undefined,
+        {
+          warn: (obj, msg) => {
+            logWarn(obj, msg);
+          },
+        },
+      );
+
 const app = await buildServer(config, {
-  workspaces: createWorkspaceService(db, config.RUNTIME_KIND),
+  workspaces: createWorkspaceService(
+    db,
+    config.RUNTIME_KIND,
+    lifecycle === undefined ? undefined : (id) => lifecycle.finishDelete(id),
+  ),
+  runtime:
+    lifecycle === undefined
+      ? undefined
+      : {
+          lifecycle,
+          lookup: (id, userId) => new WorkspacesRepo(db).routeFor(id, userId),
+          touch: (id) => new WorkspacesRepo(db).touchActivity(id, new Date()),
+        },
   devPrincipal,
   sessions,
   health: {
@@ -77,6 +138,22 @@ const app = await buildServer(config, {
     },
   },
 });
+
+logWarn = (obj, msg) => {
+  app.log.warn(obj, msg);
+};
+const stopReconciler =
+  provider === undefined || lifecycle === undefined
+    ? undefined
+    : startReconciler(
+        () =>
+          reconcileOnce(db, provider, lifecycle, {
+            startTimeoutMs: config.WORKSPACE_START_TIMEOUT_SEC * 1000,
+            idleMs: config.WORKSPACE_IDLE_MINUTES * 60_000,
+          }),
+        config.RECONCILE_INTERVAL_SEC * 1000,
+        app.log,
+      );
 
 logIdleError = (error) => {
   app.log.warn({ code: error.code, message: error.message }, 'idle database connection lost');
@@ -96,9 +173,11 @@ purge?.unref();
 const shutdown = createShutdown(
   app,
   state,
-  () => {
+  async () => {
     clearInterval(purge);
-    return db.destroy();
+    await stopReconciler?.();
+    await lifecycle?.idle();
+    await db.destroy();
   },
   config.SHUTDOWN_GRACE_MS,
 );
