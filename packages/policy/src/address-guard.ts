@@ -69,8 +69,8 @@ function parseCanonical(address: string): Address | undefined {
 const inCidr = (addr: Address, [net, bits]: Cidr): boolean =>
   addr.kind() === net.kind() &&
   (addr.kind() === 'ipv4'
-    ? (addr as ipaddr.IPv4).match(net as ipaddr.IPv4, bits)
-    : (addr as ipaddr.IPv6).match(net as ipaddr.IPv6, bits));
+    ? (addr as ipaddr.IPv4).match(net, bits)
+    : (addr as ipaddr.IPv6).match(net, bits));
 
 /**
  * Decides on the addresses a target name resolved to. **Every** address must pass — a name answering with one
