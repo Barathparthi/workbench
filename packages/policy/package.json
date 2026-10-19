@@ -19,7 +19,8 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@qe/contracts": "0.0.0",
     "@qe/domain": "0.0.0",
-    "@qe/contracts": "0.0.0"
+    "ipaddr.js": "2.5.0"
   }
 }
