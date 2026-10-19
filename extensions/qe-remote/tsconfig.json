@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.theia.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib",
+    "tsBuildInfoFile": "lib/.tsbuildinfo"
+  },
+  "include": ["src"],
+  "references": [
+    {
+      "path": "../../packages/contracts"
+    },
+    {
+      "path": "../qe-core"
+    }
+  ]
+}

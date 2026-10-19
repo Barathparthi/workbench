@@ -1,0 +1,30 @@
+{
+  "name": "@qe/theia-qe-remote",
+  "version": "0.0.0",
+  "private": true,
+  "description": "QE Workspace remote connections: target list and remote terminals through the connection broker (ADR-006 option B).",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "keywords": [
+    "theia-extension"
+  ],
+  "files": [
+    "lib",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@qe/contracts": "0.0.0",
+    "@qe/theia-qe-core": "0.0.0",
+    "@theia/core": "1.76.0",
+    "@theia/terminal": "1.76.0"
+  },
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/qe-remote-frontend-module",
+      "frontendElectron": "lib/electron-browser/qe-remote-electron-frontend-module"
+    }
+  ]
+}

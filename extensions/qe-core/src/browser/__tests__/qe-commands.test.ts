@@ -23,16 +23,19 @@ describe('QeCommandContribution', () => {
     container.get(QeCommandContribution).registerCommands(registry);
   });
 
-  it('registers the four QE commands in the QE category', () => {
-    for (const command of [
-      QeCommands.ABOUT,
-      QeCommands.OPEN_WORKSPACE,
-      QeCommands.CONNECT_TARGET,
-      QeCommands.RUN_TESTS,
-    ]) {
+  it('registers its QE commands in the QE category', () => {
+    for (const command of [QeCommands.ABOUT, QeCommands.OPEN_WORKSPACE, QeCommands.RUN_TESTS]) {
       expect(registry.getCommand(command.id)).toMatchObject({ category: 'QE', label: command.label });
     }
     expect(registry.getCommand(QeCommands.ABOUT.id)?.label).toBe('About QE Workspace');
+  });
+
+  it('leaves Connect to the qe-remote extension (defined here, implemented there)', () => {
+    expect(QeCommands.CONNECT_TARGET).toMatchObject({
+      id: 'qe.remote.connect',
+      label: 'Connect to Remote System…',
+    });
+    expect(registry.getCommand(QeCommands.CONNECT_TARGET.id)).toBeUndefined();
   });
 
   it('implements About by opening the (QE-branded) About dialog', async () => {
@@ -41,7 +44,7 @@ describe('QeCommandContribution', () => {
     expect(info).not.toHaveBeenCalled();
   });
 
-  it.each([QeCommands.OPEN_WORKSPACE, QeCommands.CONNECT_TARGET, QeCommands.RUN_TESTS])(
+  it.each([QeCommands.OPEN_WORKSPACE, QeCommands.RUN_TESTS])(
     'keeps $id as a placeholder that only reports it is not available yet',
     async (command) => {
       await registry.executeCommand(command.id);

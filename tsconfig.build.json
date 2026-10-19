@@ -35,6 +35,9 @@
       "path": "extensions/qe-core"
     },
     {
+      "path": "extensions/qe-remote"
+    },
+    {
       "path": "apps/control-plane"
     },
     {
