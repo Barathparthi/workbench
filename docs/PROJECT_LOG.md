@@ -11,15 +11,15 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 ## Status snapshot (updated 2026-10-18)
 
-| Phase                                | State                                                                                                                  | Record                                               |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open                            | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
-| 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                                                  | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
-| 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                                           | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
-| 03 — Control plane and database      | **Done — gate PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7) merged, CI green)                      | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
-| 04 — Dev identity & RBAC             | **Merged** ([PR #9](https://github.com/Barathparthi/workbench/pull/9)) — gate CONDITIONAL until CI result is confirmed | [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md) |
-| 05 — Workspace runtime & routing     | **Built locally — gate CONDITIONAL** (CI integration + M1 run with Docker pending)                                     | [`phase-gates/PHASE_05.md`](phase-gates/PHASE_05.md) |
-| 06 – 19                              | Not started                                                                                                            | `02_PHASES/`                                         |
+| Phase                                | State                                                                                                                        | Record                                               |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open                                  | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
+| 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                                                        | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
+| 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                                                 | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
+| 03 — Control plane and database      | **Done — gate PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7) merged, CI green)                            | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
+| 04 — Dev identity & RBAC             | **Done — gate PASS** ([PR #9](https://github.com/Barathparthi/workbench/pull/9); Keycloak + session integration green in CI) | [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md) |
+| 05 — Workspace runtime & routing     | **Built locally — gate CONDITIONAL** (CI integration + M1 run with Docker pending)                                           | [`phase-gates/PHASE_05.md`](phase-gates/PHASE_05.md) |
+| 06 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
 
@@ -385,3 +385,10 @@ Built locally (Windows, Node 24.22.0, no Docker). Details: [`phase-gates/PHASE_0
 
 Fix made during the phase: authorization's CSRF exemption for the router (`csrf: 'origin'`) and closing proxied
 sockets on shutdown (found by the router tests).
+
+### 2026-10-19 — CI on the Phase 05 branch: 813/821; two fixes
+
+The owner shared the `integration + coverage` log. Phase 04's integration suites (real Keycloak login, session
+lifecycle on PostgreSQL) passed → **Phase 04 gate PASS**. Eight Phase 05 failures had two causes: a product bug in
+workspace delete (the `→ DELETING` transition was lost in an edit) and shared-user quota exhaustion in the lifecycle
+tests. Both fixed on `phase-05-workspace-runtime`; details in the Phase 05 gate record.

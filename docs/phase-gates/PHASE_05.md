@@ -37,6 +37,17 @@ real Docker/Kubernetes start of the runtime image. The `integration + coverage`,
 cover the first two; an end-to-end M1 run (login → start → IDE through `/w/{id}/` → terminal) needs Docker — see
 Known limitations.
 
+## CI run 1 (2026-10-19, reported by the owner): 813 passed, 8 failed — fixed
+
+- `api.int.test.ts` — delete then GET returned 200: the Phase 05 edit of `remove()` had dropped the
+  `→ DELETING` transition, so `DELETING → DELETED` never applied. **Product bug**, fixed (transition and race check
+  restored).
+- `lifecycle.int.test.ts` × 7 — `QUOTA_EXCEEDED`: tests shared one user and left workspaces running, exhausting the
+  quota of 2. **Test isolation bug**: the shared lifecycle now has a high limit; the quota test uses its own
+  lifecycle with limit 2 and also checks that stopping frees a slot.
+
+Re-run CI after pushing the fix and record the result here.
+
 ## Security review
 
 - **Threats touched**: T9 (runtime gets no platform credentials — cookies/Authorization stripped, env has no

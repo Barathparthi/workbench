@@ -78,6 +78,8 @@ Not run locally (need Docker): `session-auth.int.test.ts`, `oidc-keycloak.int.te
 
 ## Decision
 
-- [ ] PASS — after CI (`integration + coverage`) is green on the PR
-- [x] CONDITIONAL — pending the CI integration run
+- [x] PASS — 2026-10-19: CI `integration + coverage` (run on the Phase 05 branch, which contains Phase 04) passed
+      `session-auth.int.test.ts` and `oidc-keycloak.int.test.ts` against PostgreSQL 18.6 and Keycloak 26.8.1;
+      the only failures were Phase 05 files (see PHASE_05.md)
+- [ ] CONDITIONAL
 - [ ] FAIL
