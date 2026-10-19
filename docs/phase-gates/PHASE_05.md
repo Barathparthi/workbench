@@ -46,7 +46,9 @@ Known limitations.
   quota of 2. **Test isolation bug**: the shared lifecycle now has a high limit; the quota test uses its own
   lifecycle with limit 2 and also checks that stopping frees a slot.
 
-Re-run CI after pushing the fix and record the result here.
+CI run 2 (2026-10-19): `verify` ubuntu + windows 771/771; `integration + coverage` 820/821. The remaining failure
+was the same isolation bug in one more test ("times out a runtime that never answers" built its own lifecycle with a
+quota of 5); fixed. Re-run CI and record the result here.
 
 ## Security review
 

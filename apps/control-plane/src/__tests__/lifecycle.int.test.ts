@@ -155,7 +155,7 @@ describe('start and stop', () => {
     const slow = createWorkspaceLifecycle(
       t.db,
       provider,
-      { startTimeoutMs: 100, maxRunningPerUser: 5, controlPlaneUrl: 'http://cp', pollMs: 10 },
+      { startTimeoutMs: 100, maxRunningPerUser: 1000, controlPlaneUrl: 'http://cp', pollMs: 10 },
       () => Promise.resolve(false),
     );
     const ws = await newWorkspace();
