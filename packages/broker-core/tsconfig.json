@@ -5,7 +5,9 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
   "references": [
     {
       "path": "../domain"
@@ -21,6 +23,9 @@
     },
     {
       "path": "../telemetry"
+    },
+    {
+      "path": "../test-utils"
     }
   ]
 }

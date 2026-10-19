@@ -38,6 +38,9 @@
       "path": "apps/control-plane"
     },
     {
+      "path": "apps/connection-broker"
+    },
+    {
       "path": "tests/lint"
     },
     {

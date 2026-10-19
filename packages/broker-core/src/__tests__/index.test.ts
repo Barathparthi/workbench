@@ -18,7 +18,7 @@ import {
   type SshConnection,
   type StreamSocket,
 } from '../index.js';
-import { startSshServer, type TestSshServer } from './ssh-server.js';
+import { startSshServer, type TestSshServer } from '@qe/test-utils';
 
 describe('@qe/broker-core', () => {
   it('exposes its package name', () => {
