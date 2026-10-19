@@ -2,7 +2,7 @@
   "name": "@qe/theia-qe-core",
   "version": "0.0.0",
   "private": true,
-  "description": "QE Workspace core Theia extension: branding, QeEnvironment, QE commands, qe.* preferences, status bar.",
+  "description": "QE Workspace core Theia extension: branding, QeEnvironment, QE commands, qe.* preferences, status bar, terminal policy.",
   "license": "UNLICENSED",
   "type": "commonjs",
   "keywords": [
@@ -20,6 +20,8 @@
     "@qe/domain": "0.0.0",
     "@theia/core": "1.76.0",
     "@theia/getting-started": "1.76.0",
+    "@theia/process": "1.76.0",
+    "@theia/terminal": "1.76.0",
     "zod": "4.6.7"
   },
   "theiaExtensions": [
