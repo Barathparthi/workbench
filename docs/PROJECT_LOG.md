@@ -20,8 +20,9 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 04 — Dev identity & RBAC             | **Done — gate PASS** ([PR #9](https://github.com/Barathparthi/workbench/pull/9); Keycloak + session integration green in CI) | [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md) |
 | 05 — Workspace runtime & routing     | **Done** ([PR #10](https://github.com/Barathparthi/workbench/pull/10), CI green) — M1 end-to-end run with Docker still open  | [`phase-gates/PHASE_05.md`](phase-gates/PHASE_05.md) |
 | 06 — Terminal hardening              | **Done** (merged to `main`, `1771c61`; CI smoke green after resize-test fix)                                                 | [`phase-gates/PHASE_06.md`](phase-gates/PHASE_06.md) |
-| 07 — Target registry & policy        | **Built locally — gate CONDITIONAL** (CI integration pending)                                                                | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
-| 08 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
+| 07 — Target registry & policy        | **Built — gate CONDITIONAL** (pushed; CI integration and merge pending)                                                      | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
+| 08 — SSH broker & remote terminal    | **Built locally — gate CONDITIONAL** (CI OpenSSH/PostgreSQL suites, M2 run with Docker)                                      | [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md) |
+| 09 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached.
 
@@ -413,3 +414,21 @@ credential-reference contracts, control-plane admin APIs (audited), role-filtere
 single-use Origin-bound tickets, internal ticket redeem for the broker (service token), `internal` route kind.
 958 unit tests pass locally; PostgreSQL integration test for the whole flow runs in CI. UI deferred to Phase 08.
 Details: [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md).
+
+### 2026-10-19 — Phase 08: SSH broker and remote terminal (branch `phase-08-ssh-broker`, stacked on Phase 07)
+
+- **`@qe/broker-core`**: ssh2 transport with a mandatory pinned host-key verifier, pinned algorithms, no forwards;
+  error mapping; `qews.v1` terminal bridge (early-input queue, resize, Ctrl+C as `0x03`, backpressure, timers,
+  idempotent close); session registry; development key-file credentials. `qews.v1` codec in `@qe/contracts`.
+- **`apps/connection-broker`**: Origin + ticket-subprotocol upgrades, redeem before upgrade, per-session re-check of
+  port/address/host key, PTY bridge, state reports, internal revocation, drain on SIGTERM.
+- **Control plane**: broker state reports (audited, incl. host-key and address security events); revocation reaches
+  the broker; `BROKER_PUBLIC_URL` for development.
+- **IDE**: `qe-remote` extension — Connect to Remote System opens a remote terminal in the browser; desktop explains
+  the Phase 10 sign-in.
+- **Tests**: 1035 unit tests locally, including real SSH handshakes and a broker end-to-end suite against ssh2's
+  in-process server; real OpenSSH container suite for CI.
+
+Process notes: an `eslint --fix` once removed an optional call that ssh2 needs at runtime (window-change `accept`
+can be undefined despite its type) — caught by the PTY test and restored with a justified exception.
+Details: [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md).
