@@ -9,6 +9,10 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ### Added
 
+- Phase 07 remote targets: `@qe/policy` SSRF guard and connection decisions; connection policies, credential
+  references, targets and host keys (admin APIs, audited); role-filtered target list; remote sessions with single-use,
+  Origin-bound tickets; internal ticket redeem for the broker.
+
 - Phase 06 terminal hardening: QE terminal policy on Theia's terminal server (shell allowlist, open-terminal limit,
   `TERM`/`LANG` defaults), 10,000-line scrollback default, UTF-8 runtime locale, browser E2E suite for the terminal.
 

@@ -1,5 +1,7 @@
 import type { SessionAuth } from './auth/session-auth.js';
 import { loadConfig } from './config.js';
+import type { RemoteSessionService } from './remote-session-service.js';
+import type { TargetService } from './target-service.js';
 import { WorkspaceEvents, type WorkspaceLifecycle } from './workspace-lifecycle.js';
 import { buildServer } from './server.js';
 import type { WorkspaceService } from './workspace-service.js';
@@ -50,6 +52,7 @@ export async function generateOpenApi(): Promise<Record<string, unknown>> {
   const app = await buildServer(config, {
     workspaces,
     runtime: { lifecycle, lookup: unused, touch: unused },
+    remote: { targets: {} as TargetService, sessions: {} as RemoteSessionService },
     sessions: {
       auth,
       redirectUrl: 'https://qe-workspace.example/auth/callback',

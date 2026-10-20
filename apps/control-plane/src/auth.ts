@@ -79,7 +79,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export const sha256 = (value: string): Buffer => createHash('sha256').update(value).digest();
 
-/** Constant-time check of a presented CSRF token against the session's stored hash. */
+/** Constant-time check of a presented token (CSRF, internal service token) against a stored SHA-256. */
 export function csrfMatches(presented: unknown, expectedHash: Buffer): boolean {
   if (typeof presented !== 'string' || presented.length === 0 || presented.length > 256) return false;
   const actual = sha256(presented);
@@ -103,12 +103,21 @@ export const noAuthenticator: Authenticator = { authenticate: () => Promise.reso
  *  - `authenticated` routes need nothing more; any other value is a permission the principal must hold
  *    (403 FORBIDDEN, audited for routes that audit).
  */
-export function authorize(authenticator: Authenticator) {
+export function authorize(authenticator: Authenticator, internalServiceToken?: string) {
+  const internalHash = internalServiceToken === undefined ? undefined : sha256(internalServiceToken);
   return async (request: FastifyRequest): Promise<void> => {
     const permission = request.is404 ? 'authenticated' : request.routeOptions.config.permission;
     if (permission === 'public') return;
     // Routes without a valid declaration never register (assertRouteDeclarations); be defensive anyway.
     if (permission === undefined || !isRoutePermission(permission)) throw new DomainError('FORBIDDEN');
+    if (permission === 'internal') {
+      // Service to service only: the bearer service token, never a browser session (no cookie fallback).
+      const presented = /^Bearer (\S{1,512})$/.exec(request.headers.authorization ?? '')?.[1];
+      if (internalHash === undefined || presented === undefined || !csrfMatches(presented, internalHash)) {
+        throw new DomainError('AUTH_REQUIRED');
+      }
+      return;
+    }
 
     const result = await authenticator.authenticate({ cookies: request.cookies, requestId: request.id });
     if (result === undefined) throw new DomainError('AUTH_REQUIRED');

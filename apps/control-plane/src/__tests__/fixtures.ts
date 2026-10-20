@@ -33,6 +33,8 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   WORKSPACE_IDLE_MINUTES: 60,
   MAX_RUNNING_WORKSPACES_PER_USER: 2,
   RECONCILE_INTERVAL_SEC: 30,
+  TARGET_DENY_CIDRS: [],
+  SESSION_TICKET_TTL_SEC: 60,
   ...overrides,
 });
 

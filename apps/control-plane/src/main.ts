@@ -11,6 +11,9 @@ import { WebSessionsRepo } from './repos/web-sessions.js';
 import { WorkspacesRepo } from './repos/workspaces.js';
 import { reconcileOnce, startReconciler } from './reconciler.js';
 import { createWorkspaceLifecycle } from './workspace-lifecycle.js';
+import { lookup } from 'node:dns/promises';
+import { createRemoteSessionService } from './remote-session-service.js';
+import { createTargetService } from './target-service.js';
 import {
   DockerProvider,
   inClusterConnection,
@@ -112,7 +115,20 @@ const lifecycle =
         },
       );
 
+// Remote targets and sessions (Phase 07). The resolver returns every address of a name (SSRF guard).
+const remote = {
+  targets: createTargetService(db, {
+    deniedCidrs: config.TARGET_DENY_CIDRS,
+    resolver: async (host) => (await lookup(host, { all: true, verbatim: true })).map((a) => a.address),
+  }),
+  sessions: createRemoteSessionService(db, {
+    ticketTtlMs: config.SESSION_TICKET_TTL_SEC * 1000,
+    allowedOrigins: config.ALLOWED_ORIGINS,
+  }),
+};
+
 const app = await buildServer(config, {
+  remote,
   workspaces: createWorkspaceService(
     db,
     config.RUNTIME_KIND,
