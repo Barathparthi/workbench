@@ -24,7 +24,7 @@
     "@qe/policy": "0.0.0",
     "@qe/rbac": "0.0.0",
     "@qe/runtime-providers": "0.0.0",
-    "fastify": "5.12.5",
+    "fastify": "5.12.7",
     "fastify-type-provider-zod": "7.0.0",
     "kysely": "0.29.6",
     "openid-client": "6.8.8",
