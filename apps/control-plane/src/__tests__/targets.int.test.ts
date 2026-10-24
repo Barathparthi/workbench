@@ -191,8 +191,9 @@ describe('sessions and tickets', () => {
   const open = (
     p: Principal,
     kind: 'terminal' | 'files' | 'exec' = 'terminal',
-    origin: string | undefined = ORIGIN,
-  ) => sessions.open(ctx(p), targetId, { kind }, origin);
+    // `null` means "no Origin header": an explicit `undefined` would fall back to the default parameter.
+    origin: string | null = ORIGIN,
+  ) => sessions.open(ctx(p), targetId, { kind }, origin ?? undefined);
 
   it('authorizes a lab user, mints a ticket and redeems it exactly once', async () => {
     const s = await open(bob);
@@ -224,6 +225,9 @@ describe('sessions and tickets', () => {
   });
 
   it('refuses expired tickets', async () => {
+    // Past maxSessionSec (1 h): the two sessions above still count against bob's limit of 2 (one CONNECTING,
+    // one with a burned but unexpired ticket).
+    clock = new Date(clock.getTime() + 2 * 60 * 60_000);
     const s = await open(bob);
     clock = new Date(clock.getTime() + 61_000);
     await expect(sessions.redeem(s.ticket, ORIGIN)).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
@@ -241,7 +245,7 @@ describe('sessions and tickets', () => {
     await expect(open(bob, 'terminal', 'https://evil.example')).rejects.toMatchObject({
       code: 'CSRF_REJECTED',
     });
-    await expect(open(bob, 'terminal', undefined)).rejects.toMatchObject({ code: 'CSRF_REJECTED' });
+    await expect(open(bob, 'terminal', null)).rejects.toMatchObject({ code: 'CSRF_REJECTED' });
     expect(await actions()).toContain('REMOTE_CONNECT_DENIED:missing_permission');
   });
 
