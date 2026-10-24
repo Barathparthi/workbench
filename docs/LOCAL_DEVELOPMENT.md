@@ -165,8 +165,8 @@ version from `.nvmrc`.
   `sudo usermod -aG docker $USER` and log out/in.
 - **macOS / Windows**: Docker Desktop (https://www.docker.com/products/docker-desktop/). On Windows enable the
   **WSL 2 backend**. OrbStack or Colima also work on macOS (see Troubleshooting for Testcontainers settings).
-- **Windows, step by step (WSL 2 + Docker Desktop installed on D:, licence check, free alternatives):**
-  [`DOCKER_WSL_SETUP.md`](DOCKER_WSL_SETUP.md).
+- **Windows, step by step (WSL 2 with Ubuntu on D:, Docker Engine inside Ubuntu — free, no Docker Desktop; work
+  from a clone in Ubuntu's home folder):** [`DOCKER_WSL_SETUP.md`](DOCKER_WSL_SETUP.md).
 
 Check:
 
