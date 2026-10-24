@@ -191,6 +191,24 @@ localhostForwarding=true
 autoMemoryReclaim=gradual
 ```
 
+### For 8GB RAM and 512 GB Storage
+
+```ini
+[wsl2]
+# 8 GB PC: 4 GB for Ubuntu + Docker, the rest stays with Windows.
+memory=4GB
+processors=4
+# Extra headroom on disk for test spikes; the swap file goes on D: instead of C:.
+swap=6GB
+swapFile=D:\\WSL\\swap.vhdx
+# Let Windows reach services in Ubuntu at localhost (browser → Keycloak, control plane).
+localhostForwarding=true
+
+[experimental]
+# Return freed memory to Windows.
+autoMemoryReclaim=gradual
+```
+
 Apply it and check:
 
 ```powershell
@@ -207,6 +225,12 @@ Expected: `Mem: total` close to the value you set.
 All commands in this part run in the **Ubuntu terminal**. `sudo` asks for the Linux password from Step 4.
 
 ### Step 7 — Check systemd is on
+
+Switch to the Ubuntu terminal. In the same PowerShell window, type:
+
+```bash
+wsl -d Ubuntu
+```
 
 Docker runs as a systemd service.
 
@@ -527,6 +551,54 @@ wsl --uninstall
 
 The Windows features _Windows Subsystem for Linux_ and _Virtual Machine Platform_ can stay; to remove them:
 Start → "Turn Windows features on or off" → untick both → OK → restart.
+
+---
+
+## Appendix C — Change or reset the Ubuntu (sudo) password
+
+`sudo` asks for your own Ubuntu user's password, so changing that password changes the `sudo` password.
+
+**You know the current password** — in the Ubuntu terminal:
+
+```bash
+passwd
+```
+
+Enter the current password, then the new one twice (nothing is shown while you type — that is normal).
+
+**You forgot it** — reset it from PowerShell (logging in as `root` needs no password):
+
+1. Open Ubuntu as root:
+
+   ```powershell
+   wsl -d Ubuntu -u root
+   ```
+
+   The prompt changes to `root@DESKTOP-…#`.
+
+2. Find your username if unsure:
+
+   ```bash
+   ls /home
+   ```
+
+3. Set the new password (replace `barath` with your username) and type it twice:
+
+   ```bash
+   passwd barath
+   ```
+
+4. Leave the root session:
+
+   ```bash
+   exit
+   ```
+
+5. Open Ubuntu normally (`wsl -d Ubuntu`) and test it — no error means it worked:
+
+   ```bash
+   sudo -v
+   ```
 
 ---
 
