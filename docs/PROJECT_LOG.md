@@ -432,3 +432,24 @@ Details: [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md).
 Process notes: an `eslint --fix` once removed an optional call that ssh2 needs at runtime (window-change `accept`
 can be undefined despite its type) — caught by the PTY test and restored with a justified exception.
 Details: [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md).
+
+### 2026-10-24 — Dependency vulnerabilities (branch `fix/dependency-audit`)
+
+In the new Ubuntu (WSL) clone, `npm audit fix --force` had been run: it "fixed" by downgrading Theia to 1.18/1.4/0.3.14,
+mixing versions and adding packages, which raised the count to 82 and broke the IDE. That clone was restored to the
+committed lockfile (the changes are saved in `~/audit-force-backup.patch`) and the real 59 findings (12 root packages)
+fixed properly: Fastify 5.12.7, Electron 42.11.16 (eMudhra certificate advisory), lockfile updates (body-parser,
+fast-uri, multer) and root `overrides` for transitive packages pinned by Theia's dependencies (DOMPurify in
+`@theia/monaco-editor-core`, uuid under `react-tooltip` and `trash`, diff and serialize-javascript under `mocha`).
+Result 12 findings (production 7). Typecheck, the Theia version guard and 958 unit tests pass.
+
+Accepted, no upstream fix (review at each Theia upgrade):
+
+- `decompress` (critical, all versions; via `@theia/cli` and `@theia/plugin-ext`): archive path traversal. Only
+  pinned, checksum-verified plugin archives from `config/vscode-plugins.json` are extracted (ADR-012); users cannot
+  install plugins from arbitrary archives.
+- `@tootallnate/once` 1.1.2 (low; via `@vscode/proxy-agent`): the v2 fix changes the module's export shape.
+- `zod` 3.x under `chromium-bidi` (high, dev only; puppeteer from `@theia/cli`): oversized-input memory exhaustion in
+  a test tool that never validates untrusted input; not shipped.
+
+Never use `npm audit fix --force` in this repo: it resolves by downgrading Theia.

@@ -7,6 +7,13 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ## [Unreleased]
 
+### Security
+
+- Dependency audit: 59 → 12 `npm audit` findings with no Theia downgrade. Fastify 5.12.5 → 5.12.7, Electron
+  42.11.10 → 42.11.16; lockfile updates for body-parser, fast-uri, multer; root `overrides` for DOMPurify in Monaco
+  (3.4.17), uuid under react-tooltip and trash (11.1.1), and diff/serialize-javascript under mocha. Three advisories
+  have no upstream fix yet and are accepted — see `docs/PROJECT_LOG.md` (2026-10-24).
+
 ### Added
 
 - Phase 08 SSH broker: `@qe/broker-core` (ssh2 transport with pinned host keys, terminal bridge), `qews.v1` codec,
