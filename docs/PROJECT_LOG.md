@@ -453,3 +453,11 @@ Accepted, no upstream fix (review at each Theia upgrade):
   a test tool that never validates untrusted input; not shipped.
 
 Never use `npm audit fix --force` in this repo: it resolves by downgrading Theia.
+
+### 2026-10-25 — Phase 08 brought up to `main` and run locally for the first time
+
+`main` (dependency audit PR #12, test fix PR #13, WSL/Docker docs) merged into `phase-08-ssh-broker`; the only conflict
+was this log. With Docker Engine in WSL the OpenSSH and PostgreSQL suites ran on the project PC for the first time and
+found three test-fixture defects (OpenSSH image ignored its own sshd settings, a missing `closeOnBroker` in the
+targets test, a Ctrl+C check matching the PTY echo). All fixed; 77/77 integration and 1035/1035 unit tests pass.
+Details: [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md).

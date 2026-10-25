@@ -60,6 +60,10 @@ beforeAll(async () => {
     ticketTtlMs: 60_000,
     allowedOrigins: [ORIGIN],
     now: () => clock,
+    closeOnBroker: (sessionId) => {
+      brokerCloses.push(sessionId);
+      return Promise.resolve();
+    },
   });
 });
 afterAll(async () => {

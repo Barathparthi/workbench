@@ -93,7 +93,8 @@ describe('ssh2 transport against OpenSSH', () => {
 
   it('Ctrl+C (0x03 through the PTY) interrupts a foreground job', async () => {
     const s = await shell();
-    s.run('sleep 30; echo SLEPT');
+    // The PTY echoes the typed line, so the marker only appears as one word if `echo` actually runs.
+    s.run('sleep 30; echo SL""EPT');
     await new Promise((r) => setTimeout(r, 500));
     s.pty.write(Uint8Array.of(0x03));
     s.run('echo AFTER-$?');

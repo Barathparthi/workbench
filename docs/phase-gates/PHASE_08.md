@@ -42,6 +42,17 @@ to the metadata address, address outside policy, jump host, port, missing creden
 CI only (Docker): `openssh.int.test.ts` (real OpenSSH: ssh-keygen fingerprint, `stty size`, Ctrl+C → exit 130,
 mismatch, rejected key) and `targets.int.test.ts` (state reports, revocation, security audit events).
 
+**2026-10-25, first local run (WSL Ubuntu + Docker Engine), after merging `main`:** 77/77 integration tests and
+1035/1035 unit tests pass; format, lint and typecheck clean. The first run found three defects, all fixed:
+
+- OpenSSH test image: sshd keeps the first value of each keyword and Alpine's config already sets
+  `AuthorizedKeysFile`, so the appended settings (authorized-keys path and the hardening lines) were ignored and
+  every key login failed. The settings now go first and the build asserts the effective value with `sshd -T`.
+- `targets.int.test.ts` never wired `closeOnBroker`, so "revocation reaches the broker" could not pass.
+- The Ctrl+C test matched `SLEPT` in the PTY's echo of the typed command; the marker is now `SL""EPT`.
+
+`apps/connection-broker` moves to Fastify 5.12.7 to match the control plane (PR #12).
+
 ## Security review
 
 - **Threats**: T7 host-key spoofing (pinned, fail closed, separate audit event), T5/T6 (address re-checked at connect,
@@ -69,6 +80,6 @@ mismatch, rejected key) and `targets.int.test.ts` (state reports, revocation, se
 ## Decision
 
 - [ ] PASS
-- [x] CONDITIONAL — pending CI (`integration + coverage`: OpenSSH and PostgreSQL suites; `smoke`: both IDE apps build
-      with the new extension) and an M2 run with Docker
+- [x] CONDITIONAL — integration suites pass locally (2026-10-25); pending CI (`smoke`: both IDE apps build with the
+      new extension) and an M2 run (browser → broker → SSH target)
 - [ ] FAIL
