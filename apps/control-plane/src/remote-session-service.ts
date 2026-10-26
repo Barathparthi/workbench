@@ -158,6 +158,8 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
             policy_version: decision.policyVersion,
             created_at: at,
             expires_at: expiresAt,
+            terminal_cols: input.terminal?.cols ?? null,
+            terminal_rows: input.terminal?.rows ?? null,
           })
           .execute();
         await tx
@@ -436,7 +438,10 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
           sessionId: s.id,
           kind: s.kind,
           expiresAt: s.expires_at.toISOString(),
-          terminal: null,
+          terminal:
+            s.terminal_cols === null || s.terminal_rows === null
+              ? null
+              : { cols: s.terminal_cols, rows: s.terminal_rows },
           user: { id: user.id, username: user.username },
           target: {
             id: target.id,
