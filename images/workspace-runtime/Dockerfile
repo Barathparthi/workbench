@@ -3,6 +3,7 @@
 # the browser IDE serving /home/qe/project on port 3000, as UID 1000.
 #
 #   docker build -f images/workspace-runtime/Dockerfile -t qews/runtime:dev .
+#   (behind a TLS-inspecting proxy, add: --secret id=extra_ca,src=/path/to/proxy-ca.pem)
 #   docker run --rm -p 127.0.0.1:3000:3000 -e QE_MODE=local-web -v "$PWD":/home/qe/project qews/runtime:dev
 #
 # The IDE has no login of its own: publish the port on 127.0.0.1 only (local web token: Phase 10; hosted
@@ -19,7 +20,11 @@ RUN apt-get update \
 WORKDIR /src
 COPY . .
 ARG QE_VSX_URL=""
-RUN npm ci \
+# Behind a TLS-inspecting proxy, pass its CA as a build secret; it is never stored in a layer:
+#   docker build --secret id=extra_ca,src=/path/to/proxy-ca.pem ...
+RUN --mount=type=secret,id=extra_ca \
+    if [ -f /run/secrets/extra_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/extra_ca; fi \
+ && npm ci \
  && npm run build -w @qe/theia-qe-core \
  && npm run build -w @qe/ide-browser \
  && if [ -n "$QE_VSX_URL" ]; then npm run plugins:download; else mkdir -p plugins; fi \
