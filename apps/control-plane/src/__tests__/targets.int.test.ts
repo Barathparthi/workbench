@@ -229,11 +229,20 @@ describe('sessions and tickets', () => {
       ORIGIN,
     );
     expect((await sessions.redeem(sized.ticket, ORIGIN)).terminal).toEqual({ cols: 100, rows: 30 });
-    // Close each one: later tests count bob's open sessions against his limit of 2.
-    await sessions.close(ctx(bob), sized.sessionId);
+    // End each one as the broker would: a closed CONNECTING session stays CLOSING (still counted) until the
+    // broker reports, and later tests count bob's open sessions against his limit of 2.
+    const end = async (id: string) => {
+      await sessions.reportState(id, { state: 'ACTIVE', reason: 'opened', brokerInstance: 'broker-1' });
+      await sessions.reportState(id, {
+        state: 'CLOSED',
+        reason: 'remote_exited',
+        brokerInstance: 'broker-1',
+      });
+    };
+    await end(sized.sessionId);
     const unsized = await open(bob);
     expect((await sessions.redeem(unsized.ticket, ORIGIN)).terminal).toBeNull();
-    await sessions.close(ctx(bob), unsized.sessionId);
+    await end(unsized.sessionId);
   });
 
   it('burns a ticket presented with the wrong Origin', async () => {
