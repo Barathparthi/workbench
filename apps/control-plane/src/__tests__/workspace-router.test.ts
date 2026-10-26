@@ -54,7 +54,9 @@ beforeAll(async () => {
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => {
-      res.setHeader('set-cookie', ['theia-connection-token=abc; Path=/; HttpOnly', 'plain=1']);
+      // Theia's first page sets exactly one cookie; undici hands a single Set-Cookie over as a string.
+      if (req.url === '/one-cookie') res.setHeader('set-cookie', 'theia-connection-token=abc; Path=/');
+      else res.setHeader('set-cookie', ['theia-connection-token=abc; Path=/; HttpOnly', 'plain=1']);
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({ method: req.method, url: req.url, body: Buffer.concat(chunks).toString() }));
     });
@@ -132,6 +134,12 @@ describe('HTTP through /w/{id}/', () => {
       `theia-connection-token=abc; Path=/w/${WS}/; HttpOnly`,
       `plain=1; Path=/w/${WS}/`,
     ]);
+  });
+
+  it('scopes a single runtime cookie too', async () => {
+    const res = await app.inject({ url: `/w/${WS}/one-cookie`, headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['set-cookie']).toBe(`theia-connection-token=abc; Path=/w/${WS}/`);
   });
 
   it('passes request bodies through unparsed (needs an allowed Origin, not the CSRF token)', async () => {

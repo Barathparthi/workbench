@@ -65,9 +65,16 @@ export function scopeSetCookie(value: string, workspaceId: string): string {
 }
 
 const rewriteSetCookie = <H extends IncomingHttpHeaders>(headers: H, workspaceId: string): H => {
-  const set = headers['set-cookie'];
+  // node:http always gives an array; undici (reply-from) gives a single Set-Cookie as a string.
+  const set: string | string[] | undefined = headers['set-cookie'];
   if (set === undefined) return headers;
-  return { ...headers, 'set-cookie': set.map((c) => scopeSetCookie(c, workspaceId)) };
+  return {
+    ...headers,
+    'set-cookie':
+      typeof set === 'string'
+        ? scopeSetCookie(set, workspaceId)
+        : set.map((c) => scopeSetCookie(c, workspaceId)),
+  };
 };
 
 /** Authenticated HTTP + WebSocket proxy `/w/{id}/*` → that workspace's runtime (Phase 05 §5.7). */
