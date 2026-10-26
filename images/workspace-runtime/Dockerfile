@@ -17,6 +17,8 @@ FROM node:24.22.0-bookworm@sha256:14078204b6bb268c107ceff6d3c43f45a888105e5c2b18
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libx11-dev libxkbfile-dev libsecret-1-dev \
  && rm -rf /var/lib/apt/lists/*
+# node-gyp uses the headers this image ships instead of downloading them from nodejs.org on every build.
+ENV npm_config_nodedir=/usr/local
 WORKDIR /src
 COPY . .
 ARG QE_VSX_URL=""
