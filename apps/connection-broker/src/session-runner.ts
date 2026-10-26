@@ -110,7 +110,9 @@ export function runTerminalSession(
       if (verifier.presented !== undefined) {
         bridge.sendControl({ t: 'hostkey', ...verifier.presented, verified: true });
       }
-      const pty = await connection.shell({ cols: 80, rows: 24, term: 'xterm-256color' });
+      // The size the IDE sent when it opened the session; later changes arrive as `resize` frames.
+      const size = snapshot.terminal ?? { cols: 80, rows: 24 };
+      const pty = await connection.shell({ ...size, term: 'xterm-256color' });
       opened = true;
       bridge.attach(pty);
       bridge.sendControl({ t: 'status', state: 'ACTIVE' });

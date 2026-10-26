@@ -171,6 +171,21 @@ const send = (ws: WebSocket, text: string) => {
 };
 
 describe('remote terminal through the broker', () => {
+  it('opens the remote PTY at the size the IDE asked for when it opened the session', async () => {
+    snapshot = { ...freshSnapshot(), terminal: { cols: 100, rows: 30 } };
+    const c = asClient(await connect());
+    await vi.waitFor(() => {
+      expect(c.controls).toContainEqual({ t: 'status', state: 'ACTIVE' });
+    });
+    expect(ssh.events).toContain('pty:100x30:xterm-256color');
+    c.ws.close();
+    await c.closed;
+    // The end report is asynchronous; let it land before the next test resets `reports`.
+    await vi.waitFor(() => {
+      expect(reports.map(([, r]) => r.state)).toEqual(['ACTIVE', 'CLOSED']);
+    });
+  });
+
   it('opens a pinned SSH session to the checked address and streams a working terminal', async () => {
     const c = asClient(await connect());
     expect(c.ws.protocol).toBe('qews.v1');
