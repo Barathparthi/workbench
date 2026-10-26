@@ -486,3 +486,31 @@ environment reasons that also apply to `main`: the browser IDE bundle needs `@vs
 `crypt32.node` and the Electron app needs `@theia/ffmpeg`, both compiled from source (`node-gyp`). Building and
 running the IDE on this machine needs Visual Studio 2022 Build Tools, or the WSL Ubuntu route in
 `LOCAL_DEVELOPMENT.md` (which also provides Docker for the database).
+
+### 2026-10-26 — Demo stack on WSL Ubuntu; router crash on the first IDE page (branch `fix/router-single-set-cookie`)
+
+The owner set up WSL Ubuntu (Node 24.22.0, build tools, Docker Engine 29.9.2, Netskope CA in the system store and
+`NODE_EXTRA_CA_CERTS`). There `npm ci` and the full build (browser + Electron) succeed, and all 70 integration tests
+pass, including `targets.int.test.ts` (the condition on the Phase 07 gate). Compose PostgreSQL + Keycloak, the
+control plane (OIDC and dev modes) and the browser IDE run.
+
+The runtime image build needs the proxy CA for `npm ci` and the plugin download inside the build: the Dockerfile
+takes it as an optional BuildKit secret (`--secret id=extra_ca,…`), so it never lands in a layer. Built
+`qews/runtime:dev` (1.19 GB, 9 plugins, no CA in the image).
+
+**Bug found in the first real end-to-end run:** a workspace reached RUNNING, but opening `/w/{id}/` killed the
+control plane with `TypeError: set.map is not a function` in `rewriteSetCookie`. `@fastify/reply-from` uses undici,
+which hands a single `Set-Cookie` over as a string, and Theia's first page sets exactly one cookie (the connection
+token). The router test's stand-in upstream always sent two cookies (an array), so the case was never exercised.
+Fixed for both shapes; new unit test with a single-cookie upstream (fails before, passes after); 959 unit tests pass.
+
+Follow-up: an exception inside a reply-from `rewriteHeaders` callback is not caught by Fastify and ends the process.
+Runtimes are user-controlled, so the router should not let any upstream response take the control plane down; worth
+a defensive guard and a test in Phase 14 (security hardening), or earlier.
+
+Second bug on the same path: with the page loading, the IDE's WebSocket was still refused. Theia 1.76's
+`WsOriginValidator` accepts an upgrade only when the Origin's host equals `Host` (or is listed in `THEIA_HOSTS`), and
+the router replaced `Host` with the runtime's address. The router now forwards the browser's `Host` on upgrades (the
+Origin is already checked against `ALLOWED_ORIGINS` first); the upgrade test asserts the forwarded `Host`. Checked
+against the real runtime: Socket.IO upgrade through `/w/{id}/` → 101. Local note: `ALLOWED_ORIGINS` must include the
+origin the browser uses for `/w/{id}/` (here `http://localhost:8080`).

@@ -7,6 +7,15 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ## [Unreleased]
 
+### Fixed
+
+- Workspace router: opening `/w/{id}/` crashed the control plane (`set.map is not a function`) when the runtime sent
+  exactly one `Set-Cookie`, as Theia does on its first page: undici returns a single header as a string. Both
+  shapes are now scoped to `/w/{id}/`.
+- Workspace router: WebSocket upgrades now keep the browser's `Host`. Theia 1.76 refuses a WebSocket whose Origin
+  host differs from `Host`, so the IDE could never connect through `/w/{id}/`.
+- Workspace runtime image: optional `--secret id=extra_ca,src=<ca.pem>` for builds behind a TLS-inspecting proxy.
+
 ### Security
 
 - Dependency audit: 12 → 5 `npm audit` findings (all from the one remaining root cause, `decompress`). Scoped

@@ -54,7 +54,9 @@ beforeAll(async () => {
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => {
-      res.setHeader('set-cookie', ['theia-connection-token=abc; Path=/; HttpOnly', 'plain=1']);
+      // Theia's first page sets exactly one cookie; undici hands a single Set-Cookie over as a string.
+      if (req.url === '/one-cookie') res.setHeader('set-cookie', 'theia-connection-token=abc; Path=/');
+      else res.setHeader('set-cookie', ['theia-connection-token=abc; Path=/; HttpOnly', 'plain=1']);
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({ method: req.method, url: req.url, body: Buffer.concat(chunks).toString() }));
     });
@@ -134,6 +136,12 @@ describe('HTTP through /w/{id}/', () => {
     ]);
   });
 
+  it('scopes a single runtime cookie too', async () => {
+    const res = await app.inject({ url: `/w/${WS}/one-cookie`, headers: { cookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['set-cookie']).toBe(`theia-connection-token=abc; Path=/w/${WS}/`);
+  });
+
   it('passes request bodies through unparsed (needs an allowed Origin, not the CSRF token)', async () => {
     const payload = '{"not":"parsed by the control plane"';
     const ok = await app.inject({
@@ -211,6 +219,8 @@ describe('WebSocket upgrades through /w/{id}/', () => {
     expect(res.headers['set-cookie']).toEqual([`t=1; Path=/w/${WS}/`]);
     expect(lastRequest?.url).toBe('/services');
     expect(lastRequest?.headers.cookie).toBe('theia-connection-token=abc');
+    // Theia accepts a WebSocket only when the Origin's host equals Host (or THEIA_HOSTS lists it).
+    expect(lastRequest?.headers.host).toBe(new URL(base).host);
     res.socket?.write('ping');
     expect(await readOnce(res.socket as Duplex)).toBe('echo:ping');
     res.socket?.destroy();
