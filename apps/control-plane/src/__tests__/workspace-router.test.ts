@@ -167,6 +167,16 @@ describe('HTTP through /w/{id}/', () => {
     expect(evil.statusCode).toBe(403);
   });
 
+  it("serves the IDE with a CSP Theia can start under, and keeps the API's strict one", async () => {
+    const ide = await app.inject({ url: `/w/${WS}/`, headers: { cookie } });
+    const csp = String(ide.headers['content-security-policy']);
+    expect(csp).toContain("script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'");
+    expect(csp).toContain("worker-src 'self' blob:");
+    expect(csp).toContain("object-src 'none'");
+    const api = await app.inject({ url: '/healthz' });
+    expect(String(api.headers['content-security-policy'])).toContain("script-src 'self';");
+  });
+
   it('redirects /w/{id} to /w/{id}/', async () => {
     const res = await app.inject({ url: `/w/${WS}?a=1`, headers: { cookie } });
     expect(res.statusCode).toBe(308);

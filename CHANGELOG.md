@@ -14,6 +14,9 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   shapes are now scoped to `/w/{id}/`.
 - Workspace router: WebSocket upgrades now keep the browser's `Host`. Theia 1.76 refuses a WebSocket whose Origin
   host differs from `Host`, so the IDE could never connect through `/w/{id}/`.
+- Workspace router: `/w/{id}/` gets its own Content Security Policy (helmet defaults plus `unsafe-eval`,
+  `wasm-unsafe-eval`, `blob:` workers and images). The API's `script-src 'self'` stopped the IDE at startup
+  (ajv compiles preference schemas with `new Function`); API routes keep the strict policy.
 - Workspace runtime image: optional `--secret id=extra_ca,src=<ca.pem>` for builds behind a TLS-inspecting proxy.
 
 ### Security

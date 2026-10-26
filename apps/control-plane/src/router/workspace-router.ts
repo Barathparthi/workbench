@@ -36,6 +36,20 @@ const PLATFORM_COOKIES = new Set([SESSION_COOKIE, CSRF_COOKIE, LOGIN_COOKIE]);
 const TOUCH_EVERY_MS = 60_000;
 const CACHE_MS = 5_000;
 
+/**
+ * CSP for the IDE behind /w/{id}/: helmet's defaults plus what Theia needs (07_SECURITY §4.4), so the API's
+ * stricter policy does not stop the IDE from starting. `unsafe-eval`: ajv compiles the preference schemas
+ * with `new Function`; `wasm-unsafe-eval`: the TextMate grammar engine (onig.wasm); `blob:`: workers and
+ * images. Full tuning (webviews, Monaco workers) is Phase 14.
+ */
+const IDE_CONTENT_SECURITY_POLICY = {
+  directives: {
+    scriptSrc: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
+    workerSrc: ["'self'", 'blob:'],
+    imgSrc: ["'self'", 'data:', 'blob:'],
+  },
+};
+
 /** The runtime never sees platform credentials: our cookies, Authorization and the CSRF header are removed. */
 export function upstreamHeaders(headers: IncomingHttpHeaders): IncomingHttpHeaders {
   const out: IncomingHttpHeaders = { ...headers };
@@ -132,12 +146,14 @@ export async function registerWorkspaceRouter(
       rateLimit: { max: 3000, timeWindow: '1 minute' },
     } as const;
 
-    scope.get('/w/:id', { config }, (request, reply) => {
+    const helmet = { contentSecurityPolicy: IDE_CONTENT_SECURITY_POLICY };
+
+    scope.get('/w/:id', { config, helmet }, (request, reply) => {
       const [path, query] = request.url.split('?');
       return reply.redirect(`${path ?? ''}/${query === undefined ? '' : `?${query}`}`, 308);
     });
 
-    scope.all('/w/:id/*', { config }, async (request, reply) => {
+    scope.all('/w/:id/*', { config, helmet }, async (request, reply) => {
       const match = PREFIX.exec(request.url);
       if (match?.[1] === undefined) throw new DomainError('NOT_FOUND');
       const workspaceId = match[1];

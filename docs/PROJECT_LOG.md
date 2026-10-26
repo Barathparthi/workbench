@@ -514,3 +514,12 @@ the router replaced `Host` with the runtime's address. The router now forwards t
 Origin is already checked against `ALLOWED_ORIGINS` first); the upgrade test asserts the forwarded `Host`. Checked
 against the real runtime: Socket.IO upgrade through `/w/{id}/` → 101. Local note: `ALLOWED_ORIGINS` must include the
 origin the browser uses for `/w/{id}/` (here `http://localhost:8080`).
+
+### 2026-10-26 — Third bug on `/w/{id}/`: CSP stopped the IDE (branch `fix/router-theia-csp`)
+
+With the page and the WebSocket working, the IDE still hung on its loading screen. The browser console showed
+`EvalError: … violates … script-src 'self'`: helmet's default CSP (registered globally for the API) was also applied
+to proxied IDE responses, and Theia's ajv compiles preference schemas with `new Function`. 07_SECURITY §4.4 already
+calls for "script-src 'self' + Theia requirements" on the router. The `/w/{id}` routes now get helmet's defaults plus
+`'unsafe-eval'`, `'wasm-unsafe-eval'` (onig.wasm for TextMate grammars) and `blob:` for workers and images; the API
+keeps `script-src 'self'`. Unit test checks both. Full CSP tuning (webviews, Monaco workers) stays in Phase 14.
