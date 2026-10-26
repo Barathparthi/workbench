@@ -488,3 +488,10 @@ Fixed for both shapes; new unit test with a single-cookie upstream (fails before
 Follow-up: an exception inside a reply-from `rewriteHeaders` callback is not caught by Fastify and ends the process.
 Runtimes are user-controlled, so the router should not let any upstream response take the control plane down; worth
 a defensive guard and a test in Phase 14 (security hardening), or earlier.
+
+Second bug on the same path: with the page loading, the IDE's WebSocket was still refused. Theia 1.76's
+`WsOriginValidator` accepts an upgrade only when the Origin's host equals `Host` (or is listed in `THEIA_HOSTS`), and
+the router replaced `Host` with the runtime's address. The router now forwards the browser's `Host` on upgrades (the
+Origin is already checked against `ALLOWED_ORIGINS` first); the upgrade test asserts the forwarded `Host`. Checked
+against the real runtime: Socket.IO upgrade through `/w/{id}/` → 101. Local note: `ALLOWED_ORIGINS` must include the
+origin the browser uses for `/w/{id}/` (here `http://localhost:8080`).
