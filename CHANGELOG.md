@@ -20,6 +20,10 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ### Added
 
+- Phase 08 SSH broker: `@qe/broker-core` (ssh2 transport with pinned host keys, terminal bridge), `qews.v1` codec,
+  `apps/connection-broker` (ticketed WebSocket stream to SSH, revocation, drain), broker state reports and revocation in
+  the control plane, `qe-remote` IDE extension (Connect to Remote System).
+
 - Phase 07 remote targets: `@qe/policy` SSRF guard and connection decisions; connection policies, credential
   references, targets and host keys (admin APIs, audited); role-filtered target list; remote sessions with single-use,
   Origin-bound tickets; internal ticket redeem for the broker.

@@ -20,12 +20,11 @@ export const QeCommands = {
 /** Theia's own About command (CommonCommands.ABOUT_COMMAND); it opens the QE-branded About dialog. */
 export const THEIA_ABOUT_COMMAND_ID = 'core.about';
 
-/** Commands implemented by later phases (workspaces: 05, remote: 08, runner: 11). */
-const PLACEHOLDERS: readonly Command[] = [
-  QeCommands.OPEN_WORKSPACE,
-  QeCommands.CONNECT_TARGET,
-  QeCommands.RUN_TESTS,
-];
+/**
+ * Commands implemented by later phases (workspace picker, runner: 11). CONNECT_TARGET is defined here (it appears in
+ * the welcome page) and implemented by the qe-remote extension (Phase 08).
+ */
+const PLACEHOLDERS: readonly Command[] = [QeCommands.OPEN_WORKSPACE, QeCommands.RUN_TESTS];
 
 @injectable()
 export class QeCommandContribution implements CommandContribution {

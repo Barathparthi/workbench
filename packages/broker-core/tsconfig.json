@@ -21,6 +21,9 @@
     },
     {
       "path": "../telemetry"
+    },
+    {
+      "path": "../test-utils"
     }
   ]
 }

@@ -43,6 +43,17 @@ export const AuditMetadata = {
   }),
   REMOTE_CONNECT_DENIED: z.strictObject({ targetId: z.uuid(), kind: short, reason: short }),
   REMOTE_SESSION_CLOSED: z.strictObject({ reason: short }),
+  // Phase 08 — reported by the broker. Byte counts only; never terminal content.
+  SSH_SESSION_OPENED: z.strictObject({ brokerInstance: short, fingerprintSha256: short }),
+  SSH_SESSION_CLOSED: z.strictObject({
+    reason: short,
+    bytesIn: z.number().int(),
+    bytesOut: z.number().int(),
+    durationSec: z.number().int(),
+  }),
+  SSH_CONNECT_FAILED: z.strictObject({ reason: short }),
+  SSH_HOST_KEY_MISMATCH: z.strictObject({ algorithm: short, presentedFingerprint: short }),
+  SSH_HOST_KEY_UNKNOWN: z.strictObject({ algorithm: short, presentedFingerprint: short }),
   WORKSPACE_CREATE: z.strictObject({ name: short, templateId: short }),
   WORKSPACE_DELETE: z.strictObject({ name: short }),
   // Phase 05 — runtime lifecycle. `reason` says who or what stopped it; failures carry a short code.

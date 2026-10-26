@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 
-import type { OpenSessionRequest, RedeemTicketResponse } from '@qe/contracts';
+import type { OpenSessionRequest, RedeemTicketResponse, SessionStateReport } from '@qe/contracts';
 import { DomainError, type SessionState } from '@qe/domain';
 import { evaluateConnection, type PolicyView } from '@qe/policy';
 import { sql, type Kysely, type Selectable } from 'kysely';
@@ -17,6 +17,10 @@ export interface RemoteSessionSettings {
   /** Origins a session may be opened from (the IDE); the ticket is bound to the one used. */
   readonly allowedOrigins: readonly string[];
   readonly now?: () => Date;
+  /** Tells the broker holding a live session to close it (revocation); best effort, the broker also expires it. */
+  readonly closeOnBroker?: (sessionId: string) => Promise<void>;
+  /** Origin of the broker's public stream endpoint when it is not the IDE's own (local development). */
+  readonly brokerPublicUrl?: string | undefined;
 }
 
 /** Sessions that count against a user's limit: open, or authorized with a ticket still usable. */
@@ -181,7 +185,7 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
         sessionId,
         kind: input.kind,
         state: 'AUTHORIZED' as const,
-        streamUrl: `/api/v1/sessions/${sessionId}/stream`,
+        streamUrl: `${settings.brokerPublicUrl === undefined ? '' : new URL(settings.brokerPublicUrl).origin}/api/v1/sessions/${sessionId}/stream`,
         ticket,
         expiresAt: expiresAt.toISOString(),
         idleTimeoutSec: decision.idleTimeoutSec,
@@ -228,7 +232,7 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
             : undefined;
       if (to === undefined) return toSessionDto(s);
       const reason = byAdmin ? 'revoked_by_admin' : 'closed_by_user';
-      return db.transaction().execute(async (tx) => {
+      const result = await db.transaction().execute(async (tx) => {
         const row = await tx
           .updateTable('sessions')
           .set({ state: to, close_reason: reason, ...(to === 'EXPIRED' && { closed_at: now() }) })
@@ -248,6 +252,123 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
           metadata: { reason },
         });
         return toSessionDto(row);
+      });
+      // A live session ends on the broker; it reports CLOSED back (reportState).
+      if (s.state === 'ACTIVE' && result.state !== 'ACTIVE') {
+        await settings.closeOnBroker?.(id).catch(() => undefined);
+      }
+      return result;
+    },
+
+    /**
+     * Broker-only: what happened to a session (Phase 08 §8.3). Moves CONNECTING -> ACTIVE, CONNECTING -> FAILED, or a
+     * live/closing session -> CLOSED, each audited; host-key problems and refused addresses get their own security
+     * events. Reports that do not fit the current state are ignored (idempotent: retries and races are harmless).
+     */
+    async reportState(id: string, report: SessionStateReport): Promise<{ state: SessionState }> {
+      const at = now();
+      return db.transaction().execute(async (tx) => {
+        const s = await tx
+          .selectFrom('sessions')
+          .selectAll()
+          .where('id', '=', id)
+          .forUpdate()
+          .executeTakeFirst();
+        if (s === undefined) throw new DomainError('NOT_FOUND');
+        type SshAction =
+          | 'SSH_SESSION_OPENED'
+          | 'SSH_SESSION_CLOSED'
+          | 'SSH_CONNECT_FAILED'
+          | 'SSH_HOST_KEY_MISMATCH'
+          | 'SSH_HOST_KEY_UNKNOWN'
+          | 'SSRF_BLOCKED';
+        const audit = (
+          action: SshAction,
+          result: 'success' | 'failure' | 'denied',
+          metadata: Record<string, unknown>,
+          reasonCode?: string,
+        ) =>
+          writeAuditEvent(tx, {
+            action,
+            actorType: 'service',
+            actorUserId: s.user_id,
+            resourceType: 'session',
+            resourceId: id,
+            result,
+            ...(reasonCode !== undefined && { reasonCode }),
+            metadata,
+          });
+
+        if (report.state === 'ACTIVE' && s.state === 'CONNECTING') {
+          await tx
+            .updateTable('sessions')
+            .set({
+              state: 'ACTIVE',
+              activated_at: at,
+              last_activity_at: at,
+              broker_instance: report.brokerInstance,
+            })
+            .where('id', '=', id)
+            .execute();
+          await audit('SSH_SESSION_OPENED', 'success', {
+            brokerInstance: report.brokerInstance,
+            fingerprintSha256: report.hostKey?.fingerprintSha256 ?? 'unknown',
+          });
+          return { state: 'ACTIVE' as const };
+        }
+
+        if (report.state === 'FAILED' && s.state === 'CONNECTING') {
+          await tx
+            .updateTable('sessions')
+            .set({
+              state: 'FAILED',
+              close_reason: report.reason,
+              closed_at: at,
+              broker_instance: report.brokerInstance,
+            })
+            .where('id', '=', id)
+            .execute();
+          await audit('SSH_CONNECT_FAILED', 'failure', { reason: report.reason }, report.reason);
+          const key = report.hostKey;
+          if (key !== undefined && key.outcome !== 'match') {
+            await audit(
+              key.outcome === 'mismatch' ? 'SSH_HOST_KEY_MISMATCH' : 'SSH_HOST_KEY_UNKNOWN',
+              'denied',
+              { algorithm: key.algorithm, presentedFingerprint: key.fingerprintSha256 },
+              key.outcome,
+            );
+          }
+          if (report.reason === 'TARGET_ADDRESS_FORBIDDEN') {
+            await audit(
+              'SSRF_BLOCKED',
+              'denied',
+              { host: s.target_id ?? 'unknown', reason: 'at_connect' },
+              'at_connect',
+            );
+          }
+          return { state: 'FAILED' as const };
+        }
+
+        if (
+          report.state === 'CLOSED' &&
+          (s.state === 'ACTIVE' || s.state === 'CLOSING' || s.state === 'REVOKED')
+        ) {
+          const reason = s.close_reason ?? report.reason;
+          await tx
+            .updateTable('sessions')
+            .set({ state: 'CLOSED', close_reason: reason, closed_at: at })
+            .where('id', '=', id)
+            .execute();
+          const started = s.activated_at ?? new Date(s.created_at);
+          await audit('SSH_SESSION_CLOSED', 'success', {
+            reason,
+            bytesIn: report.bytesIn ?? 0,
+            bytesOut: report.bytesOut ?? 0,
+            durationSec: Math.max(0, Math.round((at.getTime() - started.getTime()) / 1000)),
+          });
+          return { state: 'CLOSED' as const };
+        }
+        return { state: s.state };
       });
     },
 

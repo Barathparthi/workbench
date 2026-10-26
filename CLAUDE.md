@@ -34,6 +34,9 @@ The kit is not copied into `docs/` (no duplicate to drift). `docs/` holds produc
   never `theia download:plugins`, never `@theia/vsx-registry` — ADR-012)
 - From Phase 03: dev stack `docker compose -f deploy/compose/docker-compose.dev.yml up -d --wait`, then
   `cp apps/control-plane/.env.example apps/control-plane/.env` and `npm run dev -w @qe/control-plane` (migrates, serves :8080)
+- From Phase 08: broker `cp apps/connection-broker/.env.example apps/connection-broker/.env` and
+  `npm run dev -w @qe/connection-broker` (serves :8082; set the control plane's `BROKER_PUBLIC_URL`, `BROKER_INTERNAL_URL`
+  and the shared `INTERNAL_SERVICE_TOKEN`)
 - Local machine setup, system requirements and how to continue: `docs/LOCAL_DEVELOPMENT.md`
 
 ## Non-negotiable rules
