@@ -9,6 +9,10 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ### Security
 
+- Dependency audit: 12 → 5 `npm audit` findings (all from the one remaining root cause, `decompress`). Scoped
+  overrides: puppeteer/puppeteer-core 25.1.0 → 25.16.0 under `@theia/cli` (chromium-bidi 157.0.8090 drops the
+  vulnerable zod 3), and `@tootallnate/once` 2.0.1 + `http-proxy-agent` 5.0.0 under `@vscode/proxy-agent`.
+
 - Dependency audit: 59 → 12 `npm audit` findings with no Theia downgrade. Fastify 5.12.5 → 5.12.7, Electron
   42.11.10 → 42.11.16; lockfile updates for body-parser, fast-uri, multer; root `overrides` for DOMPurify in Monaco
   (3.4.17), uuid under react-tooltip and trash (11.1.1), and diff/serialize-javascript under mocha. Three advisories
