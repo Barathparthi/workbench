@@ -434,3 +434,36 @@ Accepted, no upstream fix (review at each Theia upgrade):
   a test tool that never validates untrusted input; not shipped.
 
 Never use `npm audit fix --force` in this repo: it resolves by downgrading Theia.
+
+### 2026-10-26 — Fresh Windows clone: install, audit 12 → 5 (branch `fix/audit-puppeteer-proxy-agent`)
+
+Fresh clone on the owner's Windows 11 machine (Node 24.21.0, inside the `engines` range; no Visual Studio Build
+Tools, no Docker; WSL Ubuntu present but empty).
+
+Install findings:
+
+- The network intercepts TLS to `nodejs.org` (`self-signed certificate in certificate chain` when `node-gyp`
+  downloads headers); the npm registry is not intercepted. `NODE_OPTIONS=--use-system-ca` makes Node trust the
+  Windows certificate store and fixes downloads.
+- Without a C++ toolchain, `npm ci` fails on `native-keymap`. Installed with `npm ci --ignore-scripts`, then
+  `npm rebuild` for packages with prebuilt binaries: `node-pty` (bundled win32-x64), `keytar`, `esbuild`,
+  `@parcel/watcher`, `msgpackr-extract`. Still unbuilt: `native-keymap` and `@theia/ffmpeg` (Electron only) and
+  `drivelist` (no Windows prebuild; `@theia/core`'s backend requires it at load, so the browser IDE backend needs it).
+- Lint reported 51 `boundaries/no-unknown-dependencies` errors because npm had created the `node_modules/@qe/*`
+  junctions with a lowercase `d:` target while ESLint ran from `D:\workbench`. Recreating the junctions with `D:`
+  fixed it; no code change. Run `npm ci` from the same drive-letter case you use for the other commands.
+
+Audit: puppeteer 25.16.0 now exists and its chromium-bidi (157.0.8090) is outside the advisory range, so the zod 3
+finding is fixed by a scoped override under `@theia/cli` (puppeteer is used only by `theia test`, which this repo does
+not use; Playwright runs the E2E tests). The `@tootallnate/once` finding is fixed by overriding `@tootallnate/once`
+2.0.1 and `http-proxy-agent` 5.0.0 under `@vscode/proxy-agent` 0.13.2: the only call sites (`once(socket, 'connect')`
+in both packages) ignore the resolved value, the one behaviour that differs between once v1 and v2, and
+`HttpProxyAgent` keeps the same export. Result 5 findings, all from `decompress` (critical, no fixed release; accepted
+as on 2026-10-24). Lockfile changes are limited to the puppeteer subtree and the two nested proxy-agent packages.
+npm applied the overrides only after the parents' lock entries were re-resolved.
+
+Checks on this machine: typecheck, lint, format check and 958 unit tests pass. `npm run build` fails here for
+environment reasons that also apply to `main`: the browser IDE bundle needs `@vscode/windows-ca-certs`'s
+`crypt32.node` and the Electron app needs `@theia/ffmpeg`, both compiled from source (`node-gyp`). Building and
+running the IDE on this machine needs Visual Studio 2022 Build Tools, or the WSL Ubuntu route in
+`LOCAL_DEVELOPMENT.md` (which also provides Docker for the database).
