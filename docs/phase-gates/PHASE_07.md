@@ -34,6 +34,22 @@ Not run locally: `targets.int.test.ts` (PostgreSQL — CI `integration + coverag
 audited, activation rules, role-filtered listing, ticket single use, wrong-Origin burn, expiry, policy-change refusal,
 denials audited, session limit, admin revoke, host-key revocation, audit chain.
 
+**2026-10-26 — integration suite on `main` (`a17cdb8`, Phase 08 included)**, WSL Ubuntu, Node 24.22.0, Docker Engine
+29.9.2:
+
+```text
+$ npm run test:integration
+ ✓  integration  apps/control-plane/src/__tests__/targets.int.test.ts (22 tests) 15226ms
+ ✓  integration  apps/control-plane/src/__tests__/db.int.test.ts (18 tests) 15842ms
+ ✓  integration  apps/control-plane/src/__tests__/api.int.test.ts (5 tests) 16779ms
+ ✓  integration  apps/control-plane/src/__tests__/lifecycle.int.test.ts (16 tests) 17982ms
+ ✓  integration  apps/control-plane/src/__tests__/session-auth.int.test.ts (8 tests) 18378ms
+ ✓  integration  packages/broker-core/src/__tests__/openssh.int.test.ts (5 tests) 23228ms
+ ✓  integration  apps/control-plane/src/__tests__/oidc-keycloak.int.test.ts (3 tests) 56523ms
+ Test Files  7 passed (7)
+      Tests  77 passed (77)
+```
+
 ## Security review
 
 - **Threats touched**: T5 SSRF (allowlist on resolved addresses, deny ranges, canonical forms only), T6 DNS rebinding
@@ -62,6 +78,6 @@ REVOKED`, `SSRF_BLOCKED` (own transaction, survives the refused registration), `
 
 ## Decision
 
-- [ ] PASS
-- [x] CONDITIONAL — pending CI `integration + coverage` (targets.int.test.ts)
+- [x] PASS — 2026-10-26: the pending `targets.int.test.ts` passes on `main` (22 tests, see Validation)
+- [ ] ~~CONDITIONAL — pending CI `integration + coverage` (targets.int.test.ts)~~
 - [ ] FAIL
