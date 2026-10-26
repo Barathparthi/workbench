@@ -287,3 +287,21 @@ export const RedeemTicketResponse = z.object({
     .nullable(),
 });
 export type RedeemTicketResponse = z.infer<typeof RedeemTicketResponse>;
+
+/** Internal (broker → control plane): what happened to a session. */
+export const SessionStateReport = z.strictObject({
+  state: z.enum(['ACTIVE', 'CLOSED', 'FAILED']),
+  /** Close reason or error code (`remote_exited`, `idle_timeout`, `HOST_KEY_MISMATCH`, …). */
+  reason: z.string().regex(/^[A-Za-z_]{1,64}$/),
+  brokerInstance: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/),
+  hostKey: z
+    .strictObject({
+      outcome: z.enum(['match', 'mismatch', 'unknown']),
+      algorithm: z.string().max(64),
+      fingerprintSha256: z.string().max(80),
+    })
+    .optional(),
+  bytesIn: z.number().int().min(0).optional(),
+  bytesOut: z.number().int().min(0).optional(),
+});
+export type SessionStateReport = z.infer<typeof SessionStateReport>;

@@ -113,3 +113,6 @@ Desktop.ini
 
 # Office lock files (reference/*.docx)
 ~$*
+
+# Development SSH key files for the broker (file_dev credentials) — never commit.
+dev-keys/

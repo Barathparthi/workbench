@@ -19,10 +19,16 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@qe/domain": "0.0.0",
     "@qe/contracts": "0.0.0",
+    "@qe/domain": "0.0.0",
     "@qe/policy": "0.0.0",
     "@qe/secrets": "0.0.0",
-    "@qe/telemetry": "0.0.0"
+    "@qe/telemetry": "0.0.0",
+    "ssh2": "1.17.0"
+  },
+  "devDependencies": {
+    "@qe/test-utils": "0.0.0",
+    "@types/ssh2": "1.15.6",
+    "testcontainers": "12.2.0"
   }
 }
