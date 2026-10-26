@@ -207,7 +207,9 @@ export async function registerWorkspaceRouter(
         port: target.port,
         method: 'GET',
         path: `${match[2] ?? '/'}${match[3] ?? ''}`,
-        headers: { ...upstreamHeaders(req.headers), host: target.host },
+        // The browser's Host is kept: Theia accepts a WebSocket only when the Origin's host equals Host, and
+        // the Origin was already checked against ALLOWED_ORIGINS above.
+        headers: upstreamHeaders(req.headers),
         timeout: 15_000,
       });
       upstreamReq.on('upgrade', (res, upstream, upstreamHead) => {

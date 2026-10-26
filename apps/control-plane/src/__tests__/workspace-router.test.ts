@@ -219,6 +219,8 @@ describe('WebSocket upgrades through /w/{id}/', () => {
     expect(res.headers['set-cookie']).toEqual([`t=1; Path=/w/${WS}/`]);
     expect(lastRequest?.url).toBe('/services');
     expect(lastRequest?.headers.cookie).toBe('theia-connection-token=abc');
+    // Theia accepts a WebSocket only when the Origin's host equals Host (or THEIA_HOSTS lists it).
+    expect(lastRequest?.headers.host).toBe(new URL(base).host);
     res.socket?.write('ping');
     expect(await readOnce(res.socket as Duplex)).toBe('echo:ping');
     res.socket?.destroy();
