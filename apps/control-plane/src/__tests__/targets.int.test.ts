@@ -221,6 +221,18 @@ describe('sessions and tickets', () => {
     await expect(sessions.redeem(s.ticket, ORIGIN)).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
   });
 
+  it('hands the terminal size the IDE asked for to the broker (none when not given)', async () => {
+    const sized = await sessions.open(
+      ctx(bob),
+      targetId,
+      { kind: 'terminal', terminal: { cols: 100, rows: 30 } },
+      ORIGIN,
+    );
+    expect((await sessions.redeem(sized.ticket, ORIGIN)).terminal).toEqual({ cols: 100, rows: 30 });
+    const unsized = await open(bob);
+    expect((await sessions.redeem(unsized.ticket, ORIGIN)).terminal).toBeNull();
+  });
+
   it('burns a ticket presented with the wrong Origin', async () => {
     const s = await open(bob);
     await expect(sessions.redeem(s.ticket, 'https://evil.example')).rejects.toMatchObject({

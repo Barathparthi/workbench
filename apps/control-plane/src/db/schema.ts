@@ -168,6 +168,9 @@ export interface SessionsTable {
   last_activity_at: Date | null;
   expires_at: Date;
   closed_at: Date | null;
+  /** 0004: size requested by the IDE (terminal sessions only). */
+  terminal_cols: number | null;
+  terminal_rows: number | null;
 }
 
 export interface SessionTicketsTable {

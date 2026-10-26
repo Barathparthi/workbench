@@ -43,7 +43,7 @@ const newWorkspace = async (ownerId: string, name: string) => {
 describe('migrations', () => {
   it('apply from empty and report up to date; a second run applies nothing', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map((m) => m.version)).toEqual(['0001', '0002', '0003']);
+    expect(migrations.map((m) => m.version)).toEqual(['0001', '0002', '0003', '0004']);
     expect(await migrationsUpToDate(t.adminPool, migrations)).toBe(true);
     expect(await migrate(t.adminPool, migrations)).toEqual([]);
   });
