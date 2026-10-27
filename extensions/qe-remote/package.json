@@ -2,7 +2,7 @@
   "name": "@qe/theia-qe-remote",
   "version": "0.0.0",
   "private": true,
-  "description": "QE Workspace remote connections: target list and remote terminals through the connection broker (ADR-006 option B).",
+  "description": "QE Workspace remote connections: target list, remote terminals and remote files through the connection broker (ADR-006 option B).",
   "license": "UNLICENSED",
   "type": "commonjs",
   "keywords": [
@@ -19,7 +19,9 @@
     "@qe/contracts": "0.0.0",
     "@qe/theia-qe-core": "0.0.0",
     "@theia/core": "1.76.0",
-    "@theia/terminal": "1.76.0"
+    "@theia/filesystem": "1.76.0",
+    "@theia/terminal": "1.76.0",
+    "@theia/workspace": "1.76.0"
   },
   "theiaExtensions": [
     {

@@ -1,17 +1,22 @@
 import { QuickInputService } from '@theia/core/lib/browser/quick-input/quick-input-service';
 import { type CommandContribution, CommandRegistry } from '@theia/core/lib/common/command';
 import { MessageService } from '@theia/core/lib/common/message-service';
+import URI from '@theia/core/lib/common/uri';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
+import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { encodeInput, type ServerControl } from '@qe/contracts';
 import { QeCommands } from '@qe/theia-qe-core/lib/browser/qe-commands';
 import { QeEnvironmentService } from '@qe/theia-qe-core/lib/common/qe-environment';
 
-import { describeFailure, remoteClient, streamTarget, type TargetSummary } from '../common/remote-client';
+import { describeFailure, streamTarget, type TargetSummary } from '../common/remote-client';
+import { remoteRootUri } from '../common/remote-files';
+import { QeRemoteServices, RemoteTargetNames } from './qe-remote-files';
 
 /**
  * "Connect to Remote System…" (Phase 08 §8.5, ADR-006 option B): pick a registered target, open a session, and
- * render the broker's `qews.v1` stream in a Theia terminal widget with no backend process. Everything goes from this
+ * render the broker's `qews.v1` stream in a Theia terminal widget with no backend process. "Open Remote Folder…"
+ * (Phase 09 §9.4) adds the target's remote folder to the workspace as a `qe-ssh://` root. Everything goes from this
  * page to the control plane and broker — never through the workspace runtime (P9).
  */
 @injectable()
@@ -21,34 +26,60 @@ export class QeRemoteContribution implements CommandContribution {
   @inject(MessageService) protected readonly messages!: MessageService;
   @inject(QeEnvironmentService) protected readonly environment!: QeEnvironmentService;
 
-  protected readonly client = remoteClient({
-    origin: window.location.origin,
-    cookies: () => document.cookie,
-    fetch: (input, init) => fetch(input, init),
-  });
+  @inject(WorkspaceService) protected readonly workspace!: WorkspaceService;
+  @inject(QeRemoteServices) protected readonly services!: QeRemoteServices;
+  @inject(RemoteTargetNames) protected readonly targetNames!: RemoteTargetNames;
+
+  protected get client() {
+    return this.services.client;
+  }
 
   registerCommands(registry: CommandRegistry): void {
     registry.registerCommand(QeCommands.CONNECT_TARGET, { execute: () => this.connect() });
+    registry.registerCommand(QeCommands.OPEN_REMOTE_FOLDER, { execute: () => this.openFolder() });
   }
 
   protected async connect(): Promise<void> {
+    const target = await this.pickTarget('Connect to a remote system');
+    if (target !== undefined) await this.openTerminal(target);
+  }
+
+  /** Adds the target's remote folder to the workspace (once); the Explorer shows it as `[target]`. */
+  protected async openFolder(): Promise<void> {
+    const target = await this.pickTarget('Open the remote folder of a system');
+    if (target === undefined) return;
+    const root = new URI(remoteRootUri(target.id));
+    // Fail here, with the reason, rather than with an empty folder in the Explorer.
+    try {
+      await this.services.provider.stat(root);
+    } catch (error) {
+      await this.messages.error(error instanceof Error ? error.message : describeFailure(error));
+      return;
+    }
+    if (this.workspace.tryGetRoots().some((r) => r.resource.isEqual(root))) return;
+    await this.workspace.addRoot(root);
+  }
+
+  /** The user's choice among the targets they may see, or undefined (cancelled, none, or not available here). */
+  protected async pickTarget(placeholder: string): Promise<TargetSummary | undefined> {
     const env = await this.environment.getEnvironment();
     if (!env.features.managedTargets) {
       await this.messages.info(
         'Remote systems are available when QE Workspace is connected to a control plane.',
       );
-      return;
+      return undefined;
     }
     let targets: TargetSummary[];
     try {
       targets = await this.client.listTargets();
     } catch (error) {
       await this.messages.error(describeFailure(error));
-      return;
+      return undefined;
     }
+    this.targetNames.remember(targets);
     if (targets.length === 0) {
       await this.messages.info('No remote systems are available to you. Ask a lab admin for access.');
-      return;
+      return undefined;
     }
     const picked = await this.quickInput.showQuickPick(
       targets.map((t) => ({
@@ -57,10 +88,9 @@ export class QeRemoteContribution implements CommandContribution {
         detail: [t.os, ...t.tags].join(' · ') + (t.description === null ? '' : ` — ${t.description}`),
         target: t,
       })),
-      { placeholder: 'Connect to a remote system' },
+      { placeholder },
     );
-    if (picked === undefined) return;
-    await this.openTerminal(picked.target);
+    return picked?.target;
   }
 
   protected async openTerminal(target: TargetSummary): Promise<void> {

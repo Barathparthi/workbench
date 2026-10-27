@@ -13,6 +13,7 @@ export const QeCommands = {
   CATEGORY,
   OPEN_WORKSPACE: qeCommand('qe.workspace.open', 'Open Workspace…'),
   CONNECT_TARGET: qeCommand('qe.remote.connect', 'Connect to Remote System…'),
+  OPEN_REMOTE_FOLDER: qeCommand('qe.remote.openFolder', 'Open Remote Folder…'),
   RUN_TESTS: qeCommand('qe.runner.run', 'Run Tests'),
   ABOUT: qeCommand('qe.about', 'About QE Workspace'),
 } as const;
@@ -21,8 +22,8 @@ export const QeCommands = {
 export const THEIA_ABOUT_COMMAND_ID = 'core.about';
 
 /**
- * Commands implemented by later phases (workspace picker, runner: 11). CONNECT_TARGET is defined here (it appears in
- * the welcome page) and implemented by the qe-remote extension (Phase 08).
+ * Commands implemented by later phases (workspace picker, runner: 11). CONNECT_TARGET (it appears in the welcome page)
+ * and OPEN_REMOTE_FOLDER are defined here and implemented by the qe-remote extension (Phases 08–09).
  */
 const PLACEHOLDERS: readonly Command[] = [QeCommands.OPEN_WORKSPACE, QeCommands.RUN_TESTS];
 

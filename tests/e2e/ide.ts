@@ -22,6 +22,7 @@ export function pluginsAvailable(): boolean {
 export const QE_COMMANDS = [
   'QE: About QE Workspace',
   'QE: Connect to Remote System…',
+  'QE: Open Remote Folder…',
   'QE: Open Workspace…',
   'QE: Run Tests',
 ];

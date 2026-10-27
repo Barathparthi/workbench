@@ -1,4 +1,4 @@
-import { QEWS_PROTOCOL, TICKET_PROTOCOL_PREFIX } from '@qe/contracts';
+import { QEWS_PROTOCOL, TICKET_PROTOCOL_PREFIX, type FsOp } from '@qe/contracts';
 
 /**
  * Browser-side client for the remote-session API (05_API_CONTRACTS §2.3–2.4). The IDE runs on the control plane's
@@ -49,7 +49,28 @@ async function failure(res: Response): Promise<RemoteApiError> {
   return new RemoteApiError(res.status, body?.code ?? `HTTP_${String(res.status)}`);
 }
 
+/** A file operation can open the session's SFTP connection first (10 s) and then move up to 10 MB. */
+const FILE_OP_TIMEOUT_MS = 60_000;
+
 export function remoteClient(deps: RemoteClientDeps) {
+  /** A same-origin POST with the session cookie and the CSRF token echoed from its cookie. */
+  const post = async (path: string, body: unknown, timeoutMs: number): Promise<unknown> => {
+    const csrf = cookieValue(deps.cookies(), 'qews_csrf');
+    const res = await deps.fetch(`${deps.origin}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        ...(csrf !== undefined && { 'x-csrf-token': csrf }),
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) throw await failure(res);
+    return res.json();
+  };
+
   return {
     async listTargets(): Promise<TargetSummary[]> {
       const res = await deps.fetch(`${deps.origin}/api/v1/targets`, {
@@ -66,26 +87,33 @@ export function remoteClient(deps: RemoteClientDeps) {
       targetId: string,
       size: { cols: number; rows: number },
     ): Promise<OpenedSession> {
-      const csrf = cookieValue(deps.cookies(), 'qews_csrf');
-      const res = await deps.fetch(`${deps.origin}/api/v1/targets/${encodeURIComponent(targetId)}/sessions`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'content-type': 'application/json',
-          accept: 'application/json',
-          ...(csrf !== undefined && { 'x-csrf-token': csrf }),
-        },
-        body: JSON.stringify({
+      return (await post(
+        `/api/v1/targets/${encodeURIComponent(targetId)}/sessions`,
+        {
           kind: 'terminal',
           terminal: {
             cols: Math.min(1000, Math.max(1, size.cols)),
             rows: Math.min(500, Math.max(1, size.rows)),
           },
-        }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) throw await failure(res);
-      return (await res.json()) as OpenedSession;
+        },
+        10_000,
+      )) as OpenedSession;
+    },
+
+    /** A files-session (no ticket use: file operations authenticate with the sign-in cookie and ownership). */
+    async openFilesSession(targetId: string): Promise<{ sessionId: string }> {
+      return (await post(
+        `/api/v1/targets/${encodeURIComponent(targetId)}/sessions`,
+        { kind: 'files' },
+        10_000,
+      )) as {
+        sessionId: string;
+      };
+    },
+
+    /** One operation of 05_API_CONTRACTS §2.4 on a files-session; failures are RemoteApiErrors with the API code. */
+    fileOp(sessionId: string, op: FsOp, body: object): Promise<unknown> {
+      return post(`/api/v1/sessions/${encodeURIComponent(sessionId)}/fs/${op}`, body, FILE_OP_TIMEOUT_MS);
     },
   };
 }
