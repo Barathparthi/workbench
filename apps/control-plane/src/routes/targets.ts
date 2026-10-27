@@ -1,5 +1,6 @@
 import {
   AddHostKeyRequest,
+  BrokerInstanceParams,
   ConnectionPolicy,
   ConnectionPolicyList,
   CreateCredentialRefRequest,
@@ -190,5 +191,14 @@ export function targetRoutes(
     },
     config: { permission: 'internal', audit: true, rateLimit: { max: 1200, timeWindow: '1 minute' } },
     handler: async (request) => sessions.reportState(request.params.id, request.body),
+  });
+  r.post('/internal/v1/brokers/:instance/started', {
+    schema: {
+      tags: ['internal'],
+      params: BrokerInstanceParams,
+      response: { 200: z.object({ closed: z.number() }), ...errors },
+    },
+    config: { permission: 'internal', audit: true, rateLimit: { max: 60, timeWindow: '1 minute' } },
+    handler: async (request) => sessions.brokerStarted(request.params.instance),
   });
 }

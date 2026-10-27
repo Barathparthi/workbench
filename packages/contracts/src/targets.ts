@@ -305,3 +305,6 @@ export const SessionStateReport = z.strictObject({
   bytesOut: z.number().int().min(0).optional(),
 });
 export type SessionStateReport = z.infer<typeof SessionStateReport>;
+
+/** Internal (broker → control plane): this broker instance (re)started and holds no sessions. */
+export const BrokerInstanceParams = z.object({ instance: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/) });

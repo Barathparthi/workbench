@@ -16,6 +16,8 @@ export interface ControlPlaneClient {
   redeem(ticket: string, origin: string): Promise<RedeemTicketResponse>;
   /** Best effort: a lost report is repaired by the control plane's session sweep. */
   report(sessionId: string, report: StateReport): Promise<void>;
+  /** At startup: this instance holds no sessions, so the control plane closes the ones recorded on it. */
+  started(brokerInstance: string): Promise<{ closed: number }>;
 }
 
 const TIMEOUT_MS = 5_000;
@@ -43,6 +45,11 @@ export function httpControlPlane(baseUrl: string, token: string): ControlPlaneCl
     },
     async report(sessionId, report) {
       await post(`/internal/v1/sessions/${encodeURIComponent(sessionId)}/state`, report);
+    },
+    async started(brokerInstance) {
+      const res = await post(`/internal/v1/brokers/${encodeURIComponent(brokerInstance)}/started`, {});
+      if (!res.ok) throw new DomainError('INTERNAL_ERROR', `control plane answered ${String(res.status)}`);
+      return (await res.json()) as { closed: number };
     },
   };
 }

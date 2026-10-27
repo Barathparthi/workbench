@@ -84,3 +84,12 @@ async function shutdown(): Promise<void> {
 process.once('SIGTERM', () => void shutdown());
 process.once('SIGINT', () => void shutdown());
 await app.listen({ host: config.HOST, port: config.PORT });
+// A (re)started broker holds no sessions: let the control plane close the ones it still records on this instance.
+runner.controlPlane.started(config.BROKER_INSTANCE_ID).then(
+  ({ closed }) => {
+    app.log.info({ closed }, 'sessions of the previous run closed');
+  },
+  (error: unknown) => {
+    app.log.warn({ err: error }, 'could not tell the control plane this broker started');
+  },
+);

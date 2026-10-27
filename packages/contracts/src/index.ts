@@ -48,6 +48,7 @@ export {
   SessionIdParams,
   SessionKind,
   SessionStateReport,
+  BrokerInstanceParams,
   Target,
   TargetHost,
   TargetIdParams,

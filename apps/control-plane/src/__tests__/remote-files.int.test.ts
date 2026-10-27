@@ -281,6 +281,49 @@ describe('remote file operations', () => {
     expect(brokerCloses).toEqual([id]);
   });
 
+  it('closes what a restarted broker held, and stale unclaimed connects, and nothing else', async () => {
+    const set = (
+      id: string,
+      values: {
+        state: 'ACTIVE' | 'CONNECTING' | 'CLOSED';
+        broker_instance?: string | null;
+        created_at?: Date;
+      },
+    ) => t.db.updateTable('sessions').set(values).where('id', '=', id).execute();
+    const [mine, other, fresh, stale, done] = await Promise.all([1, 2, 3, 4, 5].map(() => openFiles(bob)));
+    await set(mine ?? '', { state: 'ACTIVE', broker_instance: 'broker-a' });
+    await set(other ?? '', { state: 'ACTIVE', broker_instance: 'broker-b' });
+    await set(fresh ?? '', { state: 'CONNECTING' });
+    await set(stale ?? '', { state: 'CONNECTING', created_at: new Date(clock.getTime() - 3 * 60_000) });
+    await set(done ?? '', { state: 'CLOSED', broker_instance: 'broker-a' });
+
+    expect(await sessions.brokerStarted('broker-a')).toEqual({ closed: 2 });
+    const states = await t.db
+      .selectFrom('sessions')
+      .select(['id', 'state', 'close_reason'])
+      .where(
+        'id',
+        'in',
+        [mine, other, fresh, stale, done].map((x) => x ?? ''),
+      )
+      .execute();
+    const byId = new Map(states.map((s) => [s.id, `${s.state}:${s.close_reason ?? ''}`]));
+    expect([mine, other, fresh, stale, done].map((id) => byId.get(id ?? ''))).toEqual([
+      'CLOSED:broker_restarted',
+      'ACTIVE:',
+      'CONNECTING:',
+      'CLOSED:broker_restarted',
+      'CLOSED:',
+    ]);
+    const closedAudits = await t.db
+      .selectFrom('audit_events')
+      .select(['resource_id', 'reason_code'])
+      .where('action', '=', 'SSH_SESSION_CLOSED')
+      .where('reason_code', '=', 'broker_restarted')
+      .execute();
+    expect(closedAudits.map((a) => a.resource_id).sort()).toEqual([mine, stale].sort());
+  });
+
   it('keeps the audit chain intact', async () => {
     expect(await verifyAuditChain(t.db)).toMatchObject({ ok: true });
   });
