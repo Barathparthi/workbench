@@ -3,6 +3,7 @@ import type { Duplex } from 'node:stream';
 import ssh2 from 'ssh2';
 
 import type { HostKeyVerifier } from './host-key.js';
+import { mapSftpError, wrapSftp, type SftpChannel } from './sftp.js';
 
 /** Where to connect: always a checked IP address (never a name — no second DNS lookup, no rebinding). */
 export interface SshEndpoint {
@@ -29,6 +30,8 @@ export interface PtyChannel {
 
 export interface SshConnection {
   shell(options: { cols: number; rows: number; term: string }): Promise<PtyChannel>;
+  /** Opens the SFTP subsystem (one channel per files-session, reused across operations). */
+  sftp(): Promise<SftpChannel>;
   close(): void;
   onClose(listener: () => void): void;
 }
@@ -142,6 +145,13 @@ function wrap(client: ssh2.Client): SshConnection {
               });
             },
           });
+        });
+      }),
+    sftp: () =>
+      new Promise((resolve, reject) => {
+        client.sftp((error, sftp) => {
+          if (error) reject(mapSftpError(error));
+          else resolve(wrapSftp(sftp));
         });
       }),
     close: () => {

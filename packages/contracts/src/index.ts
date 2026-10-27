@@ -82,3 +82,23 @@ export {
   type AuditActorType,
   type AuditResult,
 } from './audit.js';
+export {
+  ETag,
+  FsDeleteRequest,
+  FsEmptyResult,
+  FsListEntry,
+  FsListRequest,
+  FsListResult,
+  FsMkdirRequest,
+  FsOp,
+  FsReadRequest,
+  FsReadResult,
+  FsRenameRequest,
+  FsStat,
+  FsStatRequest,
+  FsWriteRequest,
+  FsWriteResult,
+  REMOTE_FILE_LIMITS,
+  RemoteFileType,
+  RemotePath,
+} from './remote-files.js';

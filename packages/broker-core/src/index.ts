@@ -42,4 +42,13 @@ export {
   type RealpathFn,
   type ResolveMode,
 } from './confine.js';
+export { mapSftpError, wrapSftp, type RemoteDirEntry, type RemoteStats, type SftpChannel } from './sftp.js';
+export {
+  createRemoteFileSystem,
+  etagOf,
+  isTempName,
+  type FsWriteInput,
+  type RemoteFileSystem,
+  type RemoteFileSystemOptions,
+} from './remote-fs.js';
 export { fileDevCredentialSource, type CredentialReference, type CredentialSource } from './credentials.js';

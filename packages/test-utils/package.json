@@ -10,10 +10,16 @@
       "@qe/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./openssh": {
+      "@qe/source": "./src/openssh-container.ts",
+      "types": "./dist/openssh-container.d.ts",
+      "default": "./dist/openssh-container.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "openssh"
   ],
   "scripts": {
     "build": "tsc -b"
@@ -22,6 +28,7 @@
     "ssh2": "1.17.0"
   },
   "devDependencies": {
-    "@types/ssh2": "1.15.6"
+    "@types/ssh2": "1.15.6",
+    "testcontainers": "12.2.0"
   }
 }
