@@ -21,7 +21,22 @@ export class QeRemoteServices {
     cookies: () => document.cookie,
     fetch: (input, init) => fetch(input, init),
   });
-  readonly provider = new QeSshFileSystemProvider(new RemoteFileSessions(this.client));
+  readonly provider = new QeSshFileSystemProvider(new RemoteFileSessions(this.client), userIsActive());
+}
+
+/** After this long without input the user counts as away: remote polling pauses (PHASE_09 §9.5 idle back-off). */
+const AWAY_AFTER_MS = 10 * 60_000;
+
+/** True while the page is visible and the user typed, clicked or scrolled within AWAY_AFTER_MS. */
+function userIsActive(): () => boolean {
+  let lastInput = Date.now();
+  const seen = () => {
+    lastInput = Date.now();
+  };
+  for (const event of ['keydown', 'mousedown', 'wheel', 'touchstart']) {
+    window.addEventListener(event, seen, { capture: true, passive: true });
+  }
+  return () => document.visibilityState === 'visible' && Date.now() - lastInput < AWAY_AFTER_MS;
 }
 
 @injectable()

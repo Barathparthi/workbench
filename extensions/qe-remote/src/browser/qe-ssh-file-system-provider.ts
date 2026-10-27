@@ -1,5 +1,5 @@
 import type { FsListResult, FsReadResult, FsStat, FsWriteResult } from '@qe/contracts';
-import { Disposable, Emitter, Event } from '@theia/core/lib/common';
+import { Emitter, Event, type Disposable } from '@theia/core/lib/common';
 import type URI from '@theia/core/lib/common/uri';
 import {
   createFileSystemProviderError,
@@ -14,10 +14,12 @@ import {
   type FileSystemProviderWithFileReadWriteCapability,
   type FileWriteOptions,
   type Stat,
+  type WatchOptions,
 } from '@theia/filesystem/lib/common/files';
 
 import { RemoteApiError } from '../common/remote-client';
 import { fromBase64, relativePath, toBase64, type RemoteFileSessions } from '../common/remote-files';
+import { DEFAULT_WATCHER_OPTIONS, RemoteWatcher, type RemoteWatcherOptions } from './remote-watcher';
 
 /* eslint-disable @typescript-eslint/no-unsafe-enum-assignment, @typescript-eslint/no-unnecessary-type-assertion --
    FileSystemProviderCapabilities and FileChangeType are ambient const enums (no runtime object), so their values are
@@ -80,6 +82,11 @@ export function toProviderError(error: unknown): Error {
   }
 }
 
+/** A folder's entries as `name → type:mtime:size`, to tell what changed between two polls. */
+function listingOf(result: FsListResult): ReadonlyMap<string, string> {
+  return new Map(result.entries.map((e) => [e.name, `${e.type}:${String(e.mtimeMs)}:${String(e.size)}`]));
+}
+
 function toStat(s: FsStat): Stat {
   // A link the server will not follow (it leaves the remote folder) is shown, read-only, as a file.
   const base =
@@ -97,7 +104,8 @@ function toStat(s: FsStat): Stat {
  * `qe-ssh://` in Theia (PHASE_09 §9.4, ADR-006 option B): every call goes from this page to the control plane's file
  * API, which reaches the target through the broker; nothing runs in the workspace runtime (P9). Writes carry the
  * ETag of the `stat` Theia makes just before writing (FileService.validateWriteFile), so a change on the server in
- * between is refused by the server too, not only by Theia's own "modified since" check.
+ * between is refused by the server too, not only by Theia's own "modified since" check. Changes made on the server
+ * reach the IDE through the polling watcher.
  */
 export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWriteCapability {
   readonly capabilities = CAPABILITIES;
@@ -108,7 +116,36 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
   /** ETag of the last stat, read or write of each file, by URI. */
   protected readonly etags = new Map<string, string>();
 
-  constructor(protected readonly sessions: RemoteFileSessions) {}
+  protected readonly watcher: RemoteWatcher;
+
+  /** `isActive`: whether the user is here (page visible, recent input); polling pauses otherwise. */
+  constructor(
+    protected readonly sessions: RemoteFileSessions,
+    isActive: () => boolean = () => true,
+    watcherOptions: RemoteWatcherOptions = DEFAULT_WATCHER_OPTIONS,
+  ) {
+    const gone = (error: unknown) => {
+      if (error instanceof RemoteApiError && error.code === 'NOT_FOUND') return undefined;
+      throw error;
+    };
+    this.watcher = new RemoteWatcher(
+      {
+        fileEtag: (uri) =>
+          this.sessions
+            .call<FsStat>(uri.authority, 'stat', { path: relativePath(uri.path.toString()) })
+            .then((s) => s.etag, gone),
+        listing: (uri) =>
+          this.sessions
+            .call<FsListResult>(uri.authority, 'list', { path: relativePath(uri.path.toString()) })
+            .then((r) => listingOf(r), gone),
+      },
+      (changes) => {
+        this.changes.fire(changes);
+      },
+      isActive,
+      watcherOptions,
+    );
+  }
 
   protected async call<T>(uri: URI, op: Parameters<RemoteFileSessions['call']>[1], body: object): Promise<T> {
     try {
@@ -118,14 +155,15 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
     }
   }
 
-  watch(): Disposable {
-    return Disposable.NULL; // polling watcher: P09.5
+  watch(resource: URI, options: WatchOptions): Disposable {
+    return this.watcher.watch(resource, options.recursive);
   }
 
   async stat(resource: URI): Promise<Stat> {
     try {
       const s = await this.call<FsStat>(resource, 'stat', { path: relativePath(resource.path.toString()) });
       this.etags.set(resource.toString(), s.etag);
+      if (s.type === 'file') this.watcher.updateFile(resource, s.etag);
       return toStat(s);
     } catch (error) {
       this.etags.delete(resource.toString());
@@ -134,9 +172,11 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
   }
 
   async readdir(resource: URI): Promise<[string, FileType][]> {
-    const { entries } = await this.call<FsListResult>(resource, 'list', {
+    const listed = await this.call<FsListResult>(resource, 'list', {
       path: relativePath(resource.path.toString()),
     });
+    this.watcher.noteDir(resource, listingOf(listed));
+    const { entries } = listed;
     // Listings do not follow links; stat each link so the tree knows whether it is a folder.
     return Promise.all(
       entries.map(async (entry): Promise<[string, FileType]> => {
@@ -154,6 +194,7 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
       path: relativePath(resource.path.toString()),
     });
     this.etags.set(resource.toString(), r.etag);
+    this.watcher.noteFile(resource, r.etag);
     return fromBase64(r.contentBase64);
   }
 
@@ -169,6 +210,7 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
     });
     const existed = ifMatch !== undefined;
     this.etags.set(key, etag);
+    this.watcher.noteFile(resource, etag);
     this.changes.fire([{ resource, type: existed ? UPDATED : ADDED }]);
   }
 
@@ -183,6 +225,7 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
       recursive: options.recursive,
     });
     this.etags.delete(resource.toString());
+    this.watcher.forget(resource);
     this.changes.fire([{ resource, type: DELETED }]);
   }
 
@@ -199,6 +242,7 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
       overwrite: options.overwrite,
     });
     this.etags.delete(from.toString());
+    this.watcher.forget(from);
     this.changes.fire([
       { resource: from, type: DELETED },
       { resource: to, type: ADDED },

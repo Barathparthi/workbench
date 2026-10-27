@@ -156,3 +156,27 @@ describe('qe-ssh file system provider', () => {
     });
   });
 });
+
+describe('qe-ssh watching', () => {
+  it('reports a server-side change to a file the IDE read, through the polling watcher', async () => {
+    vi.useFakeTimers();
+    try {
+      let etag = '1761000000000-9';
+      const { p } = provider((op) => (op === 'read' ? { contentBase64: '', etag } : fileStat({ etag })));
+      const changes: string[] = [];
+      p.onDidChangeFile((c) =>
+        changes.push(...c.map((x) => `${String(x.type)} ${x.resource.path.toString()}`)),
+      );
+      const watch = p.watch(uri(''), { recursive: true, excludes: [] });
+      await p.readFile(uri('src/main.py'));
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(changes).toEqual([]);
+      etag = '1761000009000-14';
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(changes).toEqual(['0 /src/main.py']);
+      watch.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
