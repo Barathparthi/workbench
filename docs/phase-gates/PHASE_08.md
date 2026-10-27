@@ -53,6 +53,51 @@ mismatch, rejected key) and `targets.int.test.ts` (state reports, revocation, se
 
 `apps/connection-broker` moves to Fastify 5.12.7 to match the control plane (PR #12).
 
+**2026-10-26/27 — Milestone M2 end to end (WSL Ubuntu, Docker Engine 29.9.2, Node 24.22.0).** Stack: compose
+PostgreSQL + Keycloak, control plane (:8080, `AUTH_MODE=dev`, roles `qe.admin,qe.user,lab.a.user`), broker (:8082,
+`file_dev` key), workspace runtime image from `main`, and an OpenSSH container as lab machine (`qews-lab-a`,
+image `qews-lab-openssh:dev`, network `qews-lab`, fixed 172.30.0.10). Registered through the admin API: policy
+(`lab.a.user`, 172.30.0.0/24, port 22, `terminal`), `file_dev` credential reference, target `lab-a-dev` (principal
+`qe`), host key approved from the container's `ssh_host_ed25519_key.pub` (same fingerprint as `ssh-keygen -lf`).
+
+1. Headless, through a throwaway control plane and broker (`ws` client speaking `qews.v1`):
+
+   ```text
+   session … AUTHORIZED stream=http://localhost:8092/api/v1/sessions/…/stream
+   control {"t":"status","state":"CONNECTING"}
+   control {"t":"hostkey","algorithm":"ssh-ed25519","fingerprintSha256":"SHA256:OllhDjWvCr/L2LwG0G/EsTMm1eUwF6P7NtCWOyA0tMo","verified":true}
+   control {"t":"status","state":"ACTIVE"}
+   REMOTE OUTPUT: M2-OK qe@bd719bc262a6 size=24 80     ← requested 100x30: defect 3 below
+   closed 1000 client_closed                           ← session row CLOSED client_closed
+   ```
+
+2. In the browser: workspace IDE at `/w/{id}/` → F1 → Connect to Remote System → `lab-a-dev`:
+
+   ```text
+   Connecting to lab-a-dev…
+   Host key verified (ssh-ed25519 SHA256:OllhDjWvCr/L2LwG0G/EsTMm1eUwF6P7NtCWOyA0tMo).
+   Welcome to Alpine!
+   7025eca211d5:~$
+   ```
+
+   Session row `ACTIVE`, broker instance recorded; audit `REMOTE_CONNECT_ALLOWED`, `SSH_SESSION_OPENED`. A first
+   attempt, after the lab container changed address on a WSL restart, failed cleanly as `SSH_CONNECT_FAILED` /
+   `SSH_TIMEOUT` ("The remote system did not answer in time").
+
+Defects found by the M2 run, all fixed with tests:
+
+1. Runtime image built only `qe-core`; `qe-remote` had no `lib/` and the IDE stopped at startup
+   (`Dynamic require of "@qe/theia-qe-remote/…" is not supported`). Now builds every extension (`-w extensions`).
+2. Router CSP blocked Monaco's `data:` WebAssembly and the broker stream: `connect-src 'self' data:` plus the broker's
+   ws/wss origin from `BROKER_PUBLIC_URL`.
+3. Requested terminal size was dropped: the control plane returned `terminal: null` and the broker hard-coded 80×24.
+   Migration `0004_session_terminal_size` stores it; the broker uses it. Unit test (broker) and integration test
+   (control plane) added.
+4. Image build hung 25 minutes downloading Node headers through the proxy; node-gyp now uses the base image's headers.
+
+Local bundles (`npm run build` after the merge): `ide-browser` and `ide-electron` both contain the Connect to Remote
+System command, no unresolved requires. Unit tests 1039/1039; integration suites pass (targets 23, db 18).
+
 ## Security review
 
 - **Threats**: T7 host-key spoofing (pinned, fail closed, separate audit event), T5/T6 (address re-checked at connect,
@@ -73,13 +118,23 @@ mismatch, rejected key) and `targets.int.test.ts` (state reports, revocation, se
 
 ## Known limitations & follow-ups
 
-- **Milestone M2** (browser → registered lab host → SSH terminal) end to end needs the control plane, broker, IDE and
-  an SSH target running together — Docker on this PC or a staging environment.
+- ~~Milestone M2~~ — done 2026-10-27 (see Validation).
 - Sweep of stale `CONNECTING` sessions when a broker dies mid-connect (reconciler, with Phase 09/13).
+- The IDE sends 80×24 when it opens the session (the terminal widget is measured after connect) and corrects it with
+  a `resize` once the socket opens; measuring first would make the initial PTY size exact.
+- `npm warn Unknown env config "nodedir"` during the image build: works with npm 11, will stop in the next npm major;
+  replace before upgrading npm.
+- Open VSX downloads redirect to `openvsx.eclipsecontent.org`, which intermittently stalled behind the proxy and failed
+  two image builds; `scripts/plugins.ts` has a single 60 s attempt — add retries (Phase 15, or with D7's mirror).
+- The CI `runtime image` job does not load the IDE frontend, so defect 1 above passed CI; a frontend smoke against the
+  image belongs in Phase 15.
+- One unit-suite failure in `broker-core` `index.test.ts` was seen once under heavy load (passes alone and on rerun);
+  watch for flakiness.
 
 ## Decision
 
-- [ ] PASS
-- [x] CONDITIONAL — integration suites pass locally (2026-10-25); pending CI (`smoke`: both IDE apps build with the
-      new extension) and an M2 run (browser → broker → SSH target)
+- [x] PASS — 2026-10-27: M2 met in the browser (host key verified, interactive shell, audited); local builds of both
+      IDE apps include the extension. Owner to confirm the GitHub Actions run for the pushed commit is green.
+- [ ] ~~CONDITIONAL — integration suites pass locally (2026-10-25); pending CI (`smoke`: both IDE apps build with the
+      new extension) and an M2 run (browser → broker → SSH target)~~
 - [ ] FAIL

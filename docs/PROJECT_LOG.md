@@ -523,3 +523,27 @@ to proxied IDE responses, and Theia's ajv compiles preference schemas with `new 
 calls for "script-src 'self' + Theia requirements" on the router. The `/w/{id}` routes now get helmet's defaults plus
 `'unsafe-eval'`, `'wasm-unsafe-eval'` (onig.wasm for TextMate grammars) and `blob:` for workers and images; the API
 keeps `script-src 'self'`. Unit test checks both. Full CSP tuning (webviews, Monaco workers) stays in Phase 14.
+
+### 2026-10-26/27 — Phase 07 and 08 gates closed (branch `phase-08-m2-gates`)
+
+The owner cancelled the planned demo: the project is to be completed to production grade first. Before Phase 09 the
+two open gates were closed with real runs.
+
+- **Phase 07 → PASS.** The pending `targets.int.test.ts` passes on `main` (77/77 integration tests in WSL).
+- **Phase 08 → PASS.** Milestone M2 run in WSL: an OpenSSH container as lab machine, registered through the admin API
+  with its host key approved out of band; first headless through a throwaway control plane and broker, then in the
+  browser (workspace IDE → Connect to Remote System → host key verified → Alpine shell; audited
+  `REMOTE_CONNECT_ALLOWED`, `SSH_SESSION_OPENED`). Details and output in `phase-gates/PHASE_08.md`.
+
+The run found four defects, all fixed with tests: the runtime image skipped the `qe-remote` extension (the workspace
+IDE could not start since Phase 08); the router CSP blocked Monaco's `data:` WebAssembly and the broker stream; the
+requested terminal size was dropped (control plane: migration `0004_session_terminal_size`; broker: no more fixed
+80×24); and node-gyp's header download through the proxy hung an image build (it now uses the base image's headers).
+
+Environment lessons (local, not product): after a WSL restart the compose stack must be started again; the lab
+container needs a fixed address (network `qews-lab`) and its own image tag, because Testcontainers deletes
+`qews-test-openssh` after test runs. Open VSX downloads stalled intermittently behind the proxy.
+
+Process note: the owner's VS Code Sync on a branch tracking `origin/main` pushed work-in-progress commits straight to
+`main` (one with a failing integration test, fixed in the next commit). Branches should track their own remote
+branch and reach `main` through a pull request with CI.
