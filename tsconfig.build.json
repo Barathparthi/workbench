@@ -50,6 +50,9 @@
       "path": "tests/e2e"
     },
     {
+      "path": "tests/security"
+    },
+    {
       "path": "tsconfig.tools.json"
     },
     {
