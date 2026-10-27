@@ -83,6 +83,12 @@ The traversal corpus (11_TESTING_STRATEGY §6) runs three ways: lexically, again
 operation on an in-memory SFTP server (the server is never asked about a path outside the root), and against real
 OpenSSH (nothing outside the root changes).
 
+CI (`ide` workflow, first run on this branch): every browser and Electron smoke test stopped at the IDE's loading
+screen. The workflow built only `qe-core` before bundling, so `qe-remote` had no `lib/` — the same defect the runtime
+Dockerfile had in Phase 08 (most likely failing since Phase 08 added `qe-remote`). Reproduced in WSL: built the CI way,
+the smoke test fails after 1.1 min; with every extension built it passes in 11.2 s. The workflow now runs
+`npm run build -w extensions`.
+
 ## Security review
 
 - **Threats**: path traversal and symlink escape (two-layer confinement, re-checked per call, links never followed on
