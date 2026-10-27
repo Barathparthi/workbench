@@ -9,6 +9,13 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ### Fixed
 
+- Broker: SSH connections use `TCP_NODELAY`. ssh2 leaves Nagle's algorithm on, so each SFTP round trip and
+  terminal exchange waited ~45 ms for a delayed ACK (remote save p95 1344 → 142 ms).
+- Sessions of a broker that restarted no longer stay open: at startup the broker asks the control plane to close
+  them (audited, reason `broker_restarted`), retrying until it answers, and opens no session before that.
+- Tests: SSH test keys are drawn again when ssh2 1.17.0 generates one its own parser rejects (~0.6 % of ed25519
+  keys), which made suites fail at random; the browser smoke test waits for the shell before typing.
+
 - Workspace router: opening `/w/{id}/` crashed the control plane (`set.map is not a function`) when the runtime sent
   exactly one `Set-Cookie`, as Theia does on its first page: undici returns a single header as a string. Both
   shapes are now scoped to `/w/{id}/`.
@@ -39,6 +46,13 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   have no upstream fix yet and are accepted — see `docs/PROJECT_LOG.md` (2026-10-24).
 
 ### Added
+
+- Phase 09 remote filesystem: path confinement (lexical + server realpath, re-checked per call) and SFTP file
+  operations in `@qe/broker-core` (10 MB, 5,000 entries, 15 s, ETag conflicts, atomic save, capped recursive delete);
+  `POST /api/v1/sessions/{id}/fs/{op}` on the control plane (owner only, `file_write` per policy, changes and
+  read-side escapes audited, never contents) and files-sessions on the broker; `qe-ssh://` file system with
+  "Open Remote Folder…", `[target]` labels, polling for server-side changes and Theia's conflict dialog in the IDE;
+  traversal corpus in `tests/security`; hosted end-to-end Playwright project.
 
 - Phase 08 SSH broker: `@qe/broker-core` (ssh2 transport with pinned host keys, terminal bridge), `qews.v1` codec,
   `apps/connection-broker` (ticketed WebSocket stream to SSH, revocation, drain), broker state reports and revocation in
