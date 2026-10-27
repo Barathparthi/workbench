@@ -75,6 +75,16 @@ export function toProviderError(error: unknown): Error {
         'Your sign-in has expired. Reload the page to sign in again.',
         FileSystemProviderErrorCode.NoPermissions,
       );
+    case 'QUOTA_EXCEEDED':
+      return e(
+        'You have too many open remote sessions. Close a remote terminal or folder first.',
+        FileSystemProviderErrorCode.Unavailable,
+      );
+    case 'RATE_LIMITED':
+      return e(
+        'Too many requests to the remote system. Wait a minute and try again.',
+        FileSystemProviderErrorCode.Unavailable,
+      );
     case 'SSH_TIMEOUT':
       return e('The remote system did not answer in time.', FileSystemProviderErrorCode.Unavailable);
     default:

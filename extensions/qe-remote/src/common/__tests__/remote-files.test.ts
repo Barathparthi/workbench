@@ -19,10 +19,73 @@ function fakeApi(answers: ((sessionId: string) => Promise<unknown>)[] = []) {
     fileOp: vi.fn<FilesApi['fileOp']>((sessionId) =>
       (answers.shift() ?? (() => Promise.resolve('ok')))(sessionId),
     ),
+    listSessions: vi.fn<FilesApi['listSessions']>(() => Promise.resolve([])),
   };
   return api;
 }
 const expired = () => Promise.reject(new RemoteApiError(410, 'SESSION_EXPIRED'));
+
+/** sessionStorage in miniature. */
+function fakeStore(initial: Record<string, string> = {}) {
+  const items = new Map(Object.entries(initial));
+  return {
+    items,
+    get: (k: string) => items.get(k),
+    set: (k: string, v: string) => void items.set(k, v),
+    delete: (k: string) => void items.delete(k),
+  };
+}
+
+describe('files-sessions across reloads', () => {
+  const live = (over: object = {}) => ({
+    id: 'old',
+    kind: 'files',
+    state: 'ACTIVE',
+    targetId: 't1',
+    ...over,
+  });
+
+  it('resumes the session the tab had before a reload, if it is still live', async () => {
+    const api = fakeApi();
+    api.listSessions.mockResolvedValue([live()]);
+    const sessions = new RemoteFileSessions(api, fakeStore({ t1: 'old' }));
+    await sessions.call('t1', 'stat', { path: '' });
+    expect(api.openFilesSession).not.toHaveBeenCalled();
+    expect(api.fileOp.mock.calls[0]?.[0]).toBe('old');
+  });
+
+  it.each([
+    ['closed', live({ state: 'CLOSED' })],
+    ['for another target', live({ targetId: 't2' })],
+    ['a terminal', live({ kind: 'terminal' })],
+  ])(
+    'opens a new session when the remembered one is %s, and remembers the new one',
+    async (_case, session) => {
+      const api = fakeApi();
+      api.listSessions.mockResolvedValue([session]);
+      const store = fakeStore({ t1: 'old' });
+      await new RemoteFileSessions(api, store).call('t1', 'stat', { path: '' });
+      expect(api.fileOp.mock.calls[0]?.[0]).toBe('s1');
+      expect(store.items.get('t1')).toBe('s1');
+    },
+  );
+
+  it('opens a new session when the list cannot be read', async () => {
+    const api = fakeApi();
+    api.listSessions.mockRejectedValue(new RemoteApiError(503, 'INTERNAL_ERROR'));
+    await new RemoteFileSessions(api, fakeStore({ t1: 'old' })).call('t1', 'stat', { path: '' });
+    expect(api.fileOp.mock.calls[0]?.[0]).toBe('s1');
+  });
+
+  it('forgets a remembered session the server ended', async () => {
+    const api = fakeApi([() => Promise.reject(new RemoteApiError(410, 'SESSION_REVOKED'))]);
+    const store = fakeStore();
+    await expect(new RemoteFileSessions(api, store).call('t1', 'stat', { path: '' })).rejects.toMatchObject({
+      code: 'SESSION_REVOKED',
+    });
+    expect(store.items.has('t1')).toBe(false);
+  });
+});
 
 describe('files-sessions in the IDE', () => {
   it('opens one session per target on first use and shares it', async () => {

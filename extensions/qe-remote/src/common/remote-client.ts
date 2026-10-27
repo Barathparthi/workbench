@@ -49,6 +49,14 @@ async function failure(res: Response): Promise<RemoteApiError> {
   return new RemoteApiError(res.status, body?.code ?? `HTTP_${String(res.status)}`);
 }
 
+/** One of the signed-in user's remote sessions (`GET /api/v1/sessions`). */
+export interface SessionSummary {
+  readonly id: string;
+  readonly kind: string;
+  readonly state: string;
+  readonly targetId: string | null;
+}
+
 /** A file operation can open the session's SFTP connection first (10 s) and then move up to 10 MB. */
 const FILE_OP_TIMEOUT_MS = 60_000;
 
@@ -98,6 +106,17 @@ export function remoteClient(deps: RemoteClientDeps) {
         },
         10_000,
       )) as OpenedSession;
+    },
+
+    /** The user's own sessions, newest first. */
+    async listSessions(): Promise<SessionSummary[]> {
+      const res = await deps.fetch(`${deps.origin}/api/v1/sessions`, {
+        credentials: 'include',
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) throw await failure(res);
+      return ((await res.json()) as { items: SessionSummary[] }).items;
     },
 
     /** A files-session (no ticket use: file operations authenticate with the sign-in cookie and ownership). */

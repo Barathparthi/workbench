@@ -6,7 +6,7 @@ import type { FileService, FileServiceContribution } from '@theia/filesystem/lib
 import { FileStat } from '@theia/filesystem/lib/common/files';
 
 import { remoteClient, type TargetSummary } from '../common/remote-client';
-import { QE_SSH_SCHEME, RemoteFileSessions } from '../common/remote-files';
+import { QE_SSH_SCHEME, RemoteFileSessions, type SessionStore } from '../common/remote-files';
 import { QeSshFileSystemProvider } from './qe-ssh-file-system-provider';
 
 /**
@@ -21,7 +21,38 @@ export class QeRemoteServices {
     cookies: () => document.cookie,
     fetch: (input, init) => fetch(input, init),
   });
-  readonly provider = new QeSshFileSystemProvider(new RemoteFileSessions(this.client), userIsActive());
+  readonly provider = new QeSshFileSystemProvider(
+    new RemoteFileSessions(this.client, tabSessionStore()),
+    userIsActive(),
+  );
+}
+
+/** Per tab, kept across reloads; best effort (storage may be unavailable, e.g. in a private window). */
+function tabSessionStore(): SessionStore {
+  const key = (targetId: string) => `qe.remote.filesSession.${targetId}`;
+  return {
+    get: (targetId) => {
+      try {
+        return sessionStorage.getItem(key(targetId)) ?? undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    set: (targetId, sessionId) => {
+      try {
+        sessionStorage.setItem(key(targetId), sessionId);
+      } catch {
+        // not remembered: a reload opens a new session
+      }
+    },
+    delete: (targetId) => {
+      try {
+        sessionStorage.removeItem(key(targetId));
+      } catch {
+        // nothing to forget
+      }
+    },
+  };
 }
 
 /** After this long without input the user counts as away: remote polling pauses (PHASE_09 §9.5 idle back-off). */

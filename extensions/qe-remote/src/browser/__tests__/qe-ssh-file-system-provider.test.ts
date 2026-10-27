@@ -142,6 +142,8 @@ describe('qe-ssh file system provider', () => {
     ['SESSION_REVOKED', FileSystemProviderErrorCode.NoPermissions],
     ['AUTH_REQUIRED', FileSystemProviderErrorCode.NoPermissions],
     ['REMOTE_FILE_CONFLICT', FileSystemProviderErrorCode.Unknown],
+    ['QUOTA_EXCEEDED', FileSystemProviderErrorCode.Unavailable],
+    ['RATE_LIMITED', FileSystemProviderErrorCode.Unavailable],
     ['SSH_TIMEOUT', FileSystemProviderErrorCode.Unavailable],
     ['SSH_UNREACHABLE', FileSystemProviderErrorCode.Unavailable],
   ])('maps %s to a provider error the user can act on', (code, expected) => {
