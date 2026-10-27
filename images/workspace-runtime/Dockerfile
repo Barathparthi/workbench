@@ -27,7 +27,7 @@ ARG QE_VSX_URL=""
 RUN --mount=type=secret,id=extra_ca \
     if [ -f /run/secrets/extra_ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/extra_ca; fi \
  && npm ci \
- && npm run build -w @qe/theia-qe-core \
+ && npm run build -w extensions \
  && npm run build -w @qe/ide-browser \
  && if [ -n "$QE_VSX_URL" ]; then npm run plugins:download; else mkdir -p plugins; fi \
  && npm prune --omit=dev
