@@ -83,6 +83,8 @@ export {
   type AuditResult,
 } from './audit.js';
 export {
+  BrokerFsParams,
+  BrokerFsRequest,
   ETag,
   FsDeleteRequest,
   FsEmptyResult,

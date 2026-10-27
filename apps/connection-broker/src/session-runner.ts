@@ -1,12 +1,14 @@
 import type { RedeemTicketResponse } from '@qe/contracts';
 import {
   createHostKeyVerifier,
+  DomainError,
   isDomainError,
   mapSshError,
   type CredentialSource,
   type ErrorCode,
   type HostKeyVerifier,
   type SessionRegistry,
+  type SshConnection,
   type SshTransport,
   type StreamSocket,
   TerminalBridge,
@@ -26,15 +28,45 @@ export interface RunnerDeps {
   readonly log: { info: (o: object, m: string) => void; warn: (o: object, m: string) => void };
 }
 
-/** A failure before the shell opens: the user sees the code, the control plane gets it as the close reason. */
-class ConnectFailure extends Error {
-  constructor(readonly code: ErrorCode) {
-    super(code);
+export const presented = (v: HostKeyVerifier) =>
+  v.presented === undefined || v.outcome === undefined ? undefined : { outcome: v.outcome, ...v.presented };
+
+/**
+ * Phase 08 §8.3 steps 3–8, for every kind of session: every check runs again here even though the control plane
+ * authorized the session — the port, the address against the policy (DNS may have changed), the credential — and the
+ * host key is pinned before any credential is used. Fails with the API code the user and the audit trail see.
+ */
+export async function connectToTarget(
+  snapshot: RedeemTicketResponse,
+  deps: Pick<RunnerDeps, 'transport' | 'credentials' | 'resolver' | 'deniedCidrs'>,
+  verifier: HostKeyVerifier,
+): Promise<SshConnection> {
+  const t = snapshot.target;
+  if (t.jumpHostId !== null) throw new DomainError('TARGET_NOT_ALLOWED'); // jump hosts: Phase 19
+  if (!snapshot.policy.allowedPorts.includes(t.port)) throw new DomainError('TARGET_NOT_ALLOWED');
+  const address = await checkTargetHost(
+    t.host,
+    snapshot.policy.allowedCidrs,
+    deps.deniedCidrs,
+    deps.resolver,
+  );
+  if (!address.allowed) throw new DomainError('TARGET_ADDRESS_FORBIDDEN');
+  if (snapshot.credential === null) throw new DomainError('CREDENTIALS_UNAVAILABLE');
+  const credential = await deps.credentials.resolve(snapshot.credential, t.principal);
+  try {
+    return await deps.transport.connect(
+      { address: address.address, port: t.port, username: t.principal },
+      credential,
+      verifier,
+    );
+  } catch (error) {
+    throw new DomainError(mapSshError(error, verifier.outcome));
   }
 }
 
-const presented = (v: HostKeyVerifier) =>
-  v.presented === undefined || v.outcome === undefined ? undefined : { outcome: v.outcome, ...v.presented };
+/** The API code of a failure, for the user and the close reason. */
+export const failureCode = (error: unknown): ErrorCode =>
+  isDomainError(error) ? error.code : 'INTERNAL_ERROR';
 
 /**
  * One accepted stream (Phase 08 §8.3 steps 3–10): every check runs again here even though the control plane
@@ -77,35 +109,12 @@ export function runTerminalSession(
   });
 
   void (async () => {
-    const t = snapshot.target;
     try {
-      if (t.jumpHostId !== null) throw new ConnectFailure('TARGET_NOT_ALLOWED'); // jump hosts: Phase 19
-      if (!snapshot.policy.allowedPorts.includes(t.port)) throw new ConnectFailure('TARGET_NOT_ALLOWED');
-      const address = await checkTargetHost(
-        t.host,
-        snapshot.policy.allowedCidrs,
-        deps.deniedCidrs,
-        deps.resolver,
-      );
-      if (!address.allowed) throw new ConnectFailure('TARGET_ADDRESS_FORBIDDEN');
-      if (snapshot.credential === null) throw new ConnectFailure('CREDENTIALS_UNAVAILABLE');
-      const credential = await deps.credentials.resolve(snapshot.credential, t.principal);
-      if (bridge.isClosed) return;
-      let connection;
-      try {
-        connection = await deps.transport.connect(
-          { address: address.address, port: t.port, username: t.principal },
-          credential,
-          verifier,
-        );
-      } catch (error) {
-        throw new ConnectFailure(mapSshError(error, verifier.outcome));
-      }
+      const connection = await connectToTarget(snapshot, deps, verifier);
       bridge.onClosed(() => {
         connection.close();
       });
-      // The user may have closed the stream while we were connecting (the getter changes across awaits).
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      // The user may have closed the stream while we were connecting.
       if (bridge.isClosed) return;
       if (verifier.presented !== undefined) {
         bridge.sendControl({ t: 'hostkey', ...verifier.presented, verified: true });
@@ -123,12 +132,7 @@ export function runTerminalSession(
         hostKey: presented(verifier),
       });
     } catch (error) {
-      failure =
-        error instanceof ConnectFailure
-          ? error.code
-          : isDomainError(error)
-            ? error.code
-            : ('INTERNAL_ERROR' as const);
+      failure = failureCode(error);
       deps.log.warn({ sessionId: snapshot.sessionId, code: failure }, 'remote session failed to open');
       bridge.sendControl({ t: 'error', code: failure, message: messageFor(failure) });
       bridge.close('connect_failed', failure);

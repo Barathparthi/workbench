@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { RedeemTicketResponse } from './targets.js';
+
 /**
  * Remote file operations on a `files` session (05_API_CONTRACTS §2.4, PHASE_09 §9.2). Paths are POSIX style and
  * relative to the target's `remoteRoot`; the broker confines them (lexically and with the server's realpath) on
@@ -78,7 +80,16 @@ export const FsReadResult = z.strictObject({ contentBase64: z.base64(), etag: ET
 export const FsWriteResult = z.strictObject({ etag: ETag });
 export const FsEmptyResult = z.strictObject({});
 
+/**
+ * Internal (control plane → broker): one operation of a files-session. The snapshot is the one ticket redeem returns
+ * (built again from the database on every call, so a changed policy or target takes effect at once); the broker opens
+ * the session's SFTP connection with it on first use and validates `request` against the operation's schema.
+ */
+export const BrokerFsRequest = z.strictObject({ snapshot: RedeemTicketResponse, request: z.unknown() });
+export const BrokerFsParams = z.object({ id: z.uuid(), op: FsOp });
+
 export type FsOp = z.infer<typeof FsOp>;
+export type BrokerFsRequest = z.infer<typeof BrokerFsRequest>;
 export type RemoteFileType = z.infer<typeof RemoteFileType>;
 export type FsStatRequest = z.infer<typeof FsStatRequest>;
 export type FsListRequest = z.infer<typeof FsListRequest>;

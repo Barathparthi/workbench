@@ -76,6 +76,7 @@ const app = await buildServer(testConfig({ AUTH_MODE: 'oidc' }), {
   remote: {
     targets: new Proxy({}, { get: () => notFound }) as unknown as TargetService,
     sessions: new Proxy({}, { get: () => notFound }) as unknown as RemoteSessionService,
+    files: { run: notFound },
   },
   onRouteRegistered: (r) => routes.push(r),
 });

@@ -10,15 +10,17 @@ import {
   SessionRegistry,
   sha256Fingerprint,
   ssh2Transport,
+  wrapSftp,
   type SshTransport,
 } from '@qe/broker-core';
 import type { RedeemTicketResponse } from '@qe/contracts';
-import { startSshServer, type TestSshServer } from '@qe/test-utils';
+import { FakeSftp, startSshServer, type TestSshServer } from '@qe/test-utils';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
 import type { ControlPlaneClient, StateReport } from '../control-plane-client.js';
+import { FilesSessions } from '../files-sessions.js';
 import { buildBroker } from '../server.js';
 
 const ORIGIN = 'https://qe.example';
@@ -35,15 +37,19 @@ let resolved: string[] = ['10.20.1.5'];
 const reports: [string, StateReport][] = [];
 const dialled: string[] = [];
 
+/** The remote file system behind files-sessions (the in-process SSH server has no SFTP subsystem). */
+let remoteFiles = new FakeSftp();
 const transport: SshTransport = {
-  connect: (endpoint, credential, verifier, options) => {
+  connect: async (endpoint, credential, verifier, options) => {
     dialled.push(endpoint.address);
-    return ssh2Transport.connect(
+    const connection = await ssh2Transport.connect(
       { ...endpoint, address: '127.0.0.1', port: ssh.port },
       credential,
       verifier,
       options,
     );
+    const sftp = wrapSftp(remoteFiles as unknown as Parameters<typeof wrapSftp>[0]);
+    return { ...connection, sftp: () => Promise.resolve(sftp) };
   },
 };
 const controlPlane: ControlPlaneClient = {
@@ -90,32 +96,42 @@ const freshSnapshot = (): RedeemTicketResponse => ({
   credential: { provider: 'file_dev', method: 'vault_key', providerPath: 'lab-a/id', metadata: {} },
 });
 
+let files: FilesSessions;
+
 beforeAll(async () => {
   ssh = await startSshServer();
-  app = await buildBroker({
+  const runner = {
     controlPlane,
     transport,
-    credentials: { resolve: () => Promise.resolve({ kind: 'key', privateKey: ssh.clientKey }) },
+    credentials: { resolve: () => Promise.resolve({ kind: 'key' as const, privateKey: ssh.clientKey }) },
     resolver: () => Promise.resolve(resolved),
     deniedCidrs: [],
     registry,
     instanceId: 'broker-test',
+    log: { info: () => undefined, warn: () => undefined },
+  };
+  files = new FilesSessions(runner);
+  app = await buildBroker({
+    ...runner,
+    files,
     allowedOrigins: [ORIGIN],
     internalToken: TOKEN,
     maxSessions: 10,
     state,
-    log: { info: () => undefined, warn: () => undefined },
   });
   await app.listen({ host: '127.0.0.1', port: 0 });
   base = `ws://127.0.0.1:${String((app.server.address() as AddressInfo).port)}`;
 });
 afterEach(() => {
+  // First, so its "shutdown" reports are cleared with the rest.
+  files.closeAll('shutdown');
   snapshot = freshSnapshot();
   redeemError = undefined;
   resolved = ['10.20.1.5'];
   reports.length = 0;
   dialled.length = 0;
   registry.closeAll('shutdown');
+  remoteFiles = new FakeSftp();
 });
 afterAll(async () => {
   await app.close();
@@ -343,5 +359,125 @@ describe('verifier sanity', () => {
       { algorithm: 'ssh-ed25519', fingerprintSha256: sha256Fingerprint(ssh.hostKeyBlob) },
     ]);
     expect(v.verify(ssh.hostKeyBlob)).toBe(true);
+  });
+});
+
+describe('files-sessions (internal fs route)', () => {
+  const http = () => base.replace('ws:', 'http:');
+  const filesSnapshot = (overrides: Partial<RedeemTicketResponse['policy']> = {}): RedeemTicketResponse => {
+    const s = freshSnapshot();
+    return {
+      ...s,
+      kind: 'files',
+      policy: { ...s.policy, capabilities: ['file_read', 'file_write'], ...overrides },
+    };
+  };
+  const fsCall = async (
+    op: string,
+    request: unknown,
+    snap: RedeemTicketResponse = filesSnapshot(),
+    token = TOKEN,
+    id = SESSION,
+  ) => {
+    const res = await fetch(`${http()}/internal/v1/sessions/${id}/fs/${op}`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ snapshot: snap, request }),
+    });
+    return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+  };
+  const b64 = (s: string) => Buffer.from(s).toString('base64');
+
+  it('needs the service token', async () => {
+    expect((await fsCall('stat', { path: '' }, filesSnapshot(), 'wrong-token-'.repeat(4))).status).toBe(401);
+  });
+
+  it('opens one SFTP connection on first use and reuses it; contents travel as base64', async () => {
+    remoteFiles.mkdirp('/home/bob');
+    expect(await fsCall('write', { path: 'notes.txt', contentBase64: b64('hello\n') })).toMatchObject({
+      status: 200,
+      body: { etag: expect.stringMatching(/^\d+-6$/) as unknown },
+    });
+    const read = await fsCall('read', { path: 'notes.txt' });
+    expect(read.status).toBe(200);
+    expect(Buffer.from(read.body.contentBase64 as string, 'base64').toString()).toBe('hello\n');
+    expect(remoteFiles.content('/home/bob/notes.txt')).toBe('hello\n');
+    expect(dialled).toEqual(['10.20.1.5']);
+    expect(reports.filter(([, r]) => r.state === 'ACTIVE')).toHaveLength(1);
+  });
+
+  it('opens once under concurrent first calls', async () => {
+    remoteFiles.mkdirp('/home/bob');
+    const results = await Promise.all([1, 2, 3, 4, 5, 6].map(() => fsCall('stat', { path: '' })));
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200, 200, 200, 200]);
+    expect(dialled).toHaveLength(1);
+  });
+
+  it('refuses changes without the policy’s file_write and paths outside the root', async () => {
+    remoteFiles.mkdirp('/home/bob');
+    const readOnly = filesSnapshot({ capabilities: ['file_read'] });
+    expect(await fsCall('write', { path: 'a', contentBase64: b64('x') }, readOnly)).toMatchObject({
+      status: 403,
+      body: { code: 'FORBIDDEN' },
+    });
+    expect(await fsCall('read', { path: '../alice/secret' }, readOnly)).toMatchObject({
+      status: 403,
+      body: { code: 'PATH_OUTSIDE_ROOT' },
+    });
+  });
+
+  it('refuses a snapshot for another session or kind, and malformed requests', async () => {
+    const other = { ...filesSnapshot(), sessionId: '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d00' };
+    expect((await fsCall('stat', { path: '' }, other)).status).toBe(400);
+    expect((await fsCall('stat', { path: '' }, freshSnapshot())).status).toBe(400);
+    expect(await fsCall('write', { path: 'a', contentBase64: 'not base64!' })).toMatchObject({
+      status: 400,
+      body: { code: 'INVALID_REQUEST' },
+    });
+    expect((await fsCall('chmod', { path: '' })).status).toBe(400);
+    expect(dialled).toEqual([]);
+  });
+
+  it('runs the same pre-connect checks as terminals and reports the failure', async () => {
+    resolved = ['169.254.169.254'];
+    expect(await fsCall('stat', { path: '' })).toMatchObject({
+      status: 403,
+      body: { code: 'TARGET_ADDRESS_FORBIDDEN' },
+    });
+    expect(dialled).toEqual([]);
+    expect(reports).toEqual([
+      [SESSION, expect.objectContaining({ state: 'FAILED', reason: 'TARGET_ADDRESS_FORBIDDEN' })],
+    ]);
+  });
+
+  it('closes on revocation and reports it', async () => {
+    remoteFiles.mkdirp('/home/bob');
+    await fsCall('stat', { path: '' });
+    const res = await fetch(`${http()}/internal/v1/sessions/${SESSION}/close`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    expect(await res.json()).toEqual({ closed: true });
+    expect(files.size).toBe(0);
+    expect(remoteFiles.calls).toContain('end');
+    expect(reports.at(-1)).toEqual([
+      SESSION,
+      expect.objectContaining({ state: 'CLOSED', reason: 'revoked' }),
+    ]);
+  });
+
+  it('closes after the policy’s idle timeout', async () => {
+    remoteFiles.mkdirp('/home/bob');
+    await fsCall('stat', { path: '' }, filesSnapshot({ idleTimeoutSec: 1 }));
+    await vi.waitFor(
+      () => {
+        expect(reports.at(-1)).toEqual([
+          SESSION,
+          expect.objectContaining({ state: 'CLOSED', reason: 'idle_timeout' }),
+        ]);
+      },
+      { timeout: 3_000 },
+    );
+    expect(files.size).toBe(0);
   });
 });

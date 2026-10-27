@@ -11,6 +11,7 @@ import { ZodError } from 'zod';
 
 import { describeConfigError, loadConfig, type Config } from './config.js';
 import { httpControlPlane } from './control-plane-client.js';
+import { FilesSessions } from './files-sessions.js';
 import { buildBroker } from './server.js';
 
 function configOrExit(): Config {
@@ -36,14 +37,27 @@ const credentials: CredentialSource =
       }
     : fileDevCredentialSource(config.DEV_CREDENTIALS_DIR);
 
-const app = await buildBroker({
+const runner = {
   controlPlane: httpControlPlane(config.CONTROL_PLANE_INTERNAL_URL, config.INTERNAL_SERVICE_TOKEN),
   transport: ssh2Transport,
   credentials,
-  resolver: async (host) => (await lookup(host, { all: true, verbatim: true })).map((a) => a.address),
+  resolver: async (host: string) => (await lookup(host, { all: true, verbatim: true })).map((a) => a.address),
   deniedCidrs: config.TARGET_DENY_CIDRS,
   registry,
   instanceId: config.BROKER_INSTANCE_ID,
+  log: {
+    info: (o: object, m: string) => {
+      app.log.info(o, m);
+    },
+    warn: (o: object, m: string) => {
+      app.log.warn(o, m);
+    },
+  },
+};
+
+const app = await buildBroker({
+  ...runner,
+  files: new FilesSessions(runner),
   allowedOrigins: config.ALLOWED_ORIGINS,
   internalToken: config.INTERNAL_SERVICE_TOKEN,
   maxSessions: config.MAX_SESSIONS,
@@ -53,14 +67,6 @@ const app = await buildBroker({
     redact: {
       paths: ['req.headers.authorization', 'req.headers.cookie', 'req.headers["sec-websocket-protocol"]'],
       censor: '[REDACTED]',
-    },
-  },
-  log: {
-    info: (o, m) => {
-      app.log.info(o, m);
-    },
-    warn: (o, m) => {
-      app.log.warn(o, m);
     },
   },
 });

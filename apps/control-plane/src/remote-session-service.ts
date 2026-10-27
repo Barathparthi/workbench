@@ -43,6 +43,90 @@ const toSessionDto = (s: Selectable<SessionsTable>) => ({
 export const principalFor = (template: string, username: string): string =>
   template === '{{user.username}}' ? username : template;
 
+/**
+ * What the broker connects with (ticket redeem, and every files-session operation): the session frozen together with
+ * its target, policy, trusted host keys and credential reference. Refuses a session whose target is no longer active
+ * or whose policy changed since it was authorized.
+ */
+export async function snapshotFor(
+  tx: Kysely<Database>,
+  s: Selectable<SessionsTable>,
+): Promise<RedeemTicketResponse> {
+  if (s.target_id === null) throw new DomainError('AUTH_REQUIRED', 'ticket invalid');
+  const target = await tx
+    .selectFrom('targets')
+    .selectAll()
+    .where('id', '=', s.target_id)
+    .executeTakeFirstOrThrow();
+  const policy = await tx
+    .selectFrom('connection_policies')
+    .selectAll()
+    .where('id', '=', target.policy_id)
+    .executeTakeFirstOrThrow();
+  // The policy may have changed since authorization: refuse a session authorized under an older version.
+  if (target.status !== 'active' || policy.version !== s.policy_version) {
+    throw new DomainError('TARGET_NOT_ALLOWED', 'the target or its policy changed');
+  }
+  const user = await tx
+    .selectFrom('users')
+    .select(['id', 'username'])
+    .where('id', '=', s.user_id)
+    .executeTakeFirstOrThrow();
+  const keys = await tx
+    .selectFrom('target_host_keys')
+    .select(['algorithm', 'fingerprint_sha256'])
+    .where('target_id', '=', target.id)
+    .where('status', '=', 'trusted')
+    .execute();
+  const credential =
+    target.credential_ref_id === null
+      ? undefined
+      : await tx
+          .selectFrom('credential_refs')
+          .selectAll()
+          .where('id', '=', target.credential_ref_id)
+          .executeTakeFirst();
+  return {
+    sessionId: s.id,
+    kind: s.kind,
+    expiresAt: s.expires_at.toISOString(),
+    terminal:
+      s.terminal_cols === null || s.terminal_rows === null
+        ? null
+        : { cols: s.terminal_cols, rows: s.terminal_rows },
+    user: { id: user.id, username: user.username },
+    target: {
+      id: target.id,
+      name: target.name,
+      host: target.host,
+      port: target.port,
+      os: target.os,
+      principal: principalFor(target.principal_template, user.username),
+      remoteRoot: target.remote_root,
+      jumpHostId: target.jump_host_id,
+    },
+    policy: {
+      id: policy.id,
+      version: policy.version,
+      allowedCidrs: policy.allowed_cidrs,
+      allowedPorts: policy.allowed_ports,
+      capabilities: policy.capabilities,
+      idleTimeoutSec: policy.idle_timeout_sec,
+      maxSessionSec: policy.max_session_sec,
+    },
+    hostKeys: keys.map((k) => ({ algorithm: k.algorithm, fingerprintSha256: k.fingerprint_sha256 })),
+    credential:
+      credential === undefined
+        ? null
+        : {
+            provider: credential.provider,
+            method: credential.method,
+            providerPath: credential.provider_path,
+            metadata: credential.metadata_json,
+          },
+  };
+}
+
 export type RemoteSessionService = ReturnType<typeof createRemoteSessionService>;
 
 /** Remote sessions and their single-use tickets (Phase 07 §7.5): the last step before the broker connects. */
@@ -401,78 +485,7 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
           .returningAll()
           .executeTakeFirst();
         if (s?.target_id == null) throw new DomainError('AUTH_REQUIRED', 'ticket invalid');
-        const target = await tx
-          .selectFrom('targets')
-          .selectAll()
-          .where('id', '=', s.target_id)
-          .executeTakeFirstOrThrow();
-        const policy = await tx
-          .selectFrom('connection_policies')
-          .selectAll()
-          .where('id', '=', target.policy_id)
-          .executeTakeFirstOrThrow();
-        // The policy may have changed since authorization: refuse a session authorized under an older version.
-        if (target.status !== 'active' || policy.version !== s.policy_version) {
-          throw new DomainError('TARGET_NOT_ALLOWED', 'the target or its policy changed');
-        }
-        const user = await tx
-          .selectFrom('users')
-          .select(['id', 'username'])
-          .where('id', '=', s.user_id)
-          .executeTakeFirstOrThrow();
-        const keys = await tx
-          .selectFrom('target_host_keys')
-          .select(['algorithm', 'fingerprint_sha256'])
-          .where('target_id', '=', target.id)
-          .where('status', '=', 'trusted')
-          .execute();
-        const credential =
-          target.credential_ref_id === null
-            ? undefined
-            : await tx
-                .selectFrom('credential_refs')
-                .selectAll()
-                .where('id', '=', target.credential_ref_id)
-                .executeTakeFirst();
-        return {
-          sessionId: s.id,
-          kind: s.kind,
-          expiresAt: s.expires_at.toISOString(),
-          terminal:
-            s.terminal_cols === null || s.terminal_rows === null
-              ? null
-              : { cols: s.terminal_cols, rows: s.terminal_rows },
-          user: { id: user.id, username: user.username },
-          target: {
-            id: target.id,
-            name: target.name,
-            host: target.host,
-            port: target.port,
-            os: target.os,
-            principal: principalFor(target.principal_template, user.username),
-            remoteRoot: target.remote_root,
-            jumpHostId: target.jump_host_id,
-          },
-          policy: {
-            id: policy.id,
-            version: policy.version,
-            allowedCidrs: policy.allowed_cidrs,
-            allowedPorts: policy.allowed_ports,
-            capabilities: policy.capabilities,
-            idleTimeoutSec: policy.idle_timeout_sec,
-            maxSessionSec: policy.max_session_sec,
-          },
-          hostKeys: keys.map((k) => ({ algorithm: k.algorithm, fingerprintSha256: k.fingerprint_sha256 })),
-          credential:
-            credential === undefined
-              ? null
-              : {
-                  provider: credential.provider,
-                  method: credential.method,
-                  providerPath: credential.provider_path,
-                  metadata: credential.metadata_json,
-                },
-        };
+        return snapshotFor(tx, s);
       });
     },
 
