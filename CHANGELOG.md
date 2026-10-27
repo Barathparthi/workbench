@@ -18,6 +18,14 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   `wasm-unsafe-eval`, `blob:` workers and images). The API's `script-src 'self'` stopped the IDE at startup
   (ajv compiles preference schemas with `new Function`); API routes keep the strict policy.
 - Workspace runtime image: optional `--secret id=extra_ca,src=<ca.pem>` for builds behind a TLS-inspecting proxy.
+- Workspace runtime image: builds every IDE extension before bundling. It built only `qe-core`, so since Phase 08
+  the IDE in a workspace stopped at startup (`Dynamic require of "@qe/theia-qe-remote/…" is not supported`).
+- Workspace runtime image: native modules compile against the Node headers in the base image instead of downloading
+  them from nodejs.org (a stalled download hung a build for 25 minutes).
+- Workspace router CSP: `connect-src` allows `data:` (Monaco's inlined WebAssembly) and the broker's ws/wss origin
+  when `BROKER_PUBLIC_URL` is set, so remote terminals can stream in development.
+- Remote terminals open at the size the IDE requested: the control plane stores it with the session (migration
+  `0004_session_terminal_size`) and hands it to the broker, which no longer hard-codes 80×24.
 
 ### Security
 
