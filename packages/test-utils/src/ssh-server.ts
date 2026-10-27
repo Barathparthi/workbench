@@ -8,6 +8,8 @@ import { timingSafeEqual } from 'node:crypto';
 
 import ssh2 from 'ssh2';
 
+import { ed25519KeyPair } from './ssh-keys.js';
+
 export interface TestSshServer {
   readonly port: number;
   readonly hostKeyBlob: Buffer;
@@ -17,8 +19,8 @@ export interface TestSshServer {
 }
 
 export async function startSshServer(): Promise<TestSshServer> {
-  const host = ssh2.utils.generateKeyPairSync('ed25519');
-  const client = ssh2.utils.generateKeyPairSync('ed25519');
+  const host = ed25519KeyPair();
+  const client = ed25519KeyPair();
   const allowed = ssh2.utils.parseKey(client.public);
   const hostParsed = ssh2.utils.parseKey(host.public);
   if (allowed instanceof Error || hostParsed instanceof Error) throw new Error('key generation failed');

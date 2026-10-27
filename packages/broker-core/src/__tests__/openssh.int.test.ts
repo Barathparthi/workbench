@@ -4,9 +4,10 @@
  */
 import { fileURLToPath } from 'node:url';
 
-import ssh2 from 'ssh2';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+import { ed25519KeyPair } from '@qe/test-utils';
 
 import { createHostKeyVerifier, mapSshError, ssh2Transport, type SshConnection } from '../index.js';
 
@@ -18,7 +19,7 @@ let clientKey: Buffer;
 const connections: SshConnection[] = [];
 
 beforeAll(async () => {
-  const keys = ssh2.utils.generateKeyPairSync('ed25519');
+  const keys = ed25519KeyPair();
   clientKey = Buffer.from(keys.private);
   const image = await GenericContainer.fromDockerfile(CONTEXT).build('qews-test-openssh', {
     deleteOnExit: true,
@@ -118,7 +119,7 @@ describe('ssh2 transport against OpenSSH', () => {
   });
 
   it('reports an unknown key as CREDENTIALS_REJECTED', async () => {
-    const other = Buffer.from(ssh2.utils.generateKeyPairSync('ed25519').private);
+    const other = Buffer.from(ed25519KeyPair().private);
     const verifier = pinned();
     const error = await ssh2Transport
       .connect(endpoint(), { kind: 'key', privateKey: other }, verifier)
