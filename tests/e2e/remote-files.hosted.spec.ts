@@ -81,7 +81,8 @@ test.describe('remote files (hosted)', () => {
       await expect(dirtyTab(page)).toHaveCount(0);
       timings.push(Date.now() - started);
     }
-    expect(serverFile()).toContain('hello remote e0 e1 e2 e3 e4 e5 e6 e7 e8 e9');
+    // The file ends with a newline, so Ctrl+End types on its last (empty) line.
+    expect(serverFile()).toContain('hello remote\n e0 e1 e2 e3 e4 e5 e6 e7 e8 e9');
     const sorted = [...timings].sort((a, b) => a - b);
     const p95 = sorted[Math.ceil(sorted.length * 0.95) - 1] ?? Infinity;
     test.info().annotations.push({
