@@ -1,0 +1,13 @@
+{
+  "name": "@qe/security-tests",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Security test suites (11_TESTING_STRATEGY §5): traversal corpus first; authz matrix, SSRF and leak scans join later.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "dependencies": {
+    "@qe/broker-core": "0.0.0",
+    "@qe/domain": "0.0.0",
+    "@qe/test-utils": "0.0.0"
+  }
+}

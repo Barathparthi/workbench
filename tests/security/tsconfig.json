@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../../.tsbuild/tests-security",
+    "tsBuildInfoFile": "../../.tsbuild/tests-security/.tsbuildinfo"
+  },
+  "include": ["*.ts"],
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/broker-core" },
+    { "path": "../../packages/test-utils" }
+  ]
+}

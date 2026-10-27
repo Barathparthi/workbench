@@ -5,3 +5,4 @@
 export const PACKAGE_NAME = '@qe/test-utils';
 
 export { startSshServer, type TestSshServer } from './ssh-server.js';
+export { fakeRealpath } from './fake-realpath.js';

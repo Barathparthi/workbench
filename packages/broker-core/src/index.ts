@@ -33,4 +33,13 @@ export {
   type StreamSocket,
 } from './terminal-bridge.js';
 export { SessionRegistry } from './session-registry.js';
+export {
+  confine,
+  createPathGuard,
+  MAX_PATH_LENGTH,
+  relativeToRoot,
+  type PathGuard,
+  type RealpathFn,
+  type ResolveMode,
+} from './confine.js';
 export { fileDevCredentialSource, type CredentialReference, type CredentialSource } from './credentials.js';

@@ -20,6 +20,7 @@ export default defineConfig({
             'extensions/*/src/**/*.test.ts',
             'apps/*/src/**/*.test.ts',
             'tests/lint/**/*.test.ts',
+            'tests/security/**/*.test.ts',
             'scripts/**/*.test.ts',
           ],
           exclude: ['**/node_modules/**', '**/dist/**', '**/*.int.test.ts'],
