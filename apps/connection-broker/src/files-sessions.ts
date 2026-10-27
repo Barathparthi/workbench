@@ -129,7 +129,9 @@ export class FilesSessions {
       clearTimeout(idle);
       idle = setTimeout(
         () => {
-          close('idle_timeout');
+          // Idle means no operation for the policy's idle timeout, not "an operation is taking long".
+          if (running > 0) armIdle();
+          else close('idle_timeout');
         },
         Math.min(idleMs, MAX_TIMER_MS),
       );

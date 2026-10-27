@@ -219,6 +219,31 @@ describe('remote file operations', () => {
     expect(brokerCalls.map((c) => c.op)).toEqual(['read']);
   });
 
+  it('audits a read that tries to leave the remote root (reads are otherwise not audited)', async () => {
+    const id = await openFiles(bob);
+    brokerAnswer = () => Promise.reject(new DomainError('PATH_OUTSIDE_ROOT'));
+    expect(await codeOf(files.run(ctx(bob), id, 'read', { path: '../../etc/shadow' }))).toBe(
+      'PATH_OUTSIDE_ROOT',
+    );
+    const denied = await t.db
+      .selectFrom('audit_events')
+      .select(['action', 'result', 'reason_code', 'metadata_json'])
+      .where('resource_id', '=', id)
+      .execute();
+    expect(denied).toEqual([
+      {
+        action: 'ACCESS_DENIED',
+        result: 'denied',
+        reason_code: 'PATH_OUTSIDE_ROOT',
+        metadata_json: {
+          permission: 'remote:file_read',
+          method: 'POST',
+          route: '/api/v1/sessions/:id/fs/read',
+        },
+      },
+    ]);
+  });
+
   it('passes the broker’s error on and audits a refused change with its code', async () => {
     const id = await openFiles(bob);
     brokerAnswer = () => Promise.reject(new DomainError('PATH_OUTSIDE_ROOT'));

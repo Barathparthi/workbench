@@ -505,4 +505,17 @@ describe('files-sessions (internal fs route)', () => {
     );
     expect(files.size).toBe(0);
   });
+
+  it('does not close for idleness while an operation is still running', async () => {
+    remoteFiles.mkdirp('/home/bob');
+    const snapshot = filesSnapshot({ idleTimeoutSec: 1 });
+    await fsCall('stat', { path: '' }, snapshot);
+    remoteFiles.failNext('lstat', 'hang');
+    const slow = fsCall('stat', { path: 'slow' }, snapshot);
+    await new Promise((r) => setTimeout(r, 1_800));
+    expect(reports.some(([, r]) => r.state === 'CLOSED')).toBe(false);
+    expect(files.size).toBe(1);
+    remoteFiles.releaseHung();
+    expect((await slow).status).toBe(409);
+  });
 });
