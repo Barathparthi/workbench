@@ -183,7 +183,8 @@ export function createRemoteFileSystem(
     }
     const name = posix.basename(target);
     const temp = posix.join(posix.dirname(target), `.${name.slice(0, 200)}.qews-tmp-${suffix()}`);
-    await sftp.createFile(temp, input.data, current?.mode ?? 0o644);
+    // Keep the file's permissions, minus setuid/setgid: Linux drops them when anyone but root writes a file.
+    await sftp.createFile(temp, input.data, current === undefined ? 0o644 : current.mode & ~0o6000);
     try {
       await sftp.rename(temp, target, overwrite);
     } catch (error) {

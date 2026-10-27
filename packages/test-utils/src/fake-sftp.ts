@@ -72,6 +72,7 @@ export class FakeSftp extends EventEmitter {
   private readonly nodes = new Map<string, Node>([['/', { kind: 'dir', mode: 0o755, mtime: 1_761_000_000 }]]);
   private readonly handles = new Map<string, { path: string; dir?: boolean; listed?: boolean }>();
   private readonly failures = new Map<string, Error | 'hang'>();
+  private readonly hung: Cb<never>[] = [];
   private readonly denied = new Set<string>();
   private nextHandle = 0;
   private readonly posixRename: boolean;
@@ -130,6 +131,15 @@ export class FakeSftp extends EventEmitter {
     return this;
   }
 
+  /** Answers every call that was made to hang, with an SFTP failure. */
+  releaseHung(): void {
+    for (const cb of this.hung.splice(0)) {
+      queueMicrotask(() => {
+        cb(status(4));
+      });
+    }
+  }
+
   /** Mutations under this path fail with "permission denied". */
   deny(path: string): this {
     this.denied.add(path);
@@ -177,7 +187,8 @@ export class FakeSftp extends EventEmitter {
     const failure = this.failures.get(method);
     if (failure === undefined) return true;
     this.failures.delete(method);
-    if (failure !== 'hang')
+    if (failure === 'hang') this.hung.push(cb);
+    else
       queueMicrotask(() => {
         cb(failure);
       });

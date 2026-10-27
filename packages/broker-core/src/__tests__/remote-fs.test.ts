@@ -183,6 +183,12 @@ describe('write', () => {
     expect(server.node(`${ROOT}/README.md`)).toMatchObject({ kind: 'file', mode: 0o600 });
   });
 
+  it('drops setuid and setgid on save, as Linux does when anyone but root writes a file', async () => {
+    server.put(`${ROOT}/tool.sh`, '#!/bin/sh\n', 0o6755);
+    await fs.write({ path: 'tool.sh', data: text('#!/bin/sh\necho hi\n') });
+    expect(server.node(`${ROOT}/tool.sh`)).toMatchObject({ mode: 0o755 });
+  });
+
   it('writes when ifMatch is the current ETag', async () => {
     const { etag } = await fs.read({ path: 'src/main.py' });
     server.now += 5;

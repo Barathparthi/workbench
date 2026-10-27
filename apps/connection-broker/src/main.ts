@@ -25,7 +25,7 @@ function configOrExit(): Config {
 }
 
 const config = configOrExit();
-const state = { shuttingDown: false };
+const state = { shuttingDown: false, starting: true };
 const registry = new SessionRegistry();
 
 // Development: key files under DEV_CREDENTIALS_DIR (refused in production by config). Vault: Phase 12.
@@ -84,12 +84,22 @@ async function shutdown(): Promise<void> {
 process.once('SIGTERM', () => void shutdown());
 process.once('SIGINT', () => void shutdown());
 await app.listen({ host: config.HOST, port: config.PORT });
-// A (re)started broker holds no sessions: let the control plane close the ones it still records on this instance.
-runner.controlPlane.started(config.BROKER_INSTANCE_ID).then(
-  ({ closed }) => {
-    app.log.info({ closed }, 'sessions of the previous run closed');
-  },
-  (error: unknown) => {
-    app.log.warn({ err: error }, 'could not tell the control plane this broker started');
-  },
-);
+// A (re)started broker holds no sessions: the control plane closes the ones it still records on this instance. The
+// two may start in any order, so this is retried until it succeeds; until then the broker is not ready and opens no
+// session (a late sweep would close it).
+void (async () => {
+  for (let delayMs = 1_000; !state.shuttingDown; delayMs = Math.min(delayMs * 2, 30_000)) {
+    try {
+      const { closed } = await runner.controlPlane.started(config.BROKER_INSTANCE_ID);
+      state.starting = false;
+      app.log.info({ closed }, 'sessions of the previous run closed; accepting sessions');
+      return;
+    } catch (error) {
+      app.log.warn(
+        { err: error, retryInMs: delayMs },
+        'could not tell the control plane this broker started',
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+})();

@@ -153,6 +153,26 @@ export function createRemoteFileService(db: Kysely<Database>, settings: RemoteFi
       } catch (error) {
         const code = isDomainError(error) ? error.code : 'INTERNAL_ERROR';
         await record(code === 'PATH_OUTSIDE_ROOT' || code === 'FORBIDDEN' ? 'denied' : 'failure', code);
+        // Reads are not audited, but a path that leaves the remote root is a security signal for any operation.
+        if (audit === undefined && code === 'PATH_OUTSIDE_ROOT') {
+          await db.transaction().execute((tx) =>
+            writeAuditEvent(tx, {
+              action: 'ACCESS_DENIED',
+              actorType: 'user',
+              actorUserId: ctx.principal.userId,
+              resourceType: 'session',
+              resourceId: sessionId,
+              result: 'denied',
+              reasonCode: 'PATH_OUTSIDE_ROOT',
+              requestId: ctx.requestId,
+              metadata: {
+                permission: 'remote:file_read',
+                method: 'POST',
+                route: `/api/v1/sessions/:id/fs/${op}`,
+              },
+            }),
+          );
+        }
         throw error;
       }
       await record('success');

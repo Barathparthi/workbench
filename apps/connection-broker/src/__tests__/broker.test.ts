@@ -66,7 +66,7 @@ const controlPlane: ControlPlaneClient = {
   started: () => Promise.resolve({ closed: 0 }),
 };
 const registry = new SessionRegistry();
-const state = { shuttingDown: false };
+const state = { shuttingDown: false, starting: false };
 
 const freshSnapshot = (): RedeemTicketResponse => ({
   sessionId: SESSION,
@@ -341,6 +341,17 @@ describe('remote terminal through the broker', () => {
     expect(await c.closed).toBe(4011);
   });
 
+  it('is not ready and opens no session until the control plane has acknowledged its start', async () => {
+    const http = base.replace('ws:', 'http:');
+    state.starting = true;
+    try {
+      expect(await (await fetch(`${http}/readyz`)).json()).toEqual({ status: 'starting' });
+      expect(await connect()).toBe(503);
+    } finally {
+      state.starting = false;
+    }
+  });
+
   it('reports health and refuses new streams while draining', async () => {
     const http = base.replace('ws:', 'http:');
     expect(await (await fetch(`${http}/readyz`)).json()).toMatchObject({ status: 'ready' });
@@ -388,6 +399,19 @@ describe('files-sessions (internal fs route)', () => {
     return { status: res.status, body: (await res.json()) as Record<string, unknown> };
   };
   const b64 = (s: string) => Buffer.from(s).toString('base64');
+
+  it('opens no files session until the control plane has acknowledged the broker’s start', async () => {
+    state.starting = true;
+    try {
+      expect(await fsCall('stat', { path: '' })).toMatchObject({
+        status: 502,
+        body: { code: 'SSH_UNREACHABLE' },
+      });
+      expect(dialled).toEqual([]);
+    } finally {
+      state.starting = false;
+    }
+  });
 
   it('needs the service token', async () => {
     expect((await fsCall('stat', { path: '' }, filesSnapshot(), 'wrong-token-'.repeat(4))).status).toBe(401);
@@ -480,5 +504,18 @@ describe('files-sessions (internal fs route)', () => {
       { timeout: 3_000 },
     );
     expect(files.size).toBe(0);
+  });
+
+  it('does not close for idleness while an operation is still running', async () => {
+    remoteFiles.mkdirp('/home/bob');
+    const snapshot = filesSnapshot({ idleTimeoutSec: 1 });
+    await fsCall('stat', { path: '' }, snapshot);
+    remoteFiles.failNext('lstat', 'hang');
+    const slow = fsCall('stat', { path: 'slow' }, snapshot);
+    await new Promise((r) => setTimeout(r, 1_800));
+    expect(reports.some(([, r]) => r.state === 'CLOSED')).toBe(false);
+    expect(files.size).toBe(1);
+    remoteFiles.releaseHung();
+    expect((await slow).status).toBe(409);
   });
 });

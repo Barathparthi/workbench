@@ -33,7 +33,11 @@ export interface BrokerDeps extends RunnerDeps {
   readonly allowedOrigins: readonly string[];
   readonly internalToken: string;
   readonly maxSessions: number;
-  readonly state: { shuttingDown: boolean };
+  /**
+   * `starting`: the control plane has not yet closed the sessions of this instance's previous run; no session may be
+   * opened until it has, or that late sweep could close it.
+   */
+  readonly state: { shuttingDown: boolean; starting: boolean };
   readonly build?: { version: string; commit: string };
   readonly logger?: boolean | object;
 }
@@ -133,7 +137,9 @@ export async function buildBroker(deps: BrokerDeps): Promise<FastifyInstance> {
   app.get('/readyz', (_req, reply) =>
     deps.state.shuttingDown
       ? reply.code(503).send({ status: 'shutting-down' })
-      : { status: 'ready', sessions: deps.registry.size + deps.files.size },
+      : deps.state.starting
+        ? reply.code(503).send({ status: 'starting' })
+        : { status: 'ready', sessions: deps.registry.size + deps.files.size },
   );
   app.get('/version', () => deps.build ?? { version: '0.0.0-dev', commit: 'unknown' });
 
@@ -158,7 +164,9 @@ export async function buildBroker(deps: BrokerDeps): Promise<FastifyInstance> {
       if (snapshot.sessionId !== id || snapshot.kind !== 'files') {
         throw new DomainError('INVALID_REQUEST', 'snapshot does not match the session');
       }
-      if (deps.state.shuttingDown) throw new DomainError('SSH_UNREACHABLE', 'this broker is shutting down');
+      if (deps.state.shuttingDown || deps.state.starting) {
+        throw new DomainError('SSH_UNREACHABLE', 'this broker is not accepting sessions');
+      }
       const work = fileOperation(op, body);
       if (!deps.files.has(id) && deps.registry.size + deps.files.size >= deps.maxSessions) {
         throw new DomainError('SSH_UNREACHABLE', 'this broker is at capacity');
@@ -187,7 +195,7 @@ export async function buildBroker(deps: BrokerDeps): Promise<FastifyInstance> {
         refuse(socket, 404, 'Not Found');
         return;
       }
-      if (deps.state.shuttingDown) {
+      if (deps.state.shuttingDown || deps.state.starting) {
         refuse(socket, 503, 'Service Unavailable');
         return;
       }

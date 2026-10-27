@@ -9,7 +9,7 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 ---
 
-## Status snapshot (updated 2026-10-18)
+## Status snapshot (updated 2026-10-27)
 
 | Phase                                | State                                                                                                                        | Record                                               |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
@@ -20,11 +20,12 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 04 — Dev identity & RBAC             | **Done — gate PASS** ([PR #9](https://github.com/Barathparthi/workbench/pull/9); Keycloak + session integration green in CI) | [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md) |
 | 05 — Workspace runtime & routing     | **Done** ([PR #10](https://github.com/Barathparthi/workbench/pull/10), CI green) — M1 end-to-end run with Docker still open  | [`phase-gates/PHASE_05.md`](phase-gates/PHASE_05.md) |
 | 06 — Terminal hardening              | **Done** (merged to `main`, `1771c61`; CI smoke green after resize-test fix)                                                 | [`phase-gates/PHASE_06.md`](phase-gates/PHASE_06.md) |
-| 07 — Target registry & policy        | **Built — gate CONDITIONAL** (pushed; CI integration and merge pending)                                                      | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
-| 08 — SSH broker & remote terminal    | **Built locally — gate CONDITIONAL** (CI OpenSSH/PostgreSQL suites, M2 run with Docker)                                      | [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md) |
-| 09 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
+| 07 — Target registry & policy        | **Done — gate PASS** (2026-10-27; integration green in WSL)                                                                  | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
+| 08 — SSH broker & remote terminal    | **Done — gate PASS** (M2 terminal run 2026-10-27, PR #18)                                                                    | [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md) |
+| 09 — Remote filesystem               | **Built — gate PASS** (M2 complete; PR from `phase-09-remote-fs` pending CI)                                                 | [`phase-gates/PHASE_09.md`](phase-gates/PHASE_09.md) |
+| 10 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
 
-Milestones: M1 (end of Phase 06) — not reached.
+Milestones: M1 (end of Phase 06) — not reached. M2 (remote terminal + remote files) — met 2026-10-27.
 
 **Next actions**
 
@@ -547,3 +548,33 @@ container needs a fixed address (network `qews-lab`) and its own image tag, beca
 Process note: the owner's VS Code Sync on a branch tracking `origin/main` pushed work-in-progress commits straight to
 `main` (one with a failing integration test, fixed in the next commit). Branches should track their own remote
 branch and reach `main` through a pull request with CI.
+
+### 2026-10-27 — Phase 09: remote filesystem (branch `phase-09-remote-fs`)
+
+Remote files in the browser IDE, through the control plane and broker to SFTP on the lab machine (ADR-006 option B).
+Plan approved by the owner with six decisions (gate record): changes need the policy's `file_write`; ETag mtime-size;
+one broker; no Windows targets; hosted E2E local only; latency measured on the local network.
+
+- **P09.1** `9ff366b`: `confine()` and the realpath `PathGuard` in broker-core; traversal corpus in a new
+  `tests/security` workspace.
+- **P09.2** `69de475`: SFTP channel and file operations (limits, ETag, atomic save, capped recursive delete); in-memory
+  SFTP fake and an OpenSSH container fixture in test-utils; the test image ships the SFTP server.
+- **P09.3** `afaf117`: control-plane `/fs/{op}` API (owner only, audit, OpenAPI) and broker files-sessions; terminals
+  and files share one pre-connect function.
+- **P09.4** `6c419ed`: `qe-ssh://` provider and "Open Remote Folder…" in the IDE.
+- **P09.5** `76f54cc`, `eb0b74d`: polling watcher; hosted E2E (new Playwright project `hosted`).
+
+The hosted E2E found five product defects, each fixed with a test: Theia 1.76 wrote the `qe-ssh://` root into the
+workspace file as a local path (`3c05680`); every SFTP round trip waited ~45 ms for a delayed ACK because ssh2 leaves
+Nagle on — `TCP_NODELAY` took save p95 from 1344 ms to 142 ms (`1f91987`); sessions of a restarted broker counted
+against user limits forever, so files sessions were refused (429) after a few restarts (`12bd11d`, and `46c9bb3` when
+the broker starts before the control plane); every page load opened a new files session (`6ee82c1`). Also fixed: a
+flaky terminal smoke test that typed before the shell was ready (`0664bf8`), and ssh2 1.17.0 generating ~0.6 %
+ed25519 test keys it cannot parse — the cause of the random "key generation failed" and of the one-off broker-core
+failure noted in Phase 08 (`ec144e1`). The phase review (`76484ae`) dropped setuid/setgid on save, kept the idle timer
+from closing a session during an operation, and audited read-side escapes.
+
+Evidence: unit 1371/1371, integration 121/121 (WSL), browser smoke 13/13, hosted E2E 3/3; details and follow-ups in
+`phase-gates/PHASE_09.md`. Environment notes: Playwright's Chromium needed system libraries in WSL
+(`npx playwright install-deps chromium`, run by the owner); processes started from a script must be detached
+(`setsid`) or they end with the WSL session.
