@@ -13,9 +13,10 @@ export class QeRemoteDesktopContribution implements CommandContribution {
   @inject(MessageService) protected readonly messages!: MessageService;
 
   registerCommands(registry: CommandRegistry): void {
-    registry.registerCommand(QeCommands.CONNECT_TARGET, {
-      execute: () => this.messages.info('Remote systems in the desktop app arrive with desktop sign-in.'),
-    });
+    const explain = () =>
+      this.messages.info('Remote systems in the desktop app arrive with desktop sign-in.');
+    registry.registerCommand(QeCommands.CONNECT_TARGET, { execute: explain });
+    registry.registerCommand(QeCommands.OPEN_REMOTE_FOLDER, { execute: explain });
   }
 }
 

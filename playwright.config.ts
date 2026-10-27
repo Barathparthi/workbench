@@ -28,6 +28,8 @@ export default defineConfig({
   projects: [
     { name: 'browser', testMatch: /\.browser\.spec\.ts$/ },
     { name: 'electron', testMatch: 'smoke.electron.spec.ts' },
+    // The hosted stack (control plane, broker, lab machine); remote-files.hosted.spec.ts says what it needs.
+    { name: 'hosted', testMatch: /\.hosted\.spec\.ts$/ },
   ],
   webServer: {
     command: `node tests/e2e/prepare-workspace.ts "${workspace}" && node apps/ide-browser/lib/backend/main.js "${workspace}" --hostname=127.0.0.1 --port=${port} --plugins=local-dir:plugins`,

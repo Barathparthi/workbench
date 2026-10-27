@@ -5,8 +5,9 @@
  */
 import { fileURLToPath } from 'node:url';
 
-import ssh2 from 'ssh2';
 import { GenericContainer, type StartedTestContainer } from 'testcontainers';
+
+import { ed25519KeyPair } from './ssh-keys.js';
 
 const CONTEXT = fileURLToPath(new URL('../openssh/', import.meta.url));
 
@@ -20,7 +21,7 @@ export interface OpenSshFixture {
 }
 
 export async function startOpenSsh(): Promise<OpenSshFixture> {
-  const keys = ssh2.utils.generateKeyPairSync('ed25519');
+  const keys = ed25519KeyPair();
   const image = await GenericContainer.fromDockerfile(CONTEXT).build('qews-test-openssh', {
     deleteOnExit: true,
   });

@@ -75,6 +75,9 @@ export const ssh2Transport: SshTransport = {
       client
         .on('ready', () => {
           settled = true;
+          // SFTP and terminals are small request/response exchanges: with Nagle's algorithm each one waited for a
+          // delayed ACK (~40 ms per SFTP round trip, measured in Phase 09). OpenSSH sets TCP_NODELAY likewise.
+          client.setNoDelay(true);
           resolve(wrap(client));
         })
         .on('error', (error) => {

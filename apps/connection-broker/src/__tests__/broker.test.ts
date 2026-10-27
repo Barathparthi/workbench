@@ -63,6 +63,7 @@ const controlPlane: ControlPlaneClient = {
     reports.push([id, r]);
     return Promise.resolve();
   },
+  started: () => Promise.resolve({ closed: 0 }),
 };
 const registry = new SessionRegistry();
 const state = { shuttingDown: false };

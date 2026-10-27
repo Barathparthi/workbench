@@ -10503,6 +10503,401 @@
         }
       }
     },
+    "/internal/v1/brokers/{instance}/started": {
+      "post": {
+        "tags": ["internal"],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+            },
+            "in": "path",
+            "name": "instance",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "closed": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["closed"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "AUTH_REQUIRED",
+                        "CSRF_REJECTED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "INVALID_REQUEST",
+                        "CONFLICT",
+                        "WORKSPACE_NOT_READY",
+                        "QUOTA_EXCEEDED",
+                        "RATE_LIMITED",
+                        "TARGET_NOT_ALLOWED",
+                        "TARGET_ADDRESS_FORBIDDEN",
+                        "HOST_KEY_UNKNOWN",
+                        "HOST_KEY_MISMATCH",
+                        "CREDENTIALS_UNAVAILABLE",
+                        "CREDENTIALS_REJECTED",
+                        "SSH_TIMEOUT",
+                        "SSH_UNREACHABLE",
+                        "SESSION_EXPIRED",
+                        "SESSION_REVOKED",
+                        "PATH_OUTSIDE_ROOT",
+                        "REMOTE_FILE_TOO_LARGE",
+                        "REMOTE_FILE_CONFLICT",
+                        "INTERNAL_ERROR"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": ["type", "title", "status", "code", "requestId"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "AUTH_REQUIRED",
+                        "CSRF_REJECTED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "INVALID_REQUEST",
+                        "CONFLICT",
+                        "WORKSPACE_NOT_READY",
+                        "QUOTA_EXCEEDED",
+                        "RATE_LIMITED",
+                        "TARGET_NOT_ALLOWED",
+                        "TARGET_ADDRESS_FORBIDDEN",
+                        "HOST_KEY_UNKNOWN",
+                        "HOST_KEY_MISMATCH",
+                        "CREDENTIALS_UNAVAILABLE",
+                        "CREDENTIALS_REJECTED",
+                        "SSH_TIMEOUT",
+                        "SSH_UNREACHABLE",
+                        "SESSION_EXPIRED",
+                        "SESSION_REVOKED",
+                        "PATH_OUTSIDE_ROOT",
+                        "REMOTE_FILE_TOO_LARGE",
+                        "REMOTE_FILE_CONFLICT",
+                        "INTERNAL_ERROR"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": ["type", "title", "status", "code", "requestId"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "AUTH_REQUIRED",
+                        "CSRF_REJECTED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "INVALID_REQUEST",
+                        "CONFLICT",
+                        "WORKSPACE_NOT_READY",
+                        "QUOTA_EXCEEDED",
+                        "RATE_LIMITED",
+                        "TARGET_NOT_ALLOWED",
+                        "TARGET_ADDRESS_FORBIDDEN",
+                        "HOST_KEY_UNKNOWN",
+                        "HOST_KEY_MISMATCH",
+                        "CREDENTIALS_UNAVAILABLE",
+                        "CREDENTIALS_REJECTED",
+                        "SSH_TIMEOUT",
+                        "SSH_UNREACHABLE",
+                        "SESSION_EXPIRED",
+                        "SESSION_REVOKED",
+                        "PATH_OUTSIDE_ROOT",
+                        "REMOTE_FILE_TOO_LARGE",
+                        "REMOTE_FILE_CONFLICT",
+                        "INTERNAL_ERROR"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": ["type", "title", "status", "code", "requestId"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "AUTH_REQUIRED",
+                        "CSRF_REJECTED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "INVALID_REQUEST",
+                        "CONFLICT",
+                        "WORKSPACE_NOT_READY",
+                        "QUOTA_EXCEEDED",
+                        "RATE_LIMITED",
+                        "TARGET_NOT_ALLOWED",
+                        "TARGET_ADDRESS_FORBIDDEN",
+                        "HOST_KEY_UNKNOWN",
+                        "HOST_KEY_MISMATCH",
+                        "CREDENTIALS_UNAVAILABLE",
+                        "CREDENTIALS_REJECTED",
+                        "SSH_TIMEOUT",
+                        "SSH_UNREACHABLE",
+                        "SESSION_EXPIRED",
+                        "SESSION_REVOKED",
+                        "PATH_OUTSIDE_ROOT",
+                        "REMOTE_FILE_TOO_LARGE",
+                        "REMOTE_FILE_CONFLICT",
+                        "INTERNAL_ERROR"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": ["type", "title", "status", "code", "requestId"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "AUTH_REQUIRED",
+                        "CSRF_REJECTED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "INVALID_REQUEST",
+                        "CONFLICT",
+                        "WORKSPACE_NOT_READY",
+                        "QUOTA_EXCEEDED",
+                        "RATE_LIMITED",
+                        "TARGET_NOT_ALLOWED",
+                        "TARGET_ADDRESS_FORBIDDEN",
+                        "HOST_KEY_UNKNOWN",
+                        "HOST_KEY_MISMATCH",
+                        "CREDENTIALS_UNAVAILABLE",
+                        "CREDENTIALS_REJECTED",
+                        "SSH_TIMEOUT",
+                        "SSH_UNREACHABLE",
+                        "SESSION_EXPIRED",
+                        "SESSION_REVOKED",
+                        "PATH_OUTSIDE_ROOT",
+                        "REMOTE_FILE_TOO_LARGE",
+                        "REMOTE_FILE_CONFLICT",
+                        "INTERNAL_ERROR"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": ["type", "title", "status", "code", "requestId"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "AUTH_REQUIRED",
+                        "CSRF_REJECTED",
+                        "FORBIDDEN",
+                        "NOT_FOUND",
+                        "INVALID_REQUEST",
+                        "CONFLICT",
+                        "WORKSPACE_NOT_READY",
+                        "QUOTA_EXCEEDED",
+                        "RATE_LIMITED",
+                        "TARGET_NOT_ALLOWED",
+                        "TARGET_ADDRESS_FORBIDDEN",
+                        "HOST_KEY_UNKNOWN",
+                        "HOST_KEY_MISMATCH",
+                        "CREDENTIALS_UNAVAILABLE",
+                        "CREDENTIALS_REJECTED",
+                        "SSH_TIMEOUT",
+                        "SSH_UNREACHABLE",
+                        "SESSION_EXPIRED",
+                        "SESSION_REVOKED",
+                        "PATH_OUTSIDE_ROOT",
+                        "REMOTE_FILE_TOO_LARGE",
+                        "REMOTE_FILE_CONFLICT",
+                        "INTERNAL_ERROR"
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": ["type", "title", "status", "code", "requestId"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{id}/fs/stat": {
       "post": {
         "tags": ["sessions"],

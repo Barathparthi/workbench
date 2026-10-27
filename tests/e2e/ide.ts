@@ -22,6 +22,7 @@ export function pluginsAvailable(): boolean {
 export const QE_COMMANDS = [
   'QE: About QE Workspace',
   'QE: Connect to Remote System…',
+  'QE: Open Remote Folder…',
   'QE: Open Workspace…',
   'QE: Run Tests',
 ];
@@ -29,10 +30,14 @@ export const QE_COMMANDS = [
 /** Waits for the shell and accepts Workspace Trust for the sample repository. */
 export async function waitForShell(page: Page): Promise<void> {
   await page.locator('.theia-preload').waitFor({ state: 'detached', timeout: 60_000 });
-  // Asked once per workspace; later loads go straight to the shell.
+  await acceptTrust(page);
+  await expect(page.locator('#status-bar-qe-mode')).toBeVisible();
+}
+
+/** Accepts Workspace Trust if Theia asks: once per workspace, and again when the workspace's folders change. */
+export async function acceptTrust(page: Page): Promise<void> {
   const trust = page.getByRole('button', { name: 'Yes, I trust the authors' });
   await trust.click({ timeout: 5_000 }).catch(() => undefined);
-  await expect(page.locator('#status-bar-qe-mode')).toBeVisible();
 }
 
 export async function openPalette(page: Page, text: string): Promise<void> {
@@ -46,6 +51,16 @@ export async function openPalette(page: Page, text: string): Promise<void> {
 export async function runCommand(page: Page, label: string): Promise<void> {
   await openPalette(page, label);
   await page.locator('.quick-input-widget .monaco-list-row', { hasText: label }).first().click();
+}
+
+/** Opens a new integrated terminal, focused and ready for input. */
+export async function newTerminal(page: Page): Promise<void> {
+  await runCommand(page, 'Create New Terminal');
+  const input = page.locator('.terminal-container .xterm-helper-textarea').last();
+  await input.waitFor({ state: 'attached' });
+  await input.focus();
+  // The shell prints its prompt once it is ready; typing earlier can be lost.
+  await page.waitForTimeout(1_000);
 }
 
 /** Opens the settings editor filtered to `preferenceId` and counts the matching preference rows. */

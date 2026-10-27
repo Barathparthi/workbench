@@ -25,6 +25,8 @@ export interface RemoteSessionSettings {
 
 /** Sessions that count against a user's limit: open, or authorized with a ticket still usable. */
 const OPEN_STATES: SessionState[] = ['CONNECTING', 'ACTIVE', 'CLOSING'];
+/** A session still CONNECTING after this long, with no broker that claimed it, is stale (connects time out at 10 s). */
+const STALE_CONNECTING_MS = 2 * 60_000;
 
 const iso = (d: Date | string) => new Date(d).toISOString();
 const toSessionDto = (s: Selectable<SessionsTable>) => ({
@@ -486,6 +488,61 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
           .executeTakeFirst();
         if (s?.target_id == null) throw new DomainError('AUTH_REQUIRED', 'ticket invalid');
         return snapshotFor(tx, s);
+      });
+    },
+
+    /**
+     * Broker-only: a broker instance (re)started, so it holds no sessions. Its live sessions are closed here, audited
+     * like any end (reason `broker_restarted`), instead of counting against their users' limits forever; so are
+     * sessions stuck in CONNECTING that no broker ever claimed (a connect gives up after 10 s). A replica that never
+     * comes back under the same instance id needs the session reconciler (Phase 13).
+     */
+    async brokerStarted(brokerInstance: string): Promise<{ closed: number }> {
+      const at = now();
+      return db.transaction().execute(async (tx) => {
+        const stale = await tx
+          .selectFrom('sessions')
+          .selectAll()
+          .where((eb) =>
+            eb.or([
+              eb.and([
+                eb('broker_instance', '=', brokerInstance),
+                eb('state', 'in', ['CONNECTING', 'ACTIVE', 'CLOSING', 'REVOKED']),
+              ]),
+              eb.and([
+                eb('broker_instance', 'is', null),
+                eb('state', '=', 'CONNECTING'),
+                eb('created_at', '<', new Date(at.getTime() - STALE_CONNECTING_MS)),
+              ]),
+            ]),
+          )
+          .forUpdate()
+          .execute();
+        for (const s of stale) {
+          const reason = s.close_reason ?? 'broker_restarted';
+          await tx
+            .updateTable('sessions')
+            .set({ state: 'CLOSED', close_reason: reason, closed_at: at })
+            .where('id', '=', s.id)
+            .execute();
+          const started = s.activated_at ?? new Date(s.created_at);
+          await writeAuditEvent(tx, {
+            action: 'SSH_SESSION_CLOSED',
+            actorType: 'service',
+            actorUserId: s.user_id,
+            resourceType: 'session',
+            resourceId: s.id,
+            result: 'success',
+            reasonCode: 'broker_restarted',
+            metadata: {
+              reason,
+              bytesIn: 0,
+              bytesOut: 0,
+              durationSec: Math.max(0, Math.round((at.getTime() - started.getTime()) / 1000)),
+            },
+          });
+        }
+        return { closed: stale.length };
       });
     },
 

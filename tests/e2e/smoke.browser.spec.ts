@@ -7,6 +7,7 @@ import {
   openPalette,
   pluginsAvailable,
   preferenceRows,
+  newTerminal,
   QE_COMMANDS,
   runCommand,
   waitForShell,
@@ -60,10 +61,7 @@ test.describe('browser IDE smoke', () => {
   });
 
   test('terminal runs a shell in the project folder', async ({ page }) => {
-    await runCommand(page, 'Create New Terminal');
-    const terminal = page.locator('.terminal-container .xterm-helper-textarea').last();
-    await terminal.waitFor({ state: 'attached' });
-    await terminal.focus();
+    await newTerminal(page);
     await page.keyboard.type('echo qe-$((6*7)) > terminal-marker.txt');
     await page.keyboard.press('Enter');
     await expect

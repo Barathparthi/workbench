@@ -18,7 +18,7 @@ import {
   type SshConnection,
   type StreamSocket,
 } from '../index.js';
-import { startSshServer, type TestSshServer } from '@qe/test-utils';
+import { ed25519KeyPair, startSshServer, type TestSshServer } from '@qe/test-utils';
 
 describe('@qe/broker-core', () => {
   it('exposes its package name', () => {
@@ -178,7 +178,7 @@ describe('ssh2 transport against a real SSH server', () => {
   });
 
   it('reports a rejected key as CREDENTIALS_REJECTED', async () => {
-    const other = (await import('ssh2')).default.utils.generateKeyPairSync('ed25519');
+    const other = ed25519KeyPair();
     const verifier = trusted();
     const error = await ssh2Transport
       .connect(endpoint(), { kind: 'key', privateKey: Buffer.from(other.private) }, verifier)
