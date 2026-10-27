@@ -6,6 +6,7 @@ import { z } from 'zod';
  * Actions without an entry here cannot be written yet; they are added with the feature that emits them.
  */
 const short = z.string().max(200);
+const remotePath = z.string().max(4096);
 
 export const AuditMetadata = {
   // Phase 04 — authentication and authorization. Roles are names only, never tokens or claims.
@@ -54,6 +55,15 @@ export const AuditMetadata = {
   SSH_CONNECT_FAILED: z.strictObject({ reason: short }),
   SSH_HOST_KEY_MISMATCH: z.strictObject({ algorithm: short, presentedFingerprint: short }),
   SSH_HOST_KEY_UNKNOWN: z.strictObject({ algorithm: short, presentedFingerprint: short }),
+  // Phase 09 — remote file changes. Paths are relative to the target's remoteRoot; never file contents.
+  REMOTE_FILE_WRITE: z.strictObject({
+    targetId: z.uuid(),
+    op: z.enum(['write', 'mkdir']),
+    path: remotePath,
+    size: z.number().int().min(0).optional(),
+  }),
+  REMOTE_FILE_DELETE: z.strictObject({ targetId: z.uuid(), path: remotePath, recursive: z.boolean() }),
+  REMOTE_FILE_RENAME: z.strictObject({ targetId: z.uuid(), from: remotePath, to: remotePath }),
   WORKSPACE_CREATE: z.strictObject({ name: short, templateId: short }),
   WORKSPACE_DELETE: z.strictObject({ name: short }),
   // Phase 05 — runtime lifecycle. `reason` says who or what stopped it; failures carry a short code.

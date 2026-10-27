@@ -18,7 +18,9 @@ import {
 } from './auth.js';
 import { authRoutes, meRoutes, type AuthRouteOptions } from './routes/auth.js';
 import { lifecycleRoutes } from './routes/lifecycle.js';
+import { remoteFileRoutes } from './routes/remote-files.js';
 import { targetRoutes } from './routes/targets.js';
+import type { RemoteFileService } from './remote-file-service.js';
 import type { RemoteSessionService } from './remote-session-service.js';
 import type { TargetService } from './target-service.js';
 import { registerWorkspaceRouter, type RouteLookup } from './router/workspace-router.js';
@@ -47,7 +49,14 @@ export interface ServerDeps {
       }
     | undefined;
   /** Remote targets, policies and sessions (Phase 07). */
-  readonly remote?: { readonly targets: TargetService; readonly sessions: RemoteSessionService } | undefined;
+  readonly remote?:
+    | {
+        readonly targets: TargetService;
+        readonly sessions: RemoteSessionService;
+        /** Remote files (Phase 09); absent until a broker is configured. */
+        readonly files?: RemoteFileService | undefined;
+      }
+    | undefined;
   /** Test hook: sees every registered route (the authz matrix test enumerates them). */
   readonly onRouteRegistered?: (route: RouteOptions) => void;
   /** Test hook: where logs go. */
@@ -114,7 +123,10 @@ export async function buildServer(config: Config, deps: ServerDeps): Promise<Fas
   healthRoutes(app, deps.health);
   meRoutes(app);
   workspaceRoutes(app, deps.workspaces);
-  if (deps.remote !== undefined) targetRoutes(app, deps.remote.targets, deps.remote.sessions);
+  if (deps.remote !== undefined) {
+    targetRoutes(app, deps.remote.targets, deps.remote.sessions);
+    if (deps.remote.files !== undefined) remoteFileRoutes(app, deps.remote.files);
+  }
 
   let closeSession: ((sessionId: string) => void) | undefined;
   if (deps.runtime !== undefined) {

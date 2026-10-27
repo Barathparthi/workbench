@@ -12,6 +12,8 @@ import { WorkspacesRepo } from './repos/workspaces.js';
 import { reconcileOnce, startReconciler } from './reconciler.js';
 import { createWorkspaceLifecycle } from './workspace-lifecycle.js';
 import { lookup } from 'node:dns/promises';
+import { httpBroker } from './broker-client.js';
+import { createRemoteFileService } from './remote-file-service.js';
 import { createRemoteSessionService } from './remote-session-service.js';
 import { createTargetService } from './target-service.js';
 import {
@@ -116,6 +118,7 @@ const lifecycle =
       );
 
 // Remote targets and sessions (Phase 07). The resolver returns every address of a name (SSRF guard).
+const broker = httpBroker(config.BROKER_INTERNAL_URL, config.INTERNAL_SERVICE_TOKEN);
 const remote = {
   targets: createTargetService(db, {
     deniedCidrs: config.TARGET_DENY_CIDRS,
@@ -125,14 +128,13 @@ const remote = {
     ticketTtlMs: config.SESSION_TICKET_TTL_SEC * 1000,
     allowedOrigins: config.ALLOWED_ORIGINS,
     brokerPublicUrl: config.BROKER_PUBLIC_URL,
-    closeOnBroker: async (sessionId: string) => {
-      if (config.BROKER_INTERNAL_URL === undefined || config.INTERNAL_SERVICE_TOKEN === undefined) return;
-      await fetch(new URL(`/internal/v1/sessions/${sessionId}/close`, config.BROKER_INTERNAL_URL), {
-        method: 'POST',
-        headers: { authorization: `Bearer ${config.INTERNAL_SERVICE_TOKEN}` },
-        signal: AbortSignal.timeout(5_000),
-      });
-    },
+    closeOnBroker: broker.close,
+  }),
+  // Remote files (Phase 09): every operation goes through the broker's SFTP connection for the session.
+  files: createRemoteFileService(db, {
+    broker: broker.files,
+    ticketTtlMs: config.SESSION_TICKET_TTL_SEC * 1000,
+    closeOnBroker: broker.close,
   }),
 };
 

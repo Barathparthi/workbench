@@ -2,17 +2,34 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 
-import { MAX_MESSAGE_BYTES, QEWS_PROTOCOL, ticketFromProtocols } from '@qe/contracts';
-import { isDomainError, type SessionRegistry } from '@qe/broker-core';
+import {
+  BrokerFsParams,
+  BrokerFsRequest,
+  FsDeleteRequest,
+  FsListRequest,
+  FsMkdirRequest,
+  FsReadRequest,
+  FsRenameRequest,
+  FsStatRequest,
+  FsWriteRequest,
+  MAX_MESSAGE_BYTES,
+  QEWS_PROTOCOL,
+  REMOTE_FILE_LIMITS,
+  ticketFromProtocols,
+  type FsOp,
+} from '@qe/contracts';
+import { DomainError, isDomainError, type RemoteFileSystem, type SessionRegistry } from '@qe/broker-core';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { WebSocketServer, type RawData, type WebSocket } from 'ws';
 import { z } from 'zod';
 
+import type { FilesSessions } from './files-sessions.js';
 import type { RunnerDeps } from './session-runner.js';
 import { runTerminalSession } from './session-runner.js';
 
 export interface BrokerDeps extends RunnerDeps {
   readonly registry: SessionRegistry;
+  readonly files: FilesSessions;
   readonly allowedOrigins: readonly string[];
   readonly internalToken: string;
   readonly maxSessions: number;
@@ -25,6 +42,54 @@ const STREAM_PATH =
   /^\/api\/v1\/sessions\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/stream$/;
 const Uuid = z.object({ id: z.uuid() });
 const sha = (v: string) => createHash('sha256').update(v).digest();
+/** A 10 MB write as base64 plus the snapshot around it. */
+const FS_BODY_LIMIT = Math.ceil(REMOTE_FILE_LIMITS.maxFileBytes / 3) * 4 + 128 * 1024;
+
+/** Validates one operation's request and runs it; contents cross the wire as base64 only. */
+function fileOperation(op: FsOp, request: unknown): (fs: RemoteFileSystem) => Promise<unknown> {
+  switch (op) {
+    case 'stat': {
+      const r = FsStatRequest.parse(request);
+      return (fs) => fs.stat(r);
+    }
+    case 'list': {
+      const r = FsListRequest.parse(request);
+      return (fs) => fs.list(r);
+    }
+    case 'read': {
+      const r = FsReadRequest.parse(request);
+      return async (fs) => {
+        const { data, etag } = await fs.read(r);
+        return { contentBase64: data.toString('base64'), etag };
+      };
+    }
+    case 'write': {
+      const { contentBase64, ...r } = FsWriteRequest.parse(request);
+      return (fs) => fs.write({ ...r, data: Buffer.from(contentBase64, 'base64') });
+    }
+    case 'mkdir': {
+      const r = FsMkdirRequest.parse(request);
+      return async (fs) => {
+        await fs.mkdir(r);
+        return {};
+      };
+    }
+    case 'rename': {
+      const r = FsRenameRequest.parse(request);
+      return async (fs) => {
+        await fs.rename(r);
+        return {};
+      };
+    }
+    case 'delete': {
+      const r = FsDeleteRequest.parse(request);
+      return async (fs) => {
+        await fs.delete(r);
+        return {};
+      };
+    }
+  }
+}
 
 /**
  * The broker's HTTP surface: health, internal close/revoke (service token only) and the `qews.v1` WebSocket stream
@@ -43,22 +108,64 @@ export async function buildBroker(deps: BrokerDeps): Promise<FastifyInstance> {
     await Promise.resolve();
   };
 
+  // Internal callers get the API code (and safe details) of a failure; never paths, contents or server text.
+  app.setErrorHandler((error, _request, reply) => {
+    if (isDomainError(error)) {
+      return reply
+        .code(error.httpStatus)
+        .send({ code: error.code, ...(error.details !== undefined && { details: error.details }) });
+    }
+    if (error instanceof z.ZodError) return reply.code(400).send({ code: 'INVALID_REQUEST' });
+    const status = (error as { statusCode?: number }).statusCode ?? 500;
+    if (status >= 500) deps.log.warn({ err: error }, 'internal request failed');
+    const code =
+      status === 401
+        ? 'AUTH_REQUIRED'
+        : status === 404
+          ? 'NOT_FOUND'
+          : status < 500
+            ? 'INVALID_REQUEST'
+            : 'INTERNAL_ERROR';
+    return reply.code(status).send({ code });
+  });
+
   app.get('/healthz', () => ({ status: 'ok' }));
   app.get('/readyz', (_req, reply) =>
     deps.state.shuttingDown
       ? reply.code(503).send({ status: 'shutting-down' })
-      : { status: 'ready', sessions: deps.registry.size },
+      : { status: 'ready', sessions: deps.registry.size + deps.files.size },
   );
   app.get('/version', () => deps.build ?? { version: '0.0.0-dev', commit: 'unknown' });
 
   app.post('/internal/v1/sessions/:id/close', { onRequest: internal }, (request) => {
     const { id } = Uuid.parse(request.params);
-    return { closed: deps.registry.close(id, 'revoked') };
+    const terminal = deps.registry.close(id, 'revoked');
+    return { closed: deps.files.close(id, 'revoked') || terminal };
   });
   app.post('/internal/v1/users/:id/close-all', { onRequest: internal }, (request) => {
     const { id } = Uuid.parse(request.params);
-    return { closed: deps.registry.closeUser(id, 'revoked') };
+    return { closed: deps.registry.closeUser(id, 'revoked') + deps.files.closeUser(id, 'revoked') };
   });
+
+  // Remote files (Phase 09): the control plane has checked ownership, policy and capability, and sends the session
+  // snapshot with every operation; the first one opens the session's SFTP connection here.
+  app.post(
+    '/internal/v1/sessions/:id/fs/:op',
+    { onRequest: internal, bodyLimit: FS_BODY_LIMIT },
+    async (request) => {
+      const { id, op } = BrokerFsParams.parse(request.params);
+      const { snapshot, request: body } = BrokerFsRequest.parse(request.body);
+      if (snapshot.sessionId !== id || snapshot.kind !== 'files') {
+        throw new DomainError('INVALID_REQUEST', 'snapshot does not match the session');
+      }
+      if (deps.state.shuttingDown) throw new DomainError('SSH_UNREACHABLE', 'this broker is shutting down');
+      const work = fileOperation(op, body);
+      if (!deps.files.has(id) && deps.registry.size + deps.files.size >= deps.maxSessions) {
+        throw new DomainError('SSH_UNREACHABLE', 'this broker is at capacity');
+      }
+      return deps.files.run(snapshot, work);
+    },
+  );
 
   const wss = new WebSocketServer({
     noServer: true,
@@ -95,7 +202,7 @@ export async function buildBroker(deps: BrokerDeps): Promise<FastifyInstance> {
         refuse(socket, 401, 'Unauthorized');
         return;
       }
-      if (deps.registry.size >= deps.maxSessions) {
+      if (deps.registry.size + deps.files.size >= deps.maxSessions) {
         refuse(socket, 503, 'Service Unavailable');
         return;
       }
@@ -152,6 +259,7 @@ export async function buildBroker(deps: BrokerDeps): Promise<FastifyInstance> {
 
   app.addHook('onClose', () => {
     deps.registry.closeAll('shutdown');
+    deps.files.closeAll('shutdown');
     wss.close();
   });
   return app;

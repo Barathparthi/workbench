@@ -1,6 +1,6 @@
-# Disposable OpenSSH target for integration tests (Phase 08). Development fixture only.
+# Disposable OpenSSH target (shell and SFTP) for integration tests (Phases 08-09). Development fixture only.
 FROM alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
-RUN apk add --no-cache openssh-server \
+RUN apk add --no-cache openssh-server openssh-sftp-server \
  && ssh-keygen -A \
  && adduser -D -s /bin/sh qe \
  # adduser -D locks the account ("!"), and sshd refuses locked accounts even for keys: "*" = no password, not locked.
@@ -12,6 +12,7 @@ RUN apk add --no-cache openssh-server \
       cat /etc/ssh/sshd_config; } > /tmp/sshd_config \
  && mv /tmp/sshd_config /etc/ssh/sshd_config \
  && sshd -T | grep -qx 'authorizedkeysfile /etc/ssh/authorized_keys/%u' \
+ && sshd -T | grep -q '^subsystem sftp ' \
  && install -d -m 755 /etc/ssh/authorized_keys
 EXPOSE 22
 CMD ["/usr/sbin/sshd", "-D", "-e"]
