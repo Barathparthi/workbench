@@ -30,10 +30,14 @@ export const QE_COMMANDS = [
 /** Waits for the shell and accepts Workspace Trust for the sample repository. */
 export async function waitForShell(page: Page): Promise<void> {
   await page.locator('.theia-preload').waitFor({ state: 'detached', timeout: 60_000 });
-  // Asked once per workspace; later loads go straight to the shell.
+  await acceptTrust(page);
+  await expect(page.locator('#status-bar-qe-mode')).toBeVisible();
+}
+
+/** Accepts Workspace Trust if Theia asks: once per workspace, and again when the workspace's folders change. */
+export async function acceptTrust(page: Page): Promise<void> {
   const trust = page.getByRole('button', { name: 'Yes, I trust the authors' });
   await trust.click({ timeout: 5_000 }).catch(() => undefined);
-  await expect(page.locator('#status-bar-qe-mode')).toBeVisible();
 }
 
 export async function openPalette(page: Page, text: string): Promise<void> {

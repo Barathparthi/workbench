@@ -2,6 +2,7 @@ import { LabelProviderContribution } from '@theia/core/lib/browser/label-provide
 import { CommandContribution } from '@theia/core/lib/common/command';
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { FileServiceContribution } from '@theia/filesystem/lib/browser/file-service';
+import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 
 import { QeRemoteContribution } from './qe-remote-contribution';
 import {
@@ -10,8 +11,9 @@ import {
   QeSshLabelProviderContribution,
   RemoteTargetNames,
 } from './qe-remote-files';
+import { QeWorkspaceService } from './qe-workspace-service';
 
-export default new ContainerModule((bind) => {
+export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
   bind(QeRemoteServices).toSelf().inSingletonScope();
   bind(RemoteTargetNames).toSelf().inSingletonScope();
   bind(QeRemoteContribution).toSelf().inSingletonScope();
@@ -21,4 +23,6 @@ export default new ContainerModule((bind) => {
   bind(FileServiceContribution).toService(QeSshFileSystemContribution);
   bind(QeSshLabelProviderContribution).toSelf().inSingletonScope();
   bind(LabelProviderContribution).toService(QeSshLabelProviderContribution);
+  // Remote folders are real workspace roots: keep their qe-ssh:// URIs intact in the workspace file.
+  rebind(WorkspaceService).to(QeWorkspaceService).inSingletonScope();
 });
