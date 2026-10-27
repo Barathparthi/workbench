@@ -7,19 +7,10 @@ import { join } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { runCommand, waitForShell, workspace } from './ide.js';
+import { newTerminal, waitForShell, workspace } from './ide.js';
 
 const file = (name: string) => join(workspace(), name);
 const read = (name: string) => (existsSync(file(name)) ? readFileSync(file(name), 'utf8').trim() : '');
-
-async function newTerminal(page: Page): Promise<void> {
-  await runCommand(page, 'Create New Terminal');
-  const input = page.locator('.terminal-container .xterm-helper-textarea').last();
-  await input.waitFor({ state: 'attached' });
-  await input.focus();
-  // The shell prints its prompt once it is ready; typing earlier can be lost.
-  await page.waitForTimeout(1_000);
-}
 
 async function run(page: Page, line: string): Promise<void> {
   await page.keyboard.type(line);
