@@ -124,6 +124,7 @@ export async function buildServer(config: Config, deps: ServerDeps): Promise<Fas
       touch: deps.runtime.touch,
       authenticator,
       allowedOrigins: config.ALLOWED_ORIGINS,
+      ...(config.BROKER_PUBLIC_URL !== undefined && { brokerPublicUrl: config.BROKER_PUBLIC_URL }),
       log: app.log,
     });
     deps.runtime.lifecycle.events.onAny((e) => {

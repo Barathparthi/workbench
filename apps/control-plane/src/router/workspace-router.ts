@@ -21,6 +21,8 @@ export interface RouterDeps {
   readonly touch: (workspaceId: string) => Promise<void>;
   readonly authenticator: Authenticator;
   readonly allowedOrigins: readonly string[];
+  /** Where the IDE opens remote terminal streams when the broker has its own origin (development). */
+  readonly brokerPublicUrl?: string;
   readonly log: { warn: (obj: object, msg: string) => void };
 }
 
@@ -40,15 +42,25 @@ const CACHE_MS = 5_000;
  * CSP for the IDE behind /w/{id}/: helmet's defaults plus what Theia needs (07_SECURITY §4.4), so the API's
  * stricter policy does not stop the IDE from starting. `unsafe-eval`: ajv compiles the preference schemas
  * with `new Function`; `wasm-unsafe-eval`: the TextMate grammar engine (onig.wasm); `blob:`: workers and
- * images. Full tuning (webviews, Monaco workers) is Phase 14.
+ * images; `connect-src data:`: Monaco fetches its inlined WebAssembly from a data URL. Remote terminals stream
+ * from the broker: same origin behind the ingress, or `brokerPublicUrl`'s origin in development. Full tuning
+ * (webviews, Monaco workers) is Phase 14.
  */
-const IDE_CONTENT_SECURITY_POLICY = {
-  directives: {
-    scriptSrc: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
-    workerSrc: ["'self'", 'blob:'],
-    imgSrc: ["'self'", 'data:', 'blob:'],
-  },
-};
+export function ideContentSecurityPolicy(brokerPublicUrl?: string) {
+  const connectSrc = ["'self'", 'data:'];
+  if (brokerPublicUrl !== undefined) {
+    const broker = new URL(brokerPublicUrl);
+    connectSrc.push(`${broker.protocol === 'https:' ? 'wss:' : 'ws:'}//${broker.host}`);
+  }
+  return {
+    directives: {
+      scriptSrc: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
+      workerSrc: ["'self'", 'blob:'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc,
+    },
+  };
+}
 
 /** The runtime never sees platform credentials: our cookies, Authorization and the CSRF header are removed. */
 export function upstreamHeaders(headers: IncomingHttpHeaders): IncomingHttpHeaders {
@@ -146,7 +158,7 @@ export async function registerWorkspaceRouter(
       rateLimit: { max: 3000, timeWindow: '1 minute' },
     } as const;
 
-    const helmet = { contentSecurityPolicy: IDE_CONTENT_SECURITY_POLICY };
+    const helmet = { contentSecurityPolicy: ideContentSecurityPolicy(deps.brokerPublicUrl) };
 
     scope.get('/w/:id', { config, helmet }, (request, reply) => {
       const [path, query] = request.url.split('?');

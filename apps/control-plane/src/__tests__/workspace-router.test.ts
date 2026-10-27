@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { makePrincipal, sha256, type AuthInput } from '../auth.js';
 import type { SessionAuth } from '../auth/session-auth.js';
-import { scopeSetCookie, upstreamHeaders } from '../router/workspace-router.js';
+import { ideContentSecurityPolicy, scopeSetCookie, upstreamHeaders } from '../router/workspace-router.js';
 import { buildServer } from '../server.js';
 import { WorkspaceEvents, type WorkspaceLifecycle } from '../workspace-lifecycle.js';
 import { fakeHealth, fakeWorkspaces, logSink, testConfig } from './fixtures.js';
@@ -172,6 +172,7 @@ describe('HTTP through /w/{id}/', () => {
     const csp = String(ide.headers['content-security-policy']);
     expect(csp).toContain("script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'");
     expect(csp).toContain("worker-src 'self' blob:");
+    expect(csp).toContain("connect-src 'self' data:");
     expect(csp).toContain("object-src 'none'");
     const api = await app.inject({ url: '/healthz' });
     expect(String(api.headers['content-security-policy'])).toContain("script-src 'self';");
@@ -261,6 +262,18 @@ describe('header helpers', () => {
   it('drops only platform cookies', () => {
     expect(upstreamHeaders({ cookie: 'qews_session=a; qews_oidc=b; x=1' }).cookie).toBe('x=1');
     expect(upstreamHeaders({ cookie: 'qews_session=a' })).not.toHaveProperty('cookie');
+  });
+
+  it('lets the IDE reach a broker on its own origin, over ws/wss only', () => {
+    expect(ideContentSecurityPolicy().directives.connectSrc).toEqual(["'self'", 'data:']);
+    expect(ideContentSecurityPolicy('http://localhost:8082').directives.connectSrc).toEqual([
+      "'self'",
+      'data:',
+      'ws://localhost:8082',
+    ]);
+    expect(ideContentSecurityPolicy('https://broker.qe.example/x').directives.connectSrc).toContain(
+      'wss://broker.qe.example',
+    );
   });
 
   it('rewrites or adds the cookie path', () => {
