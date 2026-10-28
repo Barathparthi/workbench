@@ -22,9 +22,9 @@ files:
 # Theia's packaged apps run unpacked: the backend forks Node processes and starts ripgrep and native modules from
 # lib/, which an asar archive would have to unpack again. (Hardening with asar integrity fuses: a later step.)
 asar: false
-# Native modules are prebuilt Node-API binaries (ADR-012): nothing to rebuild for Electron.
-npmRebuild: false
-nodeGypRebuild: false
+# Native modules are prebuilt Node-API binaries in lib/ (ADR-012): nothing to install or rebuild, and no
+# node_modules to collect (scripts/before-build.cjs returns false; `npmRebuild: false` would skip that hook).
+beforeBuild: ./scripts/before-build.cjs
 # Built-in VS Code plugins (pinned and hash-checked at build time) ship next to the app; the app points Theia at them
 # (qe-core's electron-main module).
 extraResources:
@@ -52,3 +52,4 @@ linux:
   # deb needs a maintainer; the address is a placeholder until the owning team is named (ORG_DECISIONS).
   maintainer: QE Workspace <qe-workspace@corp.invalid>
   synopsis: QE Workspace IDE
+  syncDesktopName: true

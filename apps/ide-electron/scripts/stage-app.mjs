@@ -29,6 +29,10 @@ writeFileSync(
       version: process.env.QE_APP_VERSION ?? source.version,
       description: 'QE Workspace — the QE team’s IDE for local and remote systems.',
       author: { name: 'QE Workspace' },
+      // deb metadata; to be replaced by the product page once the owning team names it (ORG_DECISIONS).
+      homepage: 'https://github.com/Barathparthi/workbench',
+      // The .desktop entry Linux desktops match the running window to (electron-builder linux.syncDesktopName).
+      desktopName: 'qe-workspace.desktop',
       license: source.license,
       main: source.main,
     },
