@@ -66,11 +66,23 @@ function upgrade(headers: Record<string, string> = {}): Promise<number> {
   });
 }
 
+const cookiesOf = (res: Answer): string[] =>
+  [res.headers['set-cookie'] ?? []].flat().map((c) => c.split(';')[0] ?? '');
+
 /** The cookie the sign-in link sets. */
 async function signedInCookie(): Promise<string> {
-  const res = await get(`/?token=${token}`);
-  const setCookie = [res.headers['set-cookie'] ?? []].flat()[0] ?? '';
-  return setCookie.split(';')[0] ?? '';
+  return cookiesOf(await get(`/?token=${token}`))[0] ?? '';
+}
+
+/**
+ * What a signed-in browser holds after its first page: our cookie, and Theia's own connection token, which Theia
+ * checks on every handshake next to ours (and hands out only once ours let the request in).
+ */
+async function browserCookies(): Promise<{ ours: string; theirs: string }> {
+  const ours = await signedInCookie();
+  const page = await get('/', { cookie: ours });
+  const theirs = cookiesOf(page).find((c) => c.startsWith('theia-connection-token=')) ?? '';
+  return { ours, theirs };
 }
 
 test.describe('local web access', () => {
@@ -90,10 +102,11 @@ test.describe('local web access', () => {
     expect(await upgrade()).not.toBe(101);
   });
 
-  test('refuses a wrong token', async () => {
+  test('refuses a wrong token, and hands out no cookie at all (not even Theia’s)', async () => {
     const res = await get(`/?token=${randomBytes(32).toString('base64url')}`);
     expect(res.status).toBe(401);
     expect(res.headers['set-cookie']).toBeUndefined();
+    expect((await get('/bundle.js')).headers['set-cookie']).toBeUndefined();
   });
 
   test('exchanges the link for an HttpOnly, SameSite=Strict cookie and drops the token from the address', async () => {
@@ -105,15 +118,17 @@ test.describe('local web access', () => {
     expect(setCookie).not.toContain(token);
   });
 
-  test('the cookie opens the IDE and its WebSocket; the token alone never upgrades', async () => {
-    const cookie = await signedInCookie();
-    expect((await get('/', { cookie })).status).toBe(200);
-    expect(await upgrade({ cookie })).toBe(101);
+  test('the cookie opens the IDE and its WebSocket; without it, even Theia’s token does not', async () => {
+    const { ours, theirs } = await browserCookies();
+    expect(theirs).not.toBe('');
+    expect(await upgrade({ cookie: `${ours}; ${theirs}` })).toBe(101);
+    expect(await upgrade({ cookie: theirs })).not.toBe(101);
     expect(await upgrade()).not.toBe(101);
   });
 
   test('refuses the cookie under any other Host name (DNS rebinding)', async () => {
-    const cookie = await signedInCookie();
+    const { ours, theirs } = await browserCookies();
+    const cookie = `${ours}; ${theirs}`;
     for (const host of [`evil.example:${String(PORT)}`, `192.168.0.10:${String(PORT)}`]) {
       expect((await get('/', { host, cookie })).status).toBe(403);
       expect(await upgrade({ host, cookie })).not.toBe(101);

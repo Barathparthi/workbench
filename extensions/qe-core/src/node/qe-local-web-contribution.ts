@@ -34,7 +34,8 @@ export class QeLocalWebContribution
   @inject(EarlyExpressMiddleware) protected readonly early!: EarlyExpressMiddleware;
 
   initialize(): void {
-    this.early.handlers.push(localWebMiddleware(this.secret));
+    // First of all: ahead of Theia's own connection-token middleware too, which hands its cookie to any request.
+    this.early.handlers.unshift(localWebMiddleware(this.secret));
   }
 
   allowWsUpgrade(request: Parameters<WsRequestValidatorContribution['allowWsUpgrade']>[0]): boolean {
