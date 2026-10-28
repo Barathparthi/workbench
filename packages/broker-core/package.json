@@ -24,6 +24,7 @@
     "@qe/policy": "0.0.0",
     "@qe/secrets": "0.0.0",
     "@qe/telemetry": "0.0.0",
+    "ssh-config": "5.3.0",
     "ssh2": "1.17.0"
   },
   "devDependencies": {

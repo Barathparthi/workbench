@@ -1,26 +1,32 @@
-import { CommandContribution, CommandRegistry } from '@theia/core/lib/common/command';
-import { MessageService } from '@theia/core/lib/common/message-service';
-import { ContainerModule, inject, injectable } from '@theia/core/shared/inversify';
-import { QeCommands } from '@qe/theia-qe-core/lib/browser/qe-commands';
+import { FrontendApplicationContribution } from '@theia/core/lib/browser/frontend-application-contribution';
+import { ServiceConnectionProvider } from '@theia/core/lib/browser/messaging/service-connection-provider';
+import { CommandContribution } from '@theia/core/lib/common/command';
+import { ContainerModule } from '@theia/core/shared/inversify';
+
+import { DESKTOP_ACCOUNT_PATH, DesktopAccountService } from '../common/desktop-account-protocol';
+import { MANAGED_RELAY_PATH, type ManagedRelayService } from '../common/managed-relay-protocol';
+import { bindQeRemoteFrontend } from '../browser/qe-remote-frontend-module';
+import { ManagedRelayConnector } from '../browser/qe-remote-files';
+import { DesktopAccountContribution } from './desktop-account-contribution';
 
 /**
- * Desktop: the renderer runs from `file://`, so it must not talk to the broker itself — remote connections relay
- * through the Electron backend with the user's desktop sign-in (ADR-006, risk R17). That arrives in Phase 10; until
- * then the command explains it instead of trying an origin the broker (correctly) refuses.
+ * Desktop: the same remote features as the browser app. The renderer runs from `file://`, so it never talks to the
+ * hosted control plane or broker itself (risk R17) and holds no token: personal targets go through the embedded
+ * broker in the Electron backend, managed targets through the backend's relay once the user has signed in.
  */
-@injectable()
-export class QeRemoteDesktopContribution implements CommandContribution {
-  @inject(MessageService) protected readonly messages!: MessageService;
-
-  registerCommands(registry: CommandRegistry): void {
-    const explain = () =>
-      this.messages.info('Remote systems in the desktop app arrive with desktop sign-in.');
-    registry.registerCommand(QeCommands.CONNECT_TARGET, { execute: explain });
-    registry.registerCommand(QeCommands.OPEN_REMOTE_FOLDER, { execute: explain });
-  }
-}
-
-export default new ContainerModule((bind) => {
-  bind(QeRemoteDesktopContribution).toSelf().inSingletonScope();
-  bind(CommandContribution).toService(QeRemoteDesktopContribution);
+export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
+  bindQeRemoteFrontend(bind, rebind);
+  bind(ManagedRelayConnector).toDynamicValue(
+    (ctx): ManagedRelayConnector =>
+      (client) =>
+        ServiceConnectionProvider.createProxy<ManagedRelayService>(ctx.container, MANAGED_RELAY_PATH, client),
+  );
+  bind(DesktopAccountService)
+    .toDynamicValue((ctx) =>
+      ServiceConnectionProvider.createProxy<DesktopAccountService>(ctx.container, DESKTOP_ACCOUNT_PATH),
+    )
+    .inSingletonScope();
+  bind(DesktopAccountContribution).toSelf().inSingletonScope();
+  bind(CommandContribution).toService(DesktopAccountContribution);
+  bind(FrontendApplicationContribution).toService(DesktopAccountContribution);
 });

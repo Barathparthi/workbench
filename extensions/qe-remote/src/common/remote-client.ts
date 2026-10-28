@@ -60,6 +60,8 @@ export interface SessionSummary {
 /** A file operation can open the session's SFTP connection first (10 s) and then move up to 10 MB. */
 const FILE_OP_TIMEOUT_MS = 60_000;
 
+export type RemoteClient = ReturnType<typeof remoteClient>;
+
 export function remoteClient(deps: RemoteClientDeps) {
   /** A same-origin POST with the session cookie and the CSRF token echoed from its cookie. */
   const post = async (path: string, body: unknown, timeoutMs: number): Promise<unknown> => {
@@ -156,6 +158,8 @@ export function describeFailure(error: unknown): string {
       return 'You have too many open remote sessions. Close one first.';
     case 'AUTH_REQUIRED':
       return 'Your sign-in has expired. Reload the page to sign in again.';
+    case 'SIGN_IN_REQUIRED':
+      return 'Sign in to QE Workspace first: run “QE: Sign In to QE Workspace”.';
     case 'RATE_LIMITED':
       return 'Too many connection attempts. Wait a minute and try again.';
     default:

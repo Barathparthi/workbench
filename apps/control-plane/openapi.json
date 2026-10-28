@@ -17810,6 +17810,41 @@
         }
       }
     },
+    "/auth/desktop": {
+      "get": {
+        "tags": ["auth"],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "issuer": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "clientId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "scopes": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    }
+                  },
+                  "required": ["issuer", "clientId", "scopes"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/logout": {
       "post": {
         "tags": ["auth"],

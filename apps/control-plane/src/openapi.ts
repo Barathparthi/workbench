@@ -64,6 +64,7 @@ export async function generateOpenApi(): Promise<Record<string, unknown>> {
       publicOrigin: 'https://qe-workspace.example',
       cookieSecure: true,
       cookieSecret: 'openapi-generation-only-not-a-secret',
+      desktop: { issuer: 'https://idp.example/realms/qe', clientId: 'openapi-desktop', scopes: 'openid' },
     },
     health: {
       state: { shuttingDown: false },

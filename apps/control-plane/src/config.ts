@@ -109,6 +109,13 @@ const Config = z
     OIDC_GROUPS_CLAIM: z.string().min(1).default('groups'),
     /** JSON object: IdP group → platform roles. Unmapped groups grant nothing. */
     ROLE_MAPPINGS: roleMappings.default({}),
+    /**
+     * The desktop app's public client (PHASE_10 §10.4). Set, the API also accepts that client's access tokens as
+     * bearer tokens; unset, it accepts none.
+     */
+    OIDC_DESKTOP_CLIENT_ID: z.string().min(1).max(256).optional(),
+    /** The audience those access tokens must name; the IdP adds it (default: OIDC_CLIENT_ID). */
+    OIDC_API_AUDIENCE: z.string().min(1).max(256).optional(),
 
     // Browser sessions (07_SECURITY §4.1).
     /** Signs the short-lived login transaction cookie. At least 32 characters of randomness. */
@@ -179,6 +186,8 @@ export interface OidcSettings {
   readonly publicOrigin: string;
   /** Plain-http issuers are allowed only outside production (local Keycloak). */
   readonly allowInsecureIssuer: boolean;
+  /** Desktop sign-in: whose access tokens are accepted as bearer tokens, and for which audience. */
+  readonly desktop?: { readonly clientId: string; readonly audience: string } | undefined;
 }
 
 export function oidcSettings(c: Config): OidcSettings {
@@ -206,6 +215,10 @@ export function oidcSettings(c: Config): OidcSettings {
     cookieSecure: c.COOKIE_SECURE,
     publicOrigin: new URL(c.PUBLIC_ORIGIN).origin,
     allowInsecureIssuer: c.NODE_ENV !== 'production',
+    desktop:
+      c.OIDC_DESKTOP_CLIENT_ID === undefined
+        ? undefined
+        : { clientId: c.OIDC_DESKTOP_CLIENT_ID, audience: c.OIDC_API_AUDIENCE ?? c.OIDC_CLIENT_ID },
   };
 }
 

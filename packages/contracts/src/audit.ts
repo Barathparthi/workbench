@@ -11,7 +11,8 @@ const remotePath = z.string().max(4096);
 export const AuditMetadata = {
   // Phase 04 — authentication and authorization. Roles are names only, never tokens or claims.
   AUTH_LOGIN_SUCCESS: z.strictObject({
-    method: z.literal('oidc'),
+    // desktop_token: the first request of a desktop sign-in (an IdP session) carrying a bearer access token.
+    method: z.enum(['oidc', 'desktop_token']),
     roles: z.array(short).max(50),
   }),
   AUTH_LOGIN_FAILURE: z.strictObject({

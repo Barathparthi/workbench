@@ -12,10 +12,20 @@ export interface SshEndpoint {
   readonly username: string;
 }
 
-/** Key material held in memory only for the connect (never logged, never sent anywhere else). */
+/** A private key and, for an encrypted one, the passphrase that unlocks it (memory only, for this connect). */
+export interface KeyMaterial {
+  readonly privateKey: Buffer;
+  readonly passphrase?: string;
+}
+
+/**
+ * Key material held in memory only for the connect (never logged, never sent anywhere else). `methods` is the user's
+ * own machine (Phase 10 personal targets): an SSH agent and/or key files, tried in that order like OpenSSH does.
+ */
 export type SshCredential =
-  | { readonly kind: 'key'; readonly privateKey: Buffer; readonly passphrase?: string }
-  | { readonly kind: 'password'; readonly password: string };
+  | ({ readonly kind: 'key' } & KeyMaterial)
+  | { readonly kind: 'password'; readonly password: string }
+  | { readonly kind: 'methods'; readonly agent?: string; readonly keys: readonly KeyMaterial[] };
 
 /** The PTY channel of a remote shell. */
 export interface PtyChannel {
@@ -80,7 +90,9 @@ export const ssh2Transport: SshTransport = {
           client.setNoDelay(true);
           resolve(wrap(client));
         })
-        .on('error', (error) => {
+        .on('error', (error: Error & { level?: string }) => {
+          // An unreachable SSH agent is not the end: ssh2 reports it and goes on to the next method (key files).
+          if (error.level === 'agent') return;
           if (!settled) {
             settled = true;
             reject(error);
@@ -98,12 +110,7 @@ export const ssh2Transport: SshTransport = {
         port: endpoint.port,
         username: endpoint.username,
         ...(options?.sock !== undefined && { sock: options.sock }),
-        ...(credential.kind === 'key'
-          ? {
-              privateKey: credential.privateKey,
-              ...(credential.passphrase !== undefined && { passphrase: credential.passphrase }),
-            }
-          : { password: credential.password }),
+        ...credentialOptions(credential, endpoint.username),
         hostVerifier: (key: Buffer) => verifier.verify(key),
         algorithms: {
           kex: [...ALGORITHMS.kex],
@@ -120,6 +127,32 @@ export const ssh2Transport: SshTransport = {
     });
   },
 };
+
+/** The ssh2 connect options for a credential; `methods` becomes an ordered auth list (agent, then each key). */
+function credentialOptions(credential: SshCredential, username: string): Partial<ssh2.ConnectConfig> {
+  switch (credential.kind) {
+    case 'key':
+      return {
+        privateKey: credential.privateKey,
+        ...(credential.passphrase !== undefined && { passphrase: credential.passphrase }),
+      };
+    case 'password':
+      return { password: credential.password };
+    case 'methods': {
+      const methods: ssh2.AnyAuthMethod[] = [];
+      if (credential.agent !== undefined) methods.push({ type: 'agent', username, agent: credential.agent });
+      for (const k of credential.keys) {
+        methods.push({
+          type: 'publickey',
+          username,
+          key: k.privateKey,
+          ...(k.passphrase !== undefined && { passphrase: k.passphrase }),
+        });
+      }
+      return { authHandler: methods };
+    }
+  }
+}
 
 function wrap(client: ssh2.Client): SshConnection {
   return {

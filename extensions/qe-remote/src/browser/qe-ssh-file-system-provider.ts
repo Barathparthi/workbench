@@ -1,4 +1,4 @@
-import type { FsListResult, FsReadResult, FsStat, FsWriteResult } from '@qe/contracts';
+import type { FsListResult, FsOp, FsReadResult, FsStat, FsWriteResult } from '@qe/contracts';
 import { Emitter, Event, type Disposable } from '@theia/core/lib/common';
 import type URI from '@theia/core/lib/common/uri';
 import {
@@ -18,7 +18,8 @@ import {
 } from '@theia/filesystem/lib/common/files';
 
 import { RemoteApiError } from '../common/remote-client';
-import { fromBase64, relativePath, toBase64, type RemoteFileSessions } from '../common/remote-files';
+import type { FileCaller } from '../common/connection-client';
+import { fromBase64, relativePath, toBase64 } from '../common/remote-files';
 import { DEFAULT_WATCHER_OPTIONS, RemoteWatcher, type RemoteWatcherOptions } from './remote-watcher';
 
 /* eslint-disable @typescript-eslint/no-unsafe-enum-assignment, @typescript-eslint/no-unnecessary-type-assertion --
@@ -75,6 +76,18 @@ export function toProviderError(error: unknown): Error {
         'Your sign-in has expired. Reload the page to sign in again.',
         FileSystemProviderErrorCode.NoPermissions,
       );
+    case 'SIGN_IN_REQUIRED':
+      return e(
+        'Sign in to QE Workspace to open files on this system: run “QE: Sign In to QE Workspace”.',
+        FileSystemProviderErrorCode.NoPermissions,
+      );
+    case 'HOST_KEY_MISMATCH':
+      return e(
+        'The remote system presented a different host key than the one on record. Do not continue; check with its owner.',
+        FileSystemProviderErrorCode.NoPermissions,
+      );
+    case 'HOST_KEY_UNKNOWN':
+      return e('The remote system’s host key is not trusted yet.', FileSystemProviderErrorCode.NoPermissions);
     case 'QUOTA_EXCEEDED':
       return e(
         'You have too many open remote sessions. Close a remote terminal or folder first.',
@@ -130,7 +143,7 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
 
   /** `isActive`: whether the user is here (page visible, recent input); polling pauses otherwise. */
   constructor(
-    protected readonly sessions: RemoteFileSessions,
+    protected readonly sessions: FileCaller,
     isActive: () => boolean = () => true,
     watcherOptions: RemoteWatcherOptions = DEFAULT_WATCHER_OPTIONS,
   ) {
@@ -157,7 +170,7 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
     );
   }
 
-  protected async call<T>(uri: URI, op: Parameters<RemoteFileSessions['call']>[1], body: object): Promise<T> {
+  protected async call<T>(uri: URI, op: FsOp, body: object): Promise<T> {
     try {
       return await this.sessions.call<T>(uri.authority, op, body);
     } catch (error) {

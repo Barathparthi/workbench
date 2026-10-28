@@ -62,6 +62,8 @@ function statsOf(node: Node): FakeStats {
 export interface FakeSftpOptions {
   /** Offer `posix-rename@openssh.com` (OpenSSH does). Default true. */
   readonly posixRename?: boolean;
+  /** Where relative paths start, like the remote account's home on a real server. Default `/`. */
+  readonly home?: string;
 }
 
 export class FakeSftp extends EventEmitter {
@@ -76,10 +78,13 @@ export class FakeSftp extends EventEmitter {
   private readonly denied = new Set<string>();
   private nextHandle = 0;
   private readonly posixRename: boolean;
+  private readonly home: string;
 
   constructor(options: FakeSftpOptions = {}) {
     super();
     this.posixRename = options.posixRename ?? true;
+    this.home = options.home ?? '/';
+    this.mkdirp(this.home);
   }
 
   // ---- test helpers: change the server behind the client's back -------------------------------------------
@@ -210,7 +215,7 @@ export class FakeSftp extends EventEmitter {
 
   realpath(path: string, cb: Cb<string>): void {
     if (!this.begin('realpath', [path], cb)) return;
-    this.answer(cb, this.resolve(path.startsWith('/') ? path : `/${path}`, true));
+    this.answer(cb, this.resolve(path.startsWith('/') ? path : posix.join(this.home, path), true));
   }
 
   stat(path: string, cb: Cb<FakeStats>): void {

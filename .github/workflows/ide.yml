@@ -70,7 +70,8 @@ jobs:
       - run: npm ci
       # Electron 42 downloads its binary on demand; the Electron build and smoke test need it.
       - run: node node_modules/electron/install.js
-      - run: npm run build -w @qe/theia-qe-core && npm run build -w @qe/ide-browser && npm run build -w @qe/ide-electron
+      # Every IDE extension, not only qe-core: an extension without lib/ stops the IDE at its loading screen.
+      - run: npm run build -w extensions && npm run build -w @qe/ide-browser && npm run build -w @qe/ide-electron
       - run: npm run plugins:download
       - run: npx playwright install --with-deps chromium
       - run: xvfb-run -a npx playwright test

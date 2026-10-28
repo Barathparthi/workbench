@@ -1,4 +1,4 @@
-import { CallbackQuery, LoginQuery, Me, ProblemDetails } from '@qe/contracts';
+import { CallbackQuery, DesktopAuthConfig, LoginQuery, Me, ProblemDetails } from '@qe/contracts';
 import { DomainError } from '@qe/domain';
 import type { CookieSerializeOptions } from '@fastify/cookie';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -35,6 +35,8 @@ export interface AuthRouteOptions {
   readonly cookieSecure: boolean;
   /** Called after a logout, e.g. to close the session's proxied WebSockets. */
   readonly onLogout?: (sessionId: string) => void;
+  /** How the desktop app signs in, when it may (OIDC_DESKTOP_CLIENT_ID). */
+  readonly desktop?: DesktopAuthConfig | undefined;
 }
 
 function readTransaction(request: FastifyRequest): LoginTransaction | undefined {
@@ -112,6 +114,16 @@ export function authRoutes(app: FastifyInstance, options: AuthRouteOptions): voi
       }
     },
   });
+
+  const desktop = options.desktop;
+  if (desktop !== undefined) {
+    // Public: the desktop app learns where to sign in from the control plane it was pointed at (nothing secret).
+    r.get('/auth/desktop', {
+      schema: { tags: ['auth'], response: { 200: DesktopAuthConfig } },
+      config: { permission: 'public', audit: false, rateLimit: authLimit },
+      handler: () => desktop,
+    });
+  }
 
   r.post('/auth/logout', {
     schema: { tags: ['auth'], response: { 204: z.null(), ...errors } },

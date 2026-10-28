@@ -1,4 +1,5 @@
 /** Targets, policies, host keys and session tickets on PostgreSQL (Phase 07 §7.1–7.5). */
+import { DESKTOP_TICKET_ORIGIN } from '@qe/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { verifyAuditChain } from '../audit/audit-writer.js';
@@ -251,6 +252,17 @@ describe('sessions and tickets', () => {
       code: 'AUTH_REQUIRED',
     });
     await expect(sessions.redeem(s.ticket, ORIGIN)).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
+  });
+
+  it('binds a desktop session’s ticket to the desktop marker, which no browser Origin matches', async () => {
+    clock = new Date(clock.getTime() + 2 * 60 * 60_000); // earlier sessions no longer count against the limit
+    const stolen = await open(bob, 'terminal', DESKTOP_TICKET_ORIGIN);
+    await expect(sessions.redeem(stolen.ticket, ORIGIN)).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
+    await expect(sessions.redeem(stolen.ticket, DESKTOP_TICKET_ORIGIN)).rejects.toMatchObject({
+      code: 'AUTH_REQUIRED',
+    });
+    const desktop = await open(bob, 'terminal', DESKTOP_TICKET_ORIGIN);
+    expect((await sessions.redeem(desktop.ticket, DESKTOP_TICKET_ORIGIN)).sessionId).toBe(desktop.sessionId);
   });
 
   it('refuses expired tickets', async () => {

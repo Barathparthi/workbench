@@ -98,7 +98,10 @@ export function identityFromClaims(claims: Record<string, unknown>, groupsClaim:
 const IDP_TIMEOUT_MS = 10_000;
 
 /** openid-client adapter. Discovery is lazy (and retried) so an IdP outage does not stop the API. */
-export function openIdProvider(settings: OidcSettings): OidcProvider {
+export function openIdProvider(settings: OidcSettings): OidcProvider & {
+  /** The IdP's signing keys (from discovery), to verify desktop access tokens. */
+  jwksUri(): Promise<URL>;
+} {
   let configuration: Promise<client.Configuration> | undefined;
   const timedFetch: client.CustomFetch = (url, options) =>
     fetch(url, { ...(options as RequestInit), signal: AbortSignal.timeout(IDP_TIMEOUT_MS) });
@@ -126,6 +129,13 @@ export function openIdProvider(settings: OidcSettings): OidcProvider {
   };
 
   return {
+    async jwksUri() {
+      const uri = (await discover()).serverMetadata().jwks_uri;
+      if (uri === undefined)
+        throw new DomainError('INTERNAL_ERROR', 'identity provider publishes no jwks_uri');
+      return new URL(uri);
+    },
+
     async authorizationUrl(checks) {
       const url = client.buildAuthorizationUrl(await discover(), {
         redirect_uri: settings.redirectUrl,

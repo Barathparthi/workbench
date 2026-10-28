@@ -7,6 +7,22 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ## [Unreleased]
 
+### Added
+
+- Personal targets in the desktop app and in local web mode: hosts from `~/.ssh/config` (and
+  `~/.qe-workspace/ssh_hosts`) reached through an SSH broker embedded in the IDE backend, with ssh-agent or key files
+  (passphrases asked in the IDE), OpenSSH `known_hosts` and a local audit log. Terminals and remote folders work the
+  same for personal and managed targets.
+- Trust on first use for personal hosts: the host's fingerprint is shown, and the key is trusted once, trusted and
+  saved to `~/.qe-workspace/known_hosts`, or refused; a changed key is refused as OpenSSH does.
+- Desktop sign-in: "QE: Sign In to QE Workspace" signs in through the system browser (OIDC authorization code + PKCE,
+  loopback redirect). The refresh token is kept with the OS keychain (Electron `safeStorage`) and never written in
+  plain text; managed targets then work in the desktop app through its backend.
+- Control plane: accepts the desktop client's IdP access tokens as bearer tokens when `OIDC_DESKTOP_CLIENT_ID` is set
+  (signature, issuer, audience, authorized party and expiry checked); `GET /auth/desktop` tells the desktop app where
+  to sign in. Broker: accepts a stream without an Origin when its ticket was issued to such a token. The dev realm has
+  the `qe-workspace-desktop` client.
+
 ### Fixed
 
 - Broker: SSH connections use `TCP_NODELAY`. ssh2 leaves Nagle's algorithm on, so each SFTP round trip and

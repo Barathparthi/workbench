@@ -2,7 +2,7 @@
   "name": "@qe/theia-qe-remote",
   "version": "0.0.0",
   "private": true,
-  "description": "QE Workspace remote connections: target list, remote terminals and remote files through the connection broker (ADR-006 option B).",
+  "description": "QE Workspace remote connections: managed targets through the connection broker and personal targets through the embedded broker (ADR-006 option B, ADR-008).",
   "license": "UNLICENSED",
   "type": "commonjs",
   "keywords": [
@@ -16,18 +16,30 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@qe/broker-core": "0.0.0",
     "@qe/contracts": "0.0.0",
+    "@qe/policy": "0.0.0",
     "@qe/theia-qe-core": "0.0.0",
     "@theia/core": "1.76.0",
     "@theia/filesystem": "1.76.0",
     "@theia/terminal": "1.76.0",
     "@theia/workspace": "1.76.0",
-    "jsonc-parser": "3.3.1"
+    "jsonc-parser": "3.3.1",
+    "ws": "8.22.0",
+    "zod": "4.6.7"
   },
   "theiaExtensions": [
     {
       "frontend": "lib/browser/qe-remote-frontend-module",
-      "frontendElectron": "lib/electron-browser/qe-remote-electron-frontend-module"
+      "frontendElectron": "lib/electron-browser/qe-remote-electron-frontend-module",
+      "backend": "lib/node/qe-remote-backend-module",
+      "backendElectron": "lib/electron-node/qe-remote-electron-backend-module",
+      "electronMain": "lib/electron-main/qe-remote-electron-main-module"
     }
-  ]
+  ],
+  "devDependencies": {
+    "@types/ws": "8.18.2",
+    "@qe/test-utils": "0.0.0",
+    "ssh2": "1.17.0"
+  }
 }

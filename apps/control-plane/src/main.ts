@@ -1,8 +1,7 @@
 import { ZodError } from 'zod';
 
 import { makePrincipal } from './auth.js';
-import { openIdProvider } from './auth/oidc.js';
-import { createSessionAuth } from './auth/session-auth.js';
+import { oidcAuthenticator } from './auth/oidc-auth.js';
 import { describeConfigError, loadConfig, oidcSettings, type Config } from './config.js';
 import { loadMigrations, migrationsUpToDate } from './db/migrator.js';
 import { createDatabase, createPool, pingDatabase } from './db/pool.js';
@@ -66,13 +65,18 @@ const devPrincipal =
       })
     : undefined;
 
-// AUTH_MODE=oidc: browser sessions against the configured IdP (local Keycloak in development).
+// AUTH_MODE=oidc: browser sessions against the configured IdP (local Keycloak in development), and with
+// OIDC_DESKTOP_CLIENT_ID the desktop app's bearer access tokens too (PHASE_10 §10.4).
 const oidc = config.AUTH_MODE === 'oidc' ? oidcSettings(config) : undefined;
 const sessions =
   oidc === undefined
     ? undefined
     : {
-        auth: createSessionAuth(db, openIdProvider(oidc), oidc),
+        auth: oidcAuthenticator(db, oidc),
+        desktop:
+          oidc.desktop === undefined
+            ? undefined
+            : { issuer: oidc.issuer, clientId: oidc.desktop.clientId, scopes: oidc.scopes },
         redirectUrl: oidc.redirectUrl,
         publicOrigin: oidc.publicOrigin,
         cookieSecure: oidc.cookieSecure,

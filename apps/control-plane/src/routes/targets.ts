@@ -6,6 +6,7 @@ import {
   CreateCredentialRefRequest,
   CreatePolicyRequest,
   CredentialRef,
+  DESKTOP_TICKET_ORIGIN,
   HostKeyParams,
   OpenSessionRequest,
   OpenSessionResponse,
@@ -49,6 +50,16 @@ const ctx = (request: FastifyRequest): RequestContext => ({
   principal: principalOf(request),
   requestId: request.id,
 });
+
+/**
+ * What the session's ticket is bound to: the IDE's Origin for browser sessions, the desktop marker for the desktop
+ * app's bearer token (it has no Origin). A browser request can never claim the marker.
+ */
+const ticketBinding = (request: FastifyRequest): string | undefined => {
+  if (request.authMethod === 'bearer') return DESKTOP_TICKET_ORIGIN;
+  const origin = request.headers.origin;
+  return origin === DESKTOP_TICKET_ORIGIN ? undefined : origin;
+};
 
 /** Policies, credential references, targets, host keys and remote sessions (05_API_CONTRACTS §2.3–2.4). */
 export function targetRoutes(
@@ -159,7 +170,7 @@ export function targetRoutes(
       reply
         .code(201)
         .header('cache-control', 'no-store')
-        .send(await sessions.open(ctx(request), request.params.id, request.body, request.headers.origin)),
+        .send(await sessions.open(ctx(request), request.params.id, request.body, ticketBinding(request))),
   });
   r.get('/api/v1/sessions', {
     schema: { tags: ['sessions'], response: { 200: RemoteSessionList, ...errors } },

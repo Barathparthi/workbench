@@ -38,7 +38,11 @@ export default defineConfig({
     timeout: 60_000,
     // One backend serves every browser test, and terminals outlive page reloads: raise the QE limit (default 10,
     // unit-tested) so the suite never hits it.
-    env: { QE_MAX_TERMINALS: '50' },
+    // QE_E2E_HOME: a prepared home (SSH configuration for personal targets, personal-targets.browser.spec.ts).
+    env: {
+      QE_MAX_TERMINALS: '50',
+      ...(process.env['QE_E2E_HOME'] !== undefined && { HOME: process.env['QE_E2E_HOME'] }),
+    },
     stdout: 'ignore',
     stderr: 'pipe',
   },

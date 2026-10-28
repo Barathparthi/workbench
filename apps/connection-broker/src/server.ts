@@ -5,20 +5,13 @@ import type { Duplex } from 'node:stream';
 import {
   BrokerFsParams,
   BrokerFsRequest,
-  FsDeleteRequest,
-  FsListRequest,
-  FsMkdirRequest,
-  FsReadRequest,
-  FsRenameRequest,
-  FsStatRequest,
-  FsWriteRequest,
+  DESKTOP_TICKET_ORIGIN,
   MAX_MESSAGE_BYTES,
   QEWS_PROTOCOL,
   REMOTE_FILE_LIMITS,
   ticketFromProtocols,
-  type FsOp,
 } from '@qe/contracts';
-import { DomainError, isDomainError, type RemoteFileSystem, type SessionRegistry } from '@qe/broker-core';
+import { DomainError, fileOperation, isDomainError, type SessionRegistry } from '@qe/broker-core';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { WebSocketServer, type RawData, type WebSocket } from 'ws';
 import { z } from 'zod';
@@ -48,52 +41,6 @@ const Uuid = z.object({ id: z.uuid() });
 const sha = (v: string) => createHash('sha256').update(v).digest();
 /** A 10 MB write as base64 plus the snapshot around it. */
 const FS_BODY_LIMIT = Math.ceil(REMOTE_FILE_LIMITS.maxFileBytes / 3) * 4 + 128 * 1024;
-
-/** Validates one operation's request and runs it; contents cross the wire as base64 only. */
-function fileOperation(op: FsOp, request: unknown): (fs: RemoteFileSystem) => Promise<unknown> {
-  switch (op) {
-    case 'stat': {
-      const r = FsStatRequest.parse(request);
-      return (fs) => fs.stat(r);
-    }
-    case 'list': {
-      const r = FsListRequest.parse(request);
-      return (fs) => fs.list(r);
-    }
-    case 'read': {
-      const r = FsReadRequest.parse(request);
-      return async (fs) => {
-        const { data, etag } = await fs.read(r);
-        return { contentBase64: data.toString('base64'), etag };
-      };
-    }
-    case 'write': {
-      const { contentBase64, ...r } = FsWriteRequest.parse(request);
-      return (fs) => fs.write({ ...r, data: Buffer.from(contentBase64, 'base64') });
-    }
-    case 'mkdir': {
-      const r = FsMkdirRequest.parse(request);
-      return async (fs) => {
-        await fs.mkdir(r);
-        return {};
-      };
-    }
-    case 'rename': {
-      const r = FsRenameRequest.parse(request);
-      return async (fs) => {
-        await fs.rename(r);
-        return {};
-      };
-    }
-    case 'delete': {
-      const r = FsDeleteRequest.parse(request);
-      return async (fs) => {
-        await fs.delete(r);
-        return {};
-      };
-    }
-  }
-}
 
 /**
  * The broker's HTTP surface: health, internal close/revoke (service token only) and the `qews.v1` WebSocket stream
@@ -199,12 +146,15 @@ export async function buildBroker(deps: BrokerDeps): Promise<FastifyInstance> {
         refuse(socket, 503, 'Service Unavailable');
         return;
       }
-      // Browsers always send Origin on WebSockets; anything else is not our IDE (CSWSH, 07_SECURITY T12).
-      const origin = req.headers.origin;
-      if (origin === undefined || !allowedOrigins.has(origin)) {
+      // Browsers always send Origin on WebSockets, and it must be the IDE's (CSWSH, 07_SECURITY T12); `null` and
+      // file:// pages never qualify (R17). No Origin at all is the desktop app (PHASE_10 §10.4): its ticket was issued
+      // to a bearer token and bound to DESKTOP_TICKET_ORIGIN, which no browser ticket ever is.
+      const presented = req.headers.origin;
+      if (presented !== undefined && !allowedOrigins.has(presented)) {
         refuse(socket, 403, 'Forbidden');
         return;
       }
+      const origin = presented ?? DESKTOP_TICKET_ORIGIN;
       const ticket = ticketFromProtocols(req.headers['sec-websocket-protocol']);
       if (ticket === undefined) {
         refuse(socket, 401, 'Unauthorized');

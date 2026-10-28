@@ -1,23 +1,28 @@
-import { QuickInputService } from '@theia/core/lib/browser/quick-input/quick-input-service';
+import {
+  QuickInputService,
+  type QuickPickItemOrSeparator,
+} from '@theia/core/lib/browser/quick-input/quick-input-service';
 import { type CommandContribution, CommandRegistry } from '@theia/core/lib/common/command';
 import { MessageService } from '@theia/core/lib/common/message-service';
 import URI from '@theia/core/lib/common/uri';
-import { inject, injectable } from '@theia/core/shared/inversify';
+import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { encodeInput, type ServerControl } from '@qe/contracts';
 import { QeCommands } from '@qe/theia-qe-core/lib/browser/qe-commands';
 import { QeEnvironmentService } from '@qe/theia-qe-core/lib/common/qe-environment';
 
-import { describeFailure, streamTarget, type TargetSummary } from '../common/remote-client';
+import type { RemoteTarget, TargetListing, TerminalStream } from '../common/connection-client';
+import { describeFailure } from '../common/remote-client';
+import { HostKeyDialog } from './host-key-dialog';
 import { remoteRootUri } from '../common/remote-files';
 import { QeRemoteServices, RemoteTargetNames } from './qe-remote-files';
 
 /**
- * "Connect to Remote System…" (Phase 08 §8.5, ADR-006 option B): pick a registered target, open a session, and
- * render the broker's `qews.v1` stream in a Theia terminal widget with no backend process. "Open Remote Folder…"
- * (Phase 09 §9.4) adds the target's remote folder to the workspace as a `qe-ssh://` root. Everything goes from this
- * page to the control plane and broker — never through the workspace runtime (P9).
+ * "Connect to Remote System…" (Phase 08 §8.5, ADR-006 option B) and "Open Remote Folder…" (Phase 09 §9.4), for every
+ * mode (Phase 10): managed targets through the control plane and hosted broker, personal targets from the user's SSH
+ * configuration through the embedded broker in the IDE backend. The terminal is a Theia widget with no backend
+ * process of its own, fed the `qews.v1` frames of either broker by the same adapter.
  */
 @injectable()
 export class QeRemoteContribution implements CommandContribution {
@@ -25,13 +30,25 @@ export class QeRemoteContribution implements CommandContribution {
   @inject(QuickInputService) protected readonly quickInput!: QuickInputService;
   @inject(MessageService) protected readonly messages!: MessageService;
   @inject(QeEnvironmentService) protected readonly environment!: QeEnvironmentService;
-
   @inject(WorkspaceService) protected readonly workspace!: WorkspaceService;
   @inject(QeRemoteServices) protected readonly services!: QeRemoteServices;
   @inject(RemoteTargetNames) protected readonly targetNames!: RemoteTargetNames;
 
-  protected get client() {
-    return this.services.client;
+  @postConstruct()
+  protected init(): void {
+    // Encrypted key files of personal targets: asked only after the agent and plain keys were rejected.
+    this.services.embedded.setPassphraseAsker((targetName, keyFile) =>
+      this.quickInput.input({
+        title: `Passphrase for ${keyFile}`,
+        prompt: `The key file ${keyFile} for ${targetName} is encrypted. The passphrase is used for this connection only.`,
+        password: true,
+        ignoreFocusLost: true,
+      }),
+    );
+    // Personal hosts not in known_hosts: asked between connect attempts; closing the dialog means Cancel.
+    this.services.embedded.setHostKeyAsker(
+      async (question) => (await new HostKeyDialog(question).open()) ?? 'cancel',
+    );
   }
 
   registerCommands(registry: CommandRegistry): void {
@@ -60,40 +77,53 @@ export class QeRemoteContribution implements CommandContribution {
     await this.workspace.addRoot(root);
   }
 
-  /** The user's choice among the targets they may see, or undefined (cancelled, none, or not available here). */
-  protected async pickTarget(placeholder: string): Promise<TargetSummary | undefined> {
+  /** The user's choice among the systems this mode offers, or undefined (cancelled, none, or not available here). */
+  protected async pickTarget(placeholder: string): Promise<RemoteTarget | undefined> {
     const env = await this.environment.getEnvironment();
-    if (!env.features.managedTargets) {
+    if (env.mode === 'hosted' ? !env.features.managedTargets : !env.features.personalTargets) {
       await this.messages.info(
         'Remote systems are available when QE Workspace is connected to a control plane.',
       );
       return undefined;
     }
-    let targets: TargetSummary[];
+    let listing: TargetListing;
     try {
-      targets = await this.client.listTargets();
+      listing = await this.services.connections.listTargets();
     } catch (error) {
       await this.messages.error(describeFailure(error));
       return undefined;
     }
+    const { targets, problems, notices = [] } = listing;
     this.targetNames.remember(targets);
+    for (const notice of notices) void this.messages.info(notice);
+    if (problems.length > 0) {
+      void this.messages.warn(
+        `Some hosts in your SSH configuration cannot be used: ${problems.slice(0, 3).join('; ')}` +
+          (problems.length > 3 ? ` (and ${String(problems.length - 3)} more)` : ''),
+      );
+    }
     if (targets.length === 0) {
-      await this.messages.info('No remote systems are available to you. Ask a lab admin for access.');
+      if (notices.length > 0) return undefined; // the notice already says what to do
+      await this.messages.info(
+        env.mode === 'hosted'
+          ? 'No remote systems are available to you. Ask a lab admin for access.'
+          : 'No remote systems found. Add a Host entry to ~/.ssh/config to see it here.',
+      );
       return undefined;
     }
-    const picked = await this.quickInput.showQuickPick(
-      targets.map((t) => ({
-        label: t.name,
-        description: t.host,
-        detail: [t.os, ...t.tags].join(' · ') + (t.description === null ? '' : ` — ${t.description}`),
-        target: t,
-      })),
-      { placeholder },
-    );
-    return picked?.target;
+    const items: QuickPickItemOrSeparator[] = [];
+    for (const kind of ['managed', 'personal'] as const) {
+      const group = targets.filter((t) => t.kind === kind);
+      if (group.length === 0) continue;
+      items.push({ type: 'separator', label: kind === 'managed' ? 'Managed systems' : 'Your SSH hosts' });
+      for (const t of group)
+        items.push({ label: t.name, description: t.description, detail: t.detail, id: t.id });
+    }
+    const picked = await this.quickInput.showQuickPick(items, { placeholder });
+    return targets.find((t) => t.id === picked?.id);
   }
 
-  protected async openTerminal(target: TargetSummary): Promise<void> {
+  protected async openTerminal(target: RemoteTarget): Promise<void> {
     const widget = await this.terminals.newTerminal({
       title: `ssh: ${target.name}`,
       isPseudoTerminal: true,
@@ -102,49 +132,41 @@ export class QeRemoteContribution implements CommandContribution {
     });
     // The widget is fitted while the session opens, so keep the latest size and send it once the stream exists.
     let size = widget.dimensions;
-    let socket: WebSocket | undefined;
-    const send = (frame: string | Uint8Array) => {
-      if (socket?.readyState === WebSocket.OPEN) socket.send(frame);
-    };
+    let stream: TerminalStream | undefined;
     const subscriptions = [
       widget.onSizeChanged((d) => {
         size = d;
-        send(JSON.stringify({ t: 'resize', cols: d.cols, rows: d.rows }));
+        stream?.send(JSON.stringify({ t: 'resize', cols: d.cols, rows: d.rows }));
       }),
       widget.onData((data) => {
-        for (const frame of encodeInput(new TextEncoder().encode(data))) send(frame);
+        for (const frame of encodeInput(new TextEncoder().encode(data))) stream?.send(frame);
       }),
     ];
     widget.onDidDispose(() => {
       subscriptions.forEach((s) => {
         s.dispose();
       });
-      socket?.close(1000);
+      stream?.close();
     });
     await widget.start();
     void this.terminals.open(widget, { mode: 'activate' });
     widget.writeLine(`Connecting to ${target.name}…`);
 
+    const decoder = new TextDecoder();
     try {
-      const session = await this.client.openTerminalSession(target.id, size);
-      const { url, protocols } = streamTarget(window.location.origin, session);
-      socket = new WebSocket(url, protocols);
-      socket.binaryType = 'arraybuffer';
-      const decoder = new TextDecoder();
-      socket.onopen = () => {
-        send(JSON.stringify({ t: 'resize', cols: size.cols, rows: size.rows }));
-      };
-      socket.onmessage = (event: MessageEvent<string | ArrayBuffer>) => {
-        if (typeof event.data === 'string') {
-          this.onControl(widget, JSON.parse(event.data) as ServerControl);
-          return;
-        }
-        const bytes = new Uint8Array(event.data);
-        if (bytes[0] === 0x01) widget.write(decoder.decode(bytes.subarray(1), { stream: true }));
-      };
-      socket.onclose = (event) => {
-        if (event.code !== 1000) widget.writeLine(`\r\n[connection closed: ${closeReason(event.code)}]`);
-      };
+      stream = await this.services.connections.openTerminal(target, size, {
+        frame: (frame) => {
+          if (typeof frame === 'string') {
+            this.onControl(widget, JSON.parse(frame) as ServerControl);
+            return;
+          }
+          if (frame[0] === 0x01) widget.write(decoder.decode(frame.subarray(1), { stream: true }));
+        },
+        closed: (code) => {
+          if (code !== 1000) widget.writeLine(`\r\n[connection closed: ${closeReason(code)}]`);
+        },
+      });
+      stream.send(JSON.stringify({ t: 'resize', cols: size.cols, rows: size.rows }));
     } catch (error) {
       widget.writeLine(`\r\n${describeFailure(error)}`);
     }

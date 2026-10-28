@@ -18,7 +18,8 @@ export interface TrustedHostKey {
   readonly fingerprintSha256: string;
 }
 
-export type HostKeyOutcome = 'match' | 'mismatch' | 'unknown';
+/** `revoked`: the key is on a revocation list (known_hosts `@revoked`) — refused even where it is also trusted. */
+export type HostKeyOutcome = 'match' | 'mismatch' | 'unknown' | 'revoked';
 
 export interface HostKeyVerifier {
   /** The `hostVerifier` for ssh2: true only for a trusted fingerprint. Fails closed on anything else. */
@@ -27,23 +28,35 @@ export interface HostKeyVerifier {
   readonly outcome: HostKeyOutcome | undefined;
   /** What the server presented (for the audit trail and the user's terminal header). */
   readonly presented: { algorithm: string; fingerprintSha256: string } | undefined;
+  /** The key blob itself, so a key the user chose to trust can be saved to known_hosts (personal targets). */
+  readonly presentedKey: Uint8Array | undefined;
 }
 
 /**
  * Pinned host-key verification (ADR-002 addendum, S4 rule 2): compares OpenSSH SHA256 fingerprints and tells
  * `unknown` (nothing trusted on record) from `mismatch` (something else is trusted — a possible MITM). A mismatch
- * ends the connection during key exchange, before any credential is sent (proven in S4).
+ * ends the connection during key exchange, before any credential is sent (proven in S4). A revoked key fails first,
+ * whatever else is trusted, so it can never be offered for trust-on-first-use either.
  */
-export function createHostKeyVerifier(trusted: readonly TrustedHostKey[]): HostKeyVerifier {
+export function createHostKeyVerifier(
+  trusted: readonly TrustedHostKey[],
+  options: { readonly revoked?: readonly string[] } = {},
+): HostKeyVerifier {
   const fingerprints = new Set(trusted.map((k) => k.fingerprintSha256));
-  const state: { outcome?: HostKeyOutcome; presented?: { algorithm: string; fingerprintSha256: string } } =
-    {};
+  const revoked = new Set(options.revoked ?? []);
+  const state: {
+    outcome?: HostKeyOutcome;
+    presented?: { algorithm: string; fingerprintSha256: string };
+    key?: Uint8Array;
+  } = {};
   return {
     verify(key) {
       const presented = { algorithm: keyAlgorithm(key), fingerprintSha256: sha256Fingerprint(key) };
       state.presented = presented;
-      state.outcome =
-        fingerprints.size === 0
+      state.key = Uint8Array.from(key);
+      state.outcome = revoked.has(presented.fingerprintSha256)
+        ? 'revoked'
+        : fingerprints.size === 0
           ? 'unknown'
           : fingerprints.has(presented.fingerprintSha256)
             ? 'match'
@@ -55,6 +68,9 @@ export function createHostKeyVerifier(trusted: readonly TrustedHostKey[]): HostK
     },
     get presented() {
       return state.presented;
+    },
+    get presentedKey() {
+      return state.key;
     },
   };
 }
