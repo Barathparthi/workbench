@@ -23,7 +23,7 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 07 — Target registry & policy        | **Done — gate PASS** (2026-10-27; integration green in WSL)                                                                      | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
 | 08 — SSH broker & remote terminal    | **Done — gate PASS** (M2 terminal run 2026-10-27, PR #18)                                                                        | [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md) |
 | 09 — Remote filesystem               | **Done — gate PASS** ([PR #22](https://github.com/Barathparthi/workbench/pull/22) merged; CI fix `1456e3c` needs a follow-up PR) | [`phase-gates/PHASE_09.md`](phase-gates/PHASE_09.md) |
-| 10 — Local desktop & local web       | **In progress** — P10.1–P10.5 built on `phase-10-local-desktop`; P10.6–P10.7 and gates 10a/10b open                              | `02_PHASES/`                                         |
+| 10 — Local desktop & local web       | **In progress** — P10.1–P10.6 built on `phase-10-local-desktop`; P10.7 (parity) and gates 10a/10b open                           | `02_PHASES/`                                         |
 | 11 – 19                              | Not started                                                                                                                      | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached. M2 (remote terminal + remote files) — met 2026-10-27.
@@ -665,3 +665,44 @@ and `no-new-privileges`, the token 0 times in the container logs.
 
 Open: webviews (`<uuid>.webview.<host>` origins) in local web are to be checked in the parity suite (P10.7); the
 PowerShell launcher has not been run yet (Windows with Docker Desktop); container keys must be readable by uid 1000.
+
+CI follow-up (`a954809`, reported by the owner): the `ide` workflow's runtime-image check started the container with
+`QE_MODE=local-web` only, so since P10.5 the IDE refused to listen on the container's interfaces (exit 78) and the
+plain `GET /` could never pass. The job now starts it as the launcher does (published on loopback,
+`QE_LOCAL_WEB_CONTAINER=1`, a token), expects 401, exchanges the link, gets 200 with the cookie and checks the token
+stays out of the log; the old invocation is asserted to exit 78. Replayed in WSL against the image before pushing.
+
+### 2026-10-28 — Phase 10: installers and managed settings, P10.6 (branch `phase-10-local-desktop`)
+
+Owner's decision for Windows: managed settings come from the registry through `reg.exe`, read-only, with a lint
+exception for that one file (ADR-013).
+
+- **Managed settings** `b00b18d`: one strict Zod shape on every OS — `controlPlaneUrl` (wins over
+  `QE_CONTROL_PLANE_URL`), `openVsxUrl`, `deniedCidrs` and `trustOnFirstUse` (fed to the embedded broker), `telemetry`
+  — from `HKLM\Software\Policies\QEWorkspace` (the system's `reg.exe`, no shell, `/reg:64`, 5 s timeout) or
+  `policy.json` on macOS and Linux; read once, outside hosted mode only; malformed or unknown values stop the app
+  (exit 78) naming the source. `openVsxUrl` and `telemetry` are validated and carried, not applied yet (no runtime
+  registry, ADR-012; no telemetry before Phase 13).
+- **Installers** `9a258a1`, `1a22cc0`: electron-builder 26.17.0 (pinned; the two newer releases were days old) packages
+  a staged app — `lib/` (bundles, Node-API binaries, ripgrep) and a package.json without dependencies — with the
+  built-in plugins as extra resources, which qe-core's new electron-main module points Theia at. Windows NSIS, macOS
+  dmg (hardened runtime, JIT entitlements only), Linux AppImage and deb. `asar` is off, as in Theia's own packaging
+  (forked Node processes and ripgrep run from `lib/`); asar with integrity fuses is later hardening. Signing only from
+  `CSC_LINK`/`CSC_KEY_PASSWORD` and `APPLE_*` variables; a release run adds `-c.forceCodeSigning=true`. The nightly
+  `desktop` workflow builds and smoke-tests all three OSes and uploads the installers.
+
+Found on the way: electron-builder, given a package without dependencies, walks the nearest `node_modules` and copied
+421 monorepo packages into the app (660 MB); `npmRebuild: false` also skips the hook that turns this off. A
+`beforeBuild` hook returning false fixes it. The npm audit of 2026-10-28 reports new advisories in Theia's own
+dependencies, unchanged by this phase: `decompress` 4.2.1 (critical, GHSA-mp2f-45pm-3cg9 and others; no fixed
+version exists; Theia uses it only to unpack packed plugin archives, which this product does not deploy, ADR-012) and
+`deepmerge` 4.3.1 (low). To be handled on its own branch.
+
+Evidence (2026-10-28): unit 1535/1535; `reg.exe` output format checked against a real key on Windows; Linux packaging
+in WSL in 80 s — AppImage 160 MB, deb 123 MB (maintainer, homepage), the app holds `lib/` and `package.json` only;
+the packaged binary, started with no plugin location, reaches its shell as "QE Desktop" with
+`THEIA_DEFAULT_PLUGINS=local-dir:…/resources/plugins` and the Git plugin's Source Control view.
+
+Open: D15 (signing certificates, a gate 10b condition) and D16 (package identity) in `ORG_DECISIONS.md`; the Windows
+and macOS installers are built only by the `desktop` workflow so far; managed settings have not been tried with a
+real Group Policy or `/etc` file on a test machine.

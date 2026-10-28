@@ -29,8 +29,17 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 - `scripts/qe-workspace-local` (bash) and `qe-workspace-local.ps1`: QE Workspace in a container for one folder,
   published on 127.0.0.1 only, `~/.ssh` read-only, ssh-agent optional (`deploy/compose/docker-compose.local-web.yml`).
 
+- Organisation-managed settings for the desktop app and local web (ADR-013): Windows registry policy
+  (`HKLM\Software\Policies\QEWorkspace`) or `policy.json` on macOS and Linux — control plane URL, the deny list and
+  trust-on-first-use switch for personal targets, Open VSX URL, telemetry. Invalid policies stop the app.
+- Desktop installers (`npm run package -w @qe/ide-electron`): Windows NSIS, macOS dmg, Linux AppImage and deb, with the
+  built-in plugins; signing and notarization from environment variables only. Nightly `desktop` workflow builds and
+  smoke-tests them on Linux, Windows and macOS.
+
 ### Fixed
 
+- CI: the runtime image's local-web check starts the container as the launcher does (published on loopback, with a
+  sign-in token) and checks the cookie flow, instead of expecting an open page.
 - "QE: Sign Out" (hosted sign-in) is offered only in hosted mode; the desktop app has "QE: Sign Out of QE Workspace".
 
 - Broker: SSH connections use `TCP_NODELAY`. ssh2 leaves Nagle's algorithm on, so each SFTP round trip and

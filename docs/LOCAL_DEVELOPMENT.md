@@ -318,6 +318,20 @@ QE_CONTROL_PLANE_URL=http://localhost:8080 npm run start -w @qe/ide-electron
 On Linux the refresh token is kept only with a keyring (GNOME Keyring or KWallet); without one the app signs in for
 that run only and never writes the token to disk.
 
+Desktop installers (Phase 10.6) for the OS you are on, unsigned unless signing variables are set (see the header of
+`apps/ide-electron/electron-builder.yml`); the nightly `desktop` workflow builds all three:
+
+```bash
+npm run build -w @qe/ide-electron && npm run plugins:download && npm run package -w @qe/ide-electron
+#   → apps/ide-electron/dist-electron/ (Linux: AppImage and deb; Windows: NSIS .exe; macOS: dmg)
+```
+
+Organisation-managed settings (ADR-013) are read at startup outside hosted mode: on Windows from
+`HKLM\Software\Policies\QEWorkspace` (`ControlPlaneUrl`, `OpenVsxUrl`, `DeniedCidrs`, `TrustOnFirstUse`, `Telemetry`),
+on Linux from `/etc/qe-workspace/policy.json` and on macOS from `/Library/Application Support/QEWorkspace/policy.json`
+(`{"controlPlaneUrl": …, "deniedCidrs": […], "trustOnFirstUse": false}`). An invalid policy stops the app with a
+message naming the source.
+
 Smoke tests (browser + Electron):
 
 ```bash
