@@ -1,12 +1,16 @@
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 
-import { openPalette, preferenceRows, QE_COMMANDS, waitForShell, workspace } from './ide.js';
+import { newTerminal, openPalette, preferenceRows, QE_COMMANDS, waitForShell, workspace } from './ide.js';
 
 const appDir = resolve(import.meta.dirname, '../../apps/ide-electron');
 
+/** Taken before the app starts: its host channel directory must be a new one. */
+const tmpBefore = new Set(readdirSync(tmpdir()));
 let app: ElectronApplication;
 let page: Page;
 
@@ -62,4 +66,22 @@ test('desktop app adds the desktop-only telemetry setting, off by default', asyn
   await expect(
     page.locator('[data-pref-id="qe.telemetry.enabled"] input[type="checkbox"]'),
   ).not.toBeChecked();
+});
+
+test('desktop terminals never inherit the backend’s private channel to the main process', async () => {
+  test.skip(process.platform === 'win32', 'the check uses a POSIX shell');
+  // PHASE_10 §10.4: main hands the backend the channel's address and token in QE_DESKTOP_HOST; the backend removes it
+  // before it starts anything, so a shell (and anything run in it) cannot talk to main's secret store.
+  // The channel exists (main made its private socket directory for this run) …
+  expect(readdirSync(tmpdir()).some((d) => d.startsWith('qe-host-') && !tmpBefore.has(d))).toBe(true);
+  // … and the shell does not know it.
+  const evidence = join(workspace(), 't-desktop-host.txt');
+  rmSync(evidence, { force: true });
+  await newTerminal(page);
+  await page.keyboard.type('echo "host=${QE_DESKTOP_HOST:-none}" > t-desktop-host.txt');
+  await page.keyboard.press('Enter');
+  await expect
+    .poll(() => (existsSync(evidence) ? readFileSync(evidence, 'utf8').trim() : ''))
+    .toBe('host=none');
+  rmSync(evidence, { force: true });
 });
