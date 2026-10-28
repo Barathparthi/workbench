@@ -153,7 +153,10 @@ export function listeningProblem(
   const loopback =
     address.address === '127.0.0.1' || address.address === '::1' || address.address.startsWith('127.');
   if (loopback || env[LOCAL_WEB_CONTAINER_ENV] === '1') return undefined;
-  return `local web mode listens on 127.0.0.1 only, not ${address.address} (start it with --hostname=127.0.0.1)`;
+  return (
+    `local web mode listens on 127.0.0.1 only, not ${address.address}: start it with --hostname=127.0.0.1, or, ` +
+    `in a container whose port is published on 127.0.0.1 only, set ${LOCAL_WEB_CONTAINER_ENV}=1 (qe-workspace-local does)`
+  );
 }
 
 /** A generated token's sign-in link goes to a private file, never to a log. */
