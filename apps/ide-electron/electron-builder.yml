@@ -1,21 +1,39 @@
-# Desktop installers for QE Workspace (01_ARCHITECTURE/09_LOCAL_AND_WEB_PARITY.md §6).
-# Phase 02 records the configuration only; electron-builder is added, and installers are built, signed and
-# notarized, in Phase 10 (02_PHASES/PHASE_10_LOCAL_DESKTOP_AND_LOCAL_WEB.md).
+# Desktop installers for QE Workspace (01_ARCHITECTURE/09_LOCAL_AND_WEB_PARITY.md §6, PHASE_10 §10.7).
+#   npm run build -w @qe/ide-electron && npm run plugins:download && npm run package -w @qe/ide-electron
+# Packages the staged app (scripts/stage-app.mjs: lib/ and a package.json without dependencies) into dist-electron/.
+#
+# Signing comes from the environment only; without it the installers are unsigned (development and CI builds):
+#   Windows  CSC_LINK / CSC_KEY_PASSWORD (or WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD): the code-signing certificate
+#   macOS    CSC_LINK / CSC_KEY_PASSWORD (Developer ID Application), and for notarization APPLE_ID,
+#            APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
+# Release builds add `-c.forceCodeSigning=true`, so a missing certificate fails the build instead of shipping unsigned.
 appId: corp.qe.workspace
 productName: QE Workspace
+copyright: Copyright © QE Workspace
+# The version in the root overrides (Theia's pin is raised there, ADR-012); tests/lint checks they agree.
+electronVersion: 42.11.16
 directories:
+  app: build/app
   buildResources: resources
   output: dist-electron
 files:
   - lib/**
-  - src-gen/**
   - package.json
-# Built-in VS Code plugins (pinned and hash-checked at build time) ship next to the app.
+# Theia's packaged apps run unpacked: the backend forks Node processes and starts ripgrep and native modules from
+# lib/, which an asar archive would have to unpack again. (Hardening with asar integrity fuses: a later step.)
+asar: false
+# Native modules are prebuilt Node-API binaries (ADR-012): nothing to rebuild for Electron.
+npmRebuild: false
+nodeGypRebuild: false
+# Built-in VS Code plugins (pinned and hash-checked at build time) ship next to the app; the app points Theia at them
+# (qe-core's electron-main module).
 extraResources:
   - from: ../../plugins
     to: plugins
+artifactName: qe-workspace-${version}-${os}-${arch}.${ext}
 win:
   target: [nsis]
+  icon: icon.png
 nsis:
   oneClick: false
   perMachine: false
@@ -23,7 +41,14 @@ nsis:
 mac:
   target: [dmg]
   category: public.app-category.developer-tools
+  icon: icon.png
   hardenedRuntime: true
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
 linux:
-  target: [AppImage]
+  target: [AppImage, deb]
   category: Development
+  icon: icon.png
+  # deb needs a maintainer; the address is a placeholder until the owning team is named (ORG_DECISIONS).
+  maintainer: QE Workspace <qe-workspace@corp.invalid>
+  synopsis: QE Workspace IDE

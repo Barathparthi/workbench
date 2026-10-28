@@ -55,6 +55,8 @@ extensions/*/lib/
 # Electron packaging output (apps/ide-electron, Phase 02+)
 apps/*/release/
 apps/*/dist-electron/
+# The app staged for electron-builder (apps/ide-electron/scripts/stage-app.mjs)
+apps/*/build/
 *.dmg
 *.exe
 *.msi

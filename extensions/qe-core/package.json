@@ -29,7 +29,8 @@
       "frontend": "lib/browser/qe-core-frontend-module",
       "frontendElectron": "lib/electron-browser/qe-core-electron-frontend-module",
       "backend": "lib/node/qe-core-backend-module",
-      "backendElectron": "lib/electron-node/qe-core-electron-backend-module"
+      "backendElectron": "lib/electron-node/qe-core-electron-backend-module",
+      "electronMain": "lib/electron-main/qe-core-electron-main-module"
     }
   ],
   "devDependencies": {
