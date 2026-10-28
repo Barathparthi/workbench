@@ -1,0 +1,84 @@
+# Desktop installers and smoke tests on the three desktop OSes (PHASE_10 §10.7; owner's decision: Windows and
+# Linux are also tested locally, macOS only here). Nightly and on demand: packaging takes a while and needs no
+# review gate of its own. Installers are unsigned unless the signing secrets exist; a release run sets
+# `sign: true`, which makes a missing certificate fail the build (electron-builder forceCodeSigning).
+name: desktop
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: Require signed (and on macOS notarized) installers
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Stand-in for the internal Open VSX mirror until org decision D7 names it (ADR-010).
+  QE_VSX_URL: https://open-vsx.org
+
+jobs:
+  installers:
+    name: installers (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxkbfile-dev libsecret-1-dev
+      - run: npm ci
+      - run: node node_modules/electron/install.js
+      # The smoke tests' web server is the browser app, so both apps are built.
+      - run: npm run build -w extensions && npm run build -w @qe/ide-browser && npm run build -w @qe/ide-electron
+      - run: npm run plugins:download
+      - name: Package
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.QE_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.QE_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.QE_APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.QE_APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.QE_APPLE_TEAM_ID }}
+          SIGN: ${{ inputs.sign || false }}
+        run: |
+          # Without a certificate, never search the runner's keychain for one.
+          [ -n "$CSC_LINK" ] || export CSC_IDENTITY_AUTO_DISCOVERY=false
+          if [ "$SIGN" = true ]; then
+            npm run package -w @qe/ide-electron -- -c.forceCodeSigning=true
+          else
+            npm run package -w @qe/ide-electron
+          fi
+      - name: Smoke test (Electron)
+        shell: bash
+        run: |
+          npx playwright install --with-deps chromium
+          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a npx playwright test --project=electron
+          else npx playwright test --project=electron; fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qe-workspace-${{ runner.os }}
+          path: |
+            apps/ide-electron/dist-electron/*.exe
+            apps/ide-electron/dist-electron/*.dmg
+            apps/ide-electron/dist-electron/*.AppImage
+            apps/ide-electron/dist-electron/*.deb
+          if-no-files-found: error
+          retention-days: 14
