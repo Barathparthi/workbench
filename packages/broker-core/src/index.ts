@@ -19,6 +19,7 @@ export {
   CONNECT_TIMEOUT_MS,
   ssh2Transport,
   type PtyChannel,
+  type KeyMaterial,
   type SshConnection,
   type SshCredential,
   type SshEndpoint,
@@ -52,3 +53,21 @@ export {
   type RemoteFileSystemOptions,
 } from './remote-fs.js';
 export { fileDevCredentialSource, type CredentialReference, type CredentialSource } from './credentials.js';
+export type {
+  AuditSink,
+  HostKeyRecord,
+  HostKeyStore,
+  LocalAuditEvent,
+  PersonalTarget,
+  TargetSource,
+} from './sources.js';
+export { sshConfigTargetSource, type SshConfigTargetsOptions } from './ssh-config-targets.js';
+export { knownHostsName, knownHostsStore, type KnownHostsOptions } from './known-hosts.js';
+export {
+  detectAgent,
+  personalCredentials,
+  WINDOWS_OPENSSH_AGENT,
+  type PersonalCredentialOptions,
+  type PersonalCredentials,
+} from './personal-credentials.js';
+export { localAuditLog, type LocalAuditOptions } from './local-audit.js';

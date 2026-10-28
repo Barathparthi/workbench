@@ -6,6 +6,7 @@ export const PACKAGE_NAME = '@qe/policy';
 
 export {
   checkAddresses,
+  checkPersonalHost,
   checkTargetHost,
   isValidCidr,
   parseCidr,

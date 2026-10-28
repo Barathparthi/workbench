@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canSeeTarget,
   checkAddresses,
+  checkPersonalHost,
   checkTargetHost,
   evaluateConnection,
   isValidCidr,
@@ -128,6 +129,49 @@ describe('checkTargetHost', () => {
       allowed: false,
       reason: 'NO_ADDRESSES',
     });
+  });
+});
+
+describe('checkPersonalHost (org deny list for personal targets)', () => {
+  const PROD = ['10.50.0.0/16'];
+  const resolver = (answers: Record<string, string[]>) => (host: string) => {
+    const a = answers[host];
+    return a === undefined ? Promise.reject(new Error('ENOTFOUND')) : Promise.resolve(a);
+  };
+
+  it('allows the user’s own network, loopback included, and pins the checked address', async () => {
+    const never = () => Promise.reject(new Error('must not resolve'));
+    expect(await checkPersonalHost('127.0.0.1', PROD, never)).toEqual({
+      allowed: true,
+      address: '127.0.0.1',
+    });
+    expect(await checkPersonalHost('dev-box', PROD, resolver({ 'dev-box': ['192.168.1.20'] }))).toEqual({
+      allowed: true,
+      address: '192.168.1.20',
+    });
+  });
+
+  it('refuses a denied CIDR, also when only one of several answers is in it, and IPv4-mapped forms', async () => {
+    const r = resolver({ mixed: ['192.168.1.20', '10.50.3.4'], mapped: ['::ffff:10.50.0.9'] });
+    expect(await checkPersonalHost('10.50.1.1', PROD, r)).toMatchObject({
+      allowed: false,
+      reason: 'DENIED_CIDR',
+    });
+    expect(await checkPersonalHost('mixed', PROD, r)).toMatchObject({
+      allowed: false,
+      reason: 'DENIED_CIDR',
+    });
+    expect(await checkPersonalHost('mapped', PROD, r)).toMatchObject({
+      allowed: false,
+      reason: 'DENIED_CIDR',
+    });
+  });
+
+  it('refuses names that do not resolve, empty answers and non-canonical addresses', async () => {
+    const r = resolver({ empty: [], odd: ['0x7f.1'] });
+    expect(await checkPersonalHost('missing', PROD, r)).toEqual({ allowed: false, reason: 'NO_ADDRESSES' });
+    expect(await checkPersonalHost('empty', PROD, r)).toEqual({ allowed: false, reason: 'NO_ADDRESSES' });
+    expect(await checkPersonalHost('odd', PROD, r)).toEqual({ allowed: false, reason: 'INVALID_ADDRESS' });
   });
 });
 

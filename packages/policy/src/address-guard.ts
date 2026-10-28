@@ -100,6 +100,39 @@ export function checkAddresses(
   return { allowed: true, address: first ?? '' };
 }
 
+/**
+ * Personal targets on the user's own machine (desktop, local web; 08_REMOTE_CONNECTIVITY §10): no SSRF guard — the
+ * user's own network position, so loopback and private ranges are fine — but an organisation may deny CIDRs (e.g.
+ * production) through managed settings. Same rules otherwise: canonical addresses only, every resolved address must
+ * pass, and the caller connects to the returned address.
+ */
+export async function checkPersonalHost(
+  host: string,
+  deniedCidrs: readonly string[],
+  resolver: Resolver,
+): Promise<AddressDecision> {
+  let addresses: readonly string[];
+  if (parseCanonical(host) !== undefined) addresses = [host];
+  else {
+    try {
+      addresses = await resolver(host);
+    } catch {
+      return { allowed: false, reason: 'NO_ADDRESSES' };
+    }
+  }
+  if (addresses.length === 0) return { allowed: false, reason: 'NO_ADDRESSES' };
+  const denied = deniedCidrs.map(parseCidr);
+  let first: string | undefined;
+  for (const raw of addresses) {
+    const addr = parseCanonical(raw);
+    if (addr === undefined) return { allowed: false, reason: 'INVALID_ADDRESS' };
+    const shown = addr.toString();
+    if (denied.some((c) => inCidr(addr, c))) return { allowed: false, reason: 'DENIED_CIDR', address: shown };
+    first ??= shown;
+  }
+  return { allowed: true, address: first ?? '' };
+}
+
 /** Resolves a host name to all its addresses (an injectable `dns.promises.lookup(host, { all: true })`). */
 export type Resolver = (host: string) => Promise<readonly string[]>;
 

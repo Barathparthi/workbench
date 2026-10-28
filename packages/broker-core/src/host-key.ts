@@ -18,7 +18,8 @@ export interface TrustedHostKey {
   readonly fingerprintSha256: string;
 }
 
-export type HostKeyOutcome = 'match' | 'mismatch' | 'unknown';
+/** `revoked`: the key is on a revocation list (known_hosts `@revoked`) — refused even where it is also trusted. */
+export type HostKeyOutcome = 'match' | 'mismatch' | 'unknown' | 'revoked';
 
 export interface HostKeyVerifier {
   /** The `hostVerifier` for ssh2: true only for a trusted fingerprint. Fails closed on anything else. */
@@ -32,18 +33,24 @@ export interface HostKeyVerifier {
 /**
  * Pinned host-key verification (ADR-002 addendum, S4 rule 2): compares OpenSSH SHA256 fingerprints and tells
  * `unknown` (nothing trusted on record) from `mismatch` (something else is trusted — a possible MITM). A mismatch
- * ends the connection during key exchange, before any credential is sent (proven in S4).
+ * ends the connection during key exchange, before any credential is sent (proven in S4). A revoked key fails first,
+ * whatever else is trusted, so it can never be offered for trust-on-first-use either.
  */
-export function createHostKeyVerifier(trusted: readonly TrustedHostKey[]): HostKeyVerifier {
+export function createHostKeyVerifier(
+  trusted: readonly TrustedHostKey[],
+  options: { readonly revoked?: readonly string[] } = {},
+): HostKeyVerifier {
   const fingerprints = new Set(trusted.map((k) => k.fingerprintSha256));
+  const revoked = new Set(options.revoked ?? []);
   const state: { outcome?: HostKeyOutcome; presented?: { algorithm: string; fingerprintSha256: string } } =
     {};
   return {
     verify(key) {
       const presented = { algorithm: keyAlgorithm(key), fingerprintSha256: sha256Fingerprint(key) };
       state.presented = presented;
-      state.outcome =
-        fingerprints.size === 0
+      state.outcome = revoked.has(presented.fingerprintSha256)
+        ? 'revoked'
+        : fingerprints.size === 0
           ? 'unknown'
           : fingerprints.has(presented.fingerprintSha256)
             ? 'match'

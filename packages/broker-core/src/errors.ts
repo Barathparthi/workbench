@@ -23,7 +23,7 @@ const UNREACHABLE = new Set([
  * verifier, so a handshake failure after a refused key is reported as the key problem, never as "unreachable".
  */
 export function mapSshError(error: unknown, hostKey: HostKeyOutcome | undefined): ErrorCode {
-  if (hostKey === 'mismatch') return 'HOST_KEY_MISMATCH';
+  if (hostKey === 'mismatch' || hostKey === 'revoked') return 'HOST_KEY_MISMATCH';
   if (hostKey === 'unknown') return 'HOST_KEY_UNKNOWN';
   const e = (typeof error === 'object' && error !== null ? error : {}) as SshErrorLike;
   if (e.level === 'client-authentication') return 'CREDENTIALS_REJECTED';
