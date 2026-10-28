@@ -78,7 +78,8 @@ test('desktop terminals never inherit the backend’s private channel to the mai
   const evidence = join(workspace(), 't-desktop-host.txt');
   rmSync(evidence, { force: true });
   await newTerminal(page);
-  await page.keyboard.type('echo "host=${QE_DESKTOP_HOST:-none}" > t-desktop-host.txt');
+  // An absolute path: the terminal's directory depends on what the window has open.
+  await page.keyboard.type(`echo "host=\${QE_DESKTOP_HOST:-none}" > '${evidence}'`);
   await page.keyboard.press('Enter');
   await expect
     .poll(() => (existsSync(evidence) ? readFileSync(evidence, 'utf8').trim() : ''))
