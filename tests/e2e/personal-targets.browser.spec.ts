@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { acceptTrust, runCommand, waitForShell } from './ide.js';
+import { acceptTrust, runCommand, waitForShell, workspace } from './ide.js';
 
 const alias = process.env['QE_E2E_PERSONAL_HOST'];
 const container = process.env['QE_E2E_LAB_CONTAINER'] ?? 'qews-lab-a';
@@ -86,5 +86,10 @@ test.describe('personal targets (local web, embedded broker)', () => {
     await page.keyboard.type('saved from the IDE');
     await page.keyboard.press('Control+S');
     await expect.poll(() => onServer(`cat ${dir}/notes.txt`)).toContain('saved from the IDE');
+
+    // Adding the remote root made an untitled multi-root workspace, which the IDE reopens next time: go back to the
+    // sample project alone, so the other suites find the workspace they expect.
+    await page.goto(`/#${workspace()}`);
+    await waitForShell(page);
   });
 });
