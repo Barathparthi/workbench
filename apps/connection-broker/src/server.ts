@@ -5,20 +5,12 @@ import type { Duplex } from 'node:stream';
 import {
   BrokerFsParams,
   BrokerFsRequest,
-  FsDeleteRequest,
-  FsListRequest,
-  FsMkdirRequest,
-  FsReadRequest,
-  FsRenameRequest,
-  FsStatRequest,
-  FsWriteRequest,
   MAX_MESSAGE_BYTES,
   QEWS_PROTOCOL,
   REMOTE_FILE_LIMITS,
   ticketFromProtocols,
-  type FsOp,
 } from '@qe/contracts';
-import { DomainError, isDomainError, type RemoteFileSystem, type SessionRegistry } from '@qe/broker-core';
+import { DomainError, fileOperation, isDomainError, type SessionRegistry } from '@qe/broker-core';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { WebSocketServer, type RawData, type WebSocket } from 'ws';
 import { z } from 'zod';
@@ -48,52 +40,6 @@ const Uuid = z.object({ id: z.uuid() });
 const sha = (v: string) => createHash('sha256').update(v).digest();
 /** A 10 MB write as base64 plus the snapshot around it. */
 const FS_BODY_LIMIT = Math.ceil(REMOTE_FILE_LIMITS.maxFileBytes / 3) * 4 + 128 * 1024;
-
-/** Validates one operation's request and runs it; contents cross the wire as base64 only. */
-function fileOperation(op: FsOp, request: unknown): (fs: RemoteFileSystem) => Promise<unknown> {
-  switch (op) {
-    case 'stat': {
-      const r = FsStatRequest.parse(request);
-      return (fs) => fs.stat(r);
-    }
-    case 'list': {
-      const r = FsListRequest.parse(request);
-      return (fs) => fs.list(r);
-    }
-    case 'read': {
-      const r = FsReadRequest.parse(request);
-      return async (fs) => {
-        const { data, etag } = await fs.read(r);
-        return { contentBase64: data.toString('base64'), etag };
-      };
-    }
-    case 'write': {
-      const { contentBase64, ...r } = FsWriteRequest.parse(request);
-      return (fs) => fs.write({ ...r, data: Buffer.from(contentBase64, 'base64') });
-    }
-    case 'mkdir': {
-      const r = FsMkdirRequest.parse(request);
-      return async (fs) => {
-        await fs.mkdir(r);
-        return {};
-      };
-    }
-    case 'rename': {
-      const r = FsRenameRequest.parse(request);
-      return async (fs) => {
-        await fs.rename(r);
-        return {};
-      };
-    }
-    case 'delete': {
-      const r = FsDeleteRequest.parse(request);
-      return async (fs) => {
-        await fs.delete(r);
-        return {};
-      };
-    }
-  }
-}
 
 /**
  * The broker's HTTP surface: health, internal close/revoke (service token only) and the `qews.v1` WebSocket stream

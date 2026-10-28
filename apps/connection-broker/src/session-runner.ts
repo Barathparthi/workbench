@@ -4,6 +4,7 @@ import {
   DomainError,
   isDomainError,
   mapSshError,
+  messageFor,
   type CredentialSource,
   type ErrorCode,
   type HostKeyVerifier,
@@ -139,27 +140,4 @@ export function runTerminalSession(
     }
   })();
   return bridge;
-}
-
-/** Short, user-facing explanations (04_OPERATIONS/USER_GUIDE troubleshooting); never internal detail. */
-export function messageFor(code: ErrorCode): string {
-  switch (code) {
-    case 'HOST_KEY_MISMATCH':
-      return 'The remote system presented an unexpected host key. Do not retry; contact the lab admin.';
-    case 'HOST_KEY_UNKNOWN':
-      return 'The remote system has no approved host key yet.';
-    case 'CREDENTIALS_REJECTED':
-      return 'The remote system refused the credentials.';
-    case 'CREDENTIALS_UNAVAILABLE':
-      return 'Credentials are not available right now. Try again later.';
-    case 'SSH_TIMEOUT':
-      return 'The remote system did not answer in time.';
-    case 'SSH_UNREACHABLE':
-      return 'The remote system cannot be reached.';
-    case 'TARGET_ADDRESS_FORBIDDEN':
-    case 'TARGET_NOT_ALLOWED':
-      return 'This connection is not allowed by policy.';
-    default:
-      return 'The remote session could not be opened.';
-  }
 }

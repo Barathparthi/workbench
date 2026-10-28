@@ -8,10 +8,19 @@
   "include": ["src"],
   "references": [
     {
+      "path": "../../packages/broker-core"
+    },
+    {
       "path": "../../packages/contracts"
     },
     {
+      "path": "../../packages/policy"
+    },
+    {
       "path": "../qe-core"
+    },
+    {
+      "path": "../../packages/test-utils"
     }
   ]
 }

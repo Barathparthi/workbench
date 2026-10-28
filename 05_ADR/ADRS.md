@@ -26,6 +26,14 @@
 ## ADR-008 — Shared broker-core
 **Decision**: Same library for hosted broker and embedded (desktop/local) broker with injected TargetSource/CredentialSource/HostKeyStore/AddressGuard/AuditSink. **Consequences**: + parity, one tested SSH stack; − careful dependency boundaries.
 
+**Addendum — Phase 10 (2026-10-28), dependency boundaries.** The embedded broker runs in two backends of the
+`qe-remote` extension: `src/electron-node` (desktop, always) and `src/node` (the browser app's backend, bound only
+when `QE_MODE=local-web`, so a hosted workspace runtime never reaches SSH targets itself — rules 2 and 3). Both are
+their own lint elements and may import `broker-core`, `policy` (the organisation's deny list for personal targets),
+`qe-core` (the environment) and the extension's own `common` code; frontend code of the extension still may not.
+The hosted broker's user-facing error messages (`messageFor`) and per-operation file request handling
+(`fileOperation`) move into `broker-core` so both brokers answer identically (09_LOCAL_AND_WEB_PARITY §2).
+
 ## ADR-009 — npm workspaces
 **Decision**: npm workspaces (Theia CLI expects hoisted node_modules). pnpm only with hoisted linker after spike. **Consequences**: simpler Theia builds; slower installs mitigated by CI cache.
 

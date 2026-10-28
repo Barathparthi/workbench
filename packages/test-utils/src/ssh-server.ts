@@ -18,9 +18,12 @@ export interface TestSshServer {
   close(): Promise<void>;
 }
 
-export async function startSshServer(): Promise<TestSshServer> {
+/** `clientKey`: the key pair the server accepts (default: a fresh one; pass an encrypted one to test passphrases). */
+export async function startSshServer(
+  options: { clientKey?: { private: string; public: string } } = {},
+): Promise<TestSshServer> {
   const host = ed25519KeyPair();
-  const client = ed25519KeyPair();
+  const client = options.clientKey ?? ed25519KeyPair();
   const allowed = ssh2.utils.parseKey(client.public);
   const hostParsed = ssh2.utils.parseKey(host.public);
   if (allowed instanceof Error || hostParsed instanceof Error) throw new Error('key generation failed');

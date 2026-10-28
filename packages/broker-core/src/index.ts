@@ -5,7 +5,8 @@
 export const PACKAGE_NAME = '@qe/broker-core';
 
 export { DomainError, isDomainError, type ErrorCode } from '@qe/domain';
-export { mapSshError } from './errors.js';
+export { mapSshError, messageFor } from './errors.js';
+export { fileOperation } from './file-operations.js';
 export {
   createHostKeyVerifier,
   keyAlgorithm,

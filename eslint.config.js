@@ -41,11 +41,35 @@ const allowedDependencies = {
   extension: ['client-sdk', 'contracts', 'domain', 'extension-qe-core'],
   // qe-core is an extension too (04 §1 "extensions/*"); it is a separate element only so others may import it.
   'extension-qe-core': ['client-sdk', 'contracts', 'domain'],
-  // ADR-008 exception: the qe-remote Electron backend embeds the broker for desktop mode.
-  'extension-qe-remote-electron-backend': ['client-sdk', 'contracts', 'domain', 'broker-core'],
+  // ADR-008 exception (+ Phase 10 addendum): qe-remote's backends embed the broker — Electron for desktop, Node for
+  // local web (bound only in that mode). They may use broker-core, policy, qe-core and qe-remote's own common code.
+  'extension-qe-remote-node-backend': [
+    'client-sdk',
+    'contracts',
+    'domain',
+    'broker-core',
+    'policy',
+    'extension',
+    'extension-qe-core',
+  ],
+  'extension-qe-remote-electron-backend': [
+    'client-sdk',
+    'contracts',
+    'domain',
+    'broker-core',
+    'policy',
+    'extension',
+    'extension-qe-core',
+    'extension-qe-remote-node-backend',
+  ],
   'app-control-plane': ['domain', 'contracts', 'rbac', 'policy', 'secrets', 'runtime-providers', 'telemetry'],
   'app-connection-broker': ['broker-core', 'contracts', 'policy', 'secrets', 'telemetry'],
-  'app-ide': ['extension', 'extension-qe-core', 'extension-qe-remote-electron-backend'],
+  'app-ide': [
+    'extension',
+    'extension-qe-core',
+    'extension-qe-remote-node-backend',
+    'extension-qe-remote-electron-backend',
+  ],
 };
 
 const elementSelector = (type) => ({ element: { type } });
@@ -147,6 +171,11 @@ export default defineConfig(
         {
           type: 'extension-qe-remote-electron-backend',
           pattern: 'extensions/qe-remote/src/electron-node',
+          partialMatch: false,
+        },
+        {
+          type: 'extension-qe-remote-node-backend',
+          pattern: 'extensions/qe-remote/src/node',
           partialMatch: false,
         },
         { type: 'extension-qe-core', pattern: 'extensions/qe-core', partialMatch: false },
