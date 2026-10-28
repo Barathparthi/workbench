@@ -71,4 +71,10 @@ test.describe('integrated terminal (Phase 06)', () => {
     await run(page, "printf 'QE \\u2713 \\u2500\\u2500 \\u00e9' > t-utf8.txt");
     await expect.poll(() => read('t-utf8.txt')).toBe('QE ✓ ── é');
   });
+
+  test('never inherits local web’s sign-in token (PHASE_10 §10.6)', async ({ page }) => {
+    // The test server gets QE_LOCAL_WEB_TOKEN as the launcher hands it over; the backend removes it at startup.
+    await run(page, 'echo "token=${QE_LOCAL_WEB_TOKEN:-none}" > t-local-token.txt');
+    await expect.poll(() => read('t-local-token.txt')).toBe('token=none');
+  });
 });

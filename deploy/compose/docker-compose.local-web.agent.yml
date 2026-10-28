@@ -1,0 +1,8 @@
+# Optional overlay for docker-compose.local-web.yml: your ssh-agent, for personal targets whose keys live there.
+# The launcher adds it when SSH_AUTH_SOCK is a socket (Linux, or macOS with a forwarded agent).
+services:
+  ide:
+    environment:
+      SSH_AUTH_SOCK: /run/qe/ssh-agent.sock
+    volumes:
+      - '${QE_SSH_AUTH_SOCK:?set QE_SSH_AUTH_SOCK}:/run/qe/ssh-agent.sock'

@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# qe-workspace-local — QE Workspace in your browser, on this machine only (PHASE_10 §10.6).
+#
+#   qe-workspace-local [PROJECT_DIR]    open PROJECT_DIR (default: the current folder)
+#   qe-workspace-local --stop           stop it
+#
+# Runs deploy/compose/docker-compose.local-web.yml with a fresh sign-in token, waits for the IDE and shows the link
+# to open (this terminal only: the token is never written to a log). Settings, all optional:
+#   QE_RUNTIME_IMAGE  the IDE image (default qews/runtime:dev)
+#   QE_LOCAL_PORT     the port on 127.0.0.1 (default 3000)
+#   QE_SSH_DIR        your SSH folder, mounted read-only (default ~/.ssh)
+#   QE_NO_BROWSER=1   only show the link, do not open a browser
+set -euo pipefail
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+compose="$here/../deploy/compose/docker-compose.local-web.yml"
+agent_overlay="$here/../deploy/compose/docker-compose.local-web.agent.yml"
+
+if [ "${1:-}" = "--stop" ]; then
+  docker compose -p qe-workspace-local down
+  exit 0
+fi
+
+project=$(cd "${1:-.}" && pwd)
+ssh_dir="${QE_SSH_DIR:-$HOME/.ssh}"
+if [ ! -d "$ssh_dir" ]; then
+  # Docker would create a missing folder as root; give it an empty one of yours instead.
+  ssh_dir=$(mktemp -d)
+  echo "No SSH folder at ${QE_SSH_DIR:-$HOME/.ssh}: personal targets will be empty."
+fi
+port="${QE_LOCAL_PORT:-3000}"
+
+# 256 random bits, base64url.
+token=$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')
+export QE_PROJECT_DIR="$project" QE_SSH_DIR="$ssh_dir" QE_LOCAL_PORT="$port" QE_LOCAL_WEB_TOKEN="$token"
+
+files=(-f "$compose")
+if [ -S "${SSH_AUTH_SOCK:-}" ]; then
+  export QE_SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
+  files+=(-f "$agent_overlay")
+fi
+
+docker compose "${files[@]}" up -d --force-recreate >/dev/null
+
+url="http://127.0.0.1:$port"
+printf 'Starting QE Workspace for %s ' "$project"
+for _ in $(seq 1 90); do
+  # Up means it refuses us: 401 without the sign-in cookie.
+  if [ "$(curl -s -o /dev/null -w '%{http_code}' "$url/" || true)" = 401 ]; then
+    ready=1
+    break
+  fi
+  printf '.'
+  sleep 1
+done
+echo
+if [ "${ready:-0}" != 1 ]; then
+  echo "QE Workspace did not start. See: docker compose -p qe-workspace-local logs" >&2
+  exit 1
+fi
+
+link="$url/?token=$token"
+echo "QE Workspace is running. Open this link (it signs this browser in; keep it to yourself):"
+echo
+echo "  $link"
+echo
+echo "Stop it with: $0 --stop"
+if [ "${QE_NO_BROWSER:-0}" != 1 ]; then
+  if command -v xdg-open >/dev/null; then
+    xdg-open "$link" >/dev/null 2>&1 || true
+  elif command -v open >/dev/null; then
+    open "$link" || true
+  fi
+fi

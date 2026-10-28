@@ -109,6 +109,13 @@ describe('Theia versions in this repository', () => {
       ),
     ).toEqual([]);
   });
+
+  it('package the desktop installers with the Electron the app runs on', () => {
+    // electron-builder packages a staged app without dependencies, so it is told the version (PHASE_10 §10.7).
+    const config = readFileSync(join(repoRoot, 'apps/ide-electron/electron-builder.yml'), 'utf8');
+    const packaged = /^electronVersion: (\S+)$/m.exec(config)?.[1];
+    expect(packaged).toBe(read('apps/ide-electron/package.json').devDependencies?.['electron']);
+  });
 });
 
 describe('theiaVersionProblems detects drift', () => {

@@ -79,6 +79,8 @@ const childProcessAllowed = [
   'packages/runtime-providers/**',
   'packages/broker-core/**',
   'extensions/qe-runner/src/node/**',
+  // ADR-013: the desktop app reads Windows managed settings with reg.exe (read-only, fixed arguments, no shell).
+  'extensions/qe-core/src/node/qe-managed-settings-registry.ts',
   'packages/test-utils/**',
   'tests/**',
 ];

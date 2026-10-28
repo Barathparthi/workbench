@@ -24,7 +24,7 @@ const envSchema = z.object({
 });
 
 /** Returns the normalized URL, or a reason it is not acceptable. Never echoes the value itself. */
-function checkControlPlaneUrl(raw: string): { url: string } | { problem: string } {
+export function checkControlPlaneUrl(raw: string): { url: string } | { problem: string } {
   let url: URL;
   try {
     url = new URL(raw);

@@ -7,7 +7,8 @@
   "main": "lib/backend/electron-main.js",
   "scripts": {
     "build": "theia build --mode production",
-    "start": "theia start --plugins=local-dir:../../plugins"
+    "start": "theia start --plugins=local-dir:../../plugins",
+    "package": "node scripts/stage-app.mjs && electron-builder --publish never"
   },
   "dependencies": {
     "@qe/theia-qe-core": "0.0.0",
@@ -36,7 +37,8 @@
   },
   "devDependencies": {
     "@theia/cli": "1.76.0",
-    "electron": "42.11.16"
+    "electron": "42.11.16",
+    "electron-builder": "26.17.0"
   },
   "theia": {
     "target": "electron",

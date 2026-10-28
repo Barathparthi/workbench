@@ -4,10 +4,11 @@
 #
 #   docker build -f images/workspace-runtime/Dockerfile -t qews/runtime:dev .
 #   (behind a TLS-inspecting proxy, add: --secret id=extra_ca,src=/path/to/proxy-ca.pem)
-#   docker run --rm -p 127.0.0.1:3000:3000 -e QE_MODE=local-web -v "$PWD":/home/qe/project qews/runtime:dev
+#   local web: scripts/qe-workspace-local (deploy/compose/docker-compose.local-web.yml), which publishes the port on
+#   127.0.0.1 only, sets QE_LOCAL_WEB_CONTAINER=1 and the run's QE_LOCAL_WEB_TOKEN, and shows the sign-in link.
 #
-# The IDE has no login of its own: publish the port on 127.0.0.1 only (local web token: Phase 10; hosted
-# gateway and NetworkPolicy: Phase 05). QE_MODE defaults to hosted, which refuses to start (exit 78) until
+# Local web serves nothing without the sign-in cookie, and refuses to listen on the container's interfaces unless
+# QE_LOCAL_WEB_CONTAINER=1 (Phase 10); hosted mode sits behind the gateway and NetworkPolicy (Phase 05). QE_MODE defaults to hosted, which refuses to start (exit 78) until
 # QE_CONTROL_PLANE_URL and QE_WORKSPACE_ID are set, so a pod is never silently a local-web IDE.
 #
 # Built-in VS Code plugins are added when QE_VSX_URL names the Open VSX mirror (pinned and hash-checked).

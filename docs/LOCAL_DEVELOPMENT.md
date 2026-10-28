@@ -284,13 +284,25 @@ npx vitest run --coverage         # unit + integration with coverage thresholds 
 QE_VSX_URL=https://open-vsx.org npm run plugins:download
 #   PowerShell: $env:QE_VSX_URL="https://open-vsx.org"; npm run plugins:download
 
-# Browser IDE in local web mode: open http://127.0.0.1:3000
+# Browser IDE in local web mode. It serves nothing without its sign-in link: the link is written to
+# ~/.qe-workspace/local-web-url (never printed or logged); open that address once per browser.
 npm run start -w @qe/ide-browser
 
 # Desktop (Electron) app: download the Electron binary once, then start
 node node_modules/electron/install.js
 npm run start -w @qe/ide-electron
 ```
+
+Local web in a container, the way users run it (Phase 10.5): build the runtime image (Step 11), then
+
+```bash
+scripts/qe-workspace-local ~/src/my-project          # Windows: .\scripts\qe-workspace-local.ps1 C:\src\my-project
+scripts/qe-workspace-local --stop                     #          .\scripts\qe-workspace-local.ps1 -Stop
+```
+
+The launcher makes a new sign-in token per start, publishes the IDE on `127.0.0.1` only, mounts your `~/.ssh`
+read-only (and your ssh-agent on Linux), and shows the link in your terminal. In the container the IDE runs as uid
+1000: on Linux, keys owned by another uid with mode 0600 cannot be read there.
 
 Both local modes list the hosts in your `~/.ssh/config` as personal targets (Phase 10). To try the desktop app's
 **managed targets** (sign-in through your browser, Phase 10.4), the control plane must run with `AUTH_MODE=oidc` and
@@ -305,6 +317,20 @@ QE_CONTROL_PLANE_URL=http://localhost:8080 npm run start -w @qe/ide-electron
 
 On Linux the refresh token is kept only with a keyring (GNOME Keyring or KWallet); without one the app signs in for
 that run only and never writes the token to disk.
+
+Desktop installers (Phase 10.6) for the OS you are on, unsigned unless signing variables are set (see the header of
+`apps/ide-electron/electron-builder.yml`); the nightly `desktop` workflow builds all three:
+
+```bash
+npm run build -w @qe/ide-electron && npm run plugins:download && npm run package -w @qe/ide-electron
+#   → apps/ide-electron/dist-electron/ (Linux: AppImage and deb; Windows: NSIS .exe; macOS: dmg)
+```
+
+Organisation-managed settings (ADR-013) are read at startup outside hosted mode: on Windows from
+`HKLM\Software\Policies\QEWorkspace` (`ControlPlaneUrl`, `OpenVsxUrl`, `DeniedCidrs`, `TrustOnFirstUse`, `Telemetry`),
+on Linux from `/etc/qe-workspace/policy.json` and on macOS from `/Library/Application Support/QEWorkspace/policy.json`
+(`{"controlPlaneUrl": …, "deniedCidrs": […], "trustOnFirstUse": false}`). An invalid policy stops the app with a
+message naming the source.
 
 Smoke tests (browser + Electron):
 
