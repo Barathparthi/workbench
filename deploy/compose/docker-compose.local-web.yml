@@ -1,0 +1,32 @@
+# QE Workspace in your browser, on this machine only (PHASE_10 §10.6, 09_LOCAL_AND_WEB_PARITY §5).
+# Start it with scripts/qe-workspace-local (bash) or scripts/qe-workspace-local.ps1, which set the variables below,
+# generate the run's sign-in token and show the link to open. Stop: docker compose -p qe-workspace-local down
+#
+#   QE_PROJECT_DIR      the folder to open (mounted at /home/qe/project)
+#   QE_SSH_DIR          your SSH folder, mounted read-only: personal targets from its config, keys, known_hosts
+#   QE_LOCAL_WEB_TOKEN  the run's sign-in token (the launcher makes one per start)
+#   QE_LOCAL_PORT       the port on 127.0.0.1 (default 3000)
+#   QE_RUNTIME_IMAGE    the IDE image (default qews/runtime:dev)
+name: qe-workspace-local
+
+services:
+  ide:
+    image: ${QE_RUNTIME_IMAGE:-qews/runtime:dev}
+    environment:
+      QE_MODE: local-web
+      # The IDE listens on the container's interfaces; the port is published on the host's loopback only (below).
+      QE_LOCAL_WEB_CONTAINER: '1'
+      QE_LOCAL_WEB_TOKEN: ${QE_LOCAL_WEB_TOKEN:?start QE Workspace with qe-workspace-local, which sets the sign-in token}
+    ports:
+      # 127.0.0.1 only: never reachable from other machines (and the sign-in cookie guards it from local ones).
+      - '127.0.0.1:${QE_LOCAL_PORT:-3000}:3000'
+    volumes:
+      - '${QE_PROJECT_DIR:?set QE_PROJECT_DIR}:/home/qe/project'
+      - '${QE_SSH_DIR:?set QE_SSH_DIR}:/home/qe/.ssh:ro'
+      # QE's own state: host keys you chose to save, the local audit log.
+      - 'qe-local-state:/home/qe/.qe-workspace'
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+
+volumes:
+  qe-local-state:
