@@ -14,6 +14,7 @@ import { QeEnvironmentService } from '@qe/theia-qe-core/lib/common/qe-environmen
 
 import type { RemoteTarget, TerminalStream } from '../common/connection-client';
 import { describeFailure } from '../common/remote-client';
+import { HostKeyDialog } from './host-key-dialog';
 import { remoteRootUri } from '../common/remote-files';
 import { QeRemoteServices, RemoteTargetNames } from './qe-remote-files';
 
@@ -43,6 +44,10 @@ export class QeRemoteContribution implements CommandContribution {
         password: true,
         ignoreFocusLost: true,
       }),
+    );
+    // Personal hosts not in known_hosts: asked between connect attempts; closing the dialog means Cancel.
+    this.services.embedded.setHostKeyAsker(
+      async (question) => (await new HostKeyDialog(question).open()) ?? 'cancel',
     );
   }
 

@@ -27,6 +27,7 @@ import type {
   EmbeddedBrokerClient,
   EmbeddedBrokerService,
   EmbeddedResult,
+  HostKeyAnswer,
   PersonalTargetSummary,
 } from '../common/embedded-broker-protocol';
 
@@ -45,6 +46,39 @@ export interface EmbeddedBrokerDeps {
   readonly readKey?: (path: string) => Promise<Buffer | undefined>;
   /** File connections close after this long unused. */
   readonly filesIdleMs?: number;
+  /** Whether an unknown host key may be offered to the user (managed setting, Phase 10.6). Default true. */
+  readonly trustOnFirstUse?: boolean;
+}
+
+interface PresentedKey {
+  readonly algorithm: string;
+  readonly fingerprintSha256: string;
+}
+
+const hostKeyName = (t: PersonalTarget) => `${t.host}:${String(t.port)}`;
+
+/**
+ * What the user reads when a personal connect fails. Host-key problems on the user's own hosts are explained the way
+ * OpenSSH does (which file, which fingerprint); everything else reads exactly like the hosted broker's message.
+ */
+export function personalMessage(error: unknown): string {
+  const code = failure(error);
+  const details = isDomainError(error) ? error.details : undefined;
+  const presented = details?.['presented'] as PresentedKey | undefined;
+  const key = presented === undefined ? '' : ` (${presented.algorithm} ${presented.fingerprintSha256})`;
+  if (code === 'HOST_KEY_MISMATCH') {
+    return details?.['revoked'] === true
+      ? `The host key${key} is marked @revoked in your known_hosts. Do not connect.`
+      : 'WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! Someone could be eavesdropping on you right now, or the host ' +
+          `key was just changed. The host presented${key}, which differs from your known_hosts. If the change is ` +
+          'expected, remove the old entry from ~/.ssh/known_hosts (or ~/.qe-workspace/known_hosts) and connect again.';
+  }
+  if (code === 'HOST_KEY_UNKNOWN') {
+    return details?.['reason'] === 'trust_on_first_use_disabled'
+      ? `The host key${key} is not in your known_hosts, and your organisation does not allow trusting new hosts here.`
+      : `The host key${key} is not in your known_hosts and was not trusted.`;
+  }
+  return messageFor(code);
 }
 
 /** A terminal on the user's own machine: long, like a local ssh, but not forever. */
@@ -63,6 +97,9 @@ const failure = (error: unknown): ErrorCode => (isDomainError(error) ? error.cod
 export class EmbeddedBroker implements EmbeddedBrokerService {
   protected client: EmbeddedBrokerClient | undefined;
   protected readonly streams = new Map<string, TerminalBridge>();
+  /** Host keys the user trusted for this window ("trust once"), by `host:port`. */
+  protected readonly trustedOnce = new Map<string, PresentedKey[]>();
+  protected readonly hostKeyQuestions = new Map<string, Promise<HostKeyAnswer>>();
   protected readonly files = new Map<
     string,
     Promise<{ fs: RemoteFileSystem; touch(): void; close(): void }>
@@ -109,19 +146,20 @@ export class EmbeddedBroker implements EmbeddedBrokerService {
 
   /**
    * Connects to a personal target: the organisation's deny list, then the host key against `known_hosts` (a revoked
-   * key fails even where trusted), then the agent and plain key files; only if those are rejected, the passphrases
-   * of encrypted key files are asked for and a second attempt is made — off the connect timer, as OpenSSH does.
+   * key fails even where trusted, a different key is a hard error), then the agent and plain key files; only if those
+   * are rejected, the passphrases of encrypted key files are asked for. A host with no known key is offered to the
+   * user once (trust once / trust and save / cancel), between attempts — never on the handshake's timer — and the
+   * retry trusts exactly the fingerprint the user saw. The first attempt always runs, with no credentials at all if
+   * none are usable without a passphrase, so host-key problems surface before the user is asked for anything.
    */
   protected async connect(
     target: PersonalTarget,
-  ): Promise<{ connection: SshConnection; hostKey: { algorithm: string; fingerprintSha256: string } }> {
+  ): Promise<{ connection: SshConnection; hostKey: PresentedKey }> {
     const { deps } = this;
     if (target.proxyJump !== undefined)
       throw new DomainError('TARGET_NOT_ALLOWED', 'jump hosts arrive in Phase 19');
     const address = await checkPersonalHost(target.host, deps.deniedCidrs, deps.resolver);
     if (!address.allowed) throw new DomainError('TARGET_ADDRESS_FORBIDDEN');
-    const record = await deps.hostKeys.lookup(target.host, target.port);
-    const verifier = createHostKeyVerifier(record.trusted, { revoked: record.revoked });
     const credentials = await personalCredentials(target, {
       home: deps.home,
       agent: deps.agent,
@@ -129,29 +167,97 @@ export class EmbeddedBroker implements EmbeddedBrokerService {
         this.client?.askPassphrase(target.alias, basename(keyFile)) ?? Promise.resolve(undefined),
       ...(deps.readKey !== undefined && { read: deps.readKey }),
     });
+    let unlocked: Promise<SshCredential | undefined> | undefined;
+    const unlock = () => (unlocked ??= credentials.unlock());
     const endpoint = { address: address.address, port: target.port, username: target.user };
-    const attempt = async (credential: SshCredential) => {
+
+    const authenticate = async () => {
+      const record = await deps.hostKeys.lookup(target.host, target.port);
+      const trusted = [...record.trusted, ...(this.trustedOnce.get(hostKeyName(target)) ?? [])];
+      const verifier = createHostKeyVerifier(trusted, { revoked: record.revoked });
+      const attempt = async (credential: SshCredential) => {
+        try {
+          const connection = await deps.transport.connect(endpoint, credential, verifier);
+          return {
+            connection,
+            hostKey: verifier.presented ?? { algorithm: 'unknown', fingerprintSha256: '' },
+          };
+        } catch (error) {
+          const code = mapSshError(error, verifier.outcome);
+          throw new DomainError(code, 'connect failed', {
+            ...(verifier.presented !== undefined &&
+              code.startsWith('HOST_KEY_') && {
+                details: { presented: verifier.presented, revoked: verifier.outcome === 'revoked' },
+              }),
+            cause: verifier.presentedKey,
+          });
+        }
+      };
       try {
-        const connection = await deps.transport.connect(endpoint, credential, verifier);
-        return { connection, hostKey: verifier.presented ?? { algorithm: 'unknown', fingerprintSha256: '' } };
+        return await attempt(credentials.first ?? { kind: 'methods', keys: [] });
       } catch (error) {
-        throw new DomainError(mapSshError(error, verifier.outcome));
+        if (failure(error) !== 'CREDENTIALS_REJECTED') throw error;
+        if (credentials.encryptedKeys.length === 0) {
+          throw credentials.first === undefined ? new DomainError('CREDENTIALS_UNAVAILABLE') : error;
+        }
       }
+      const second = await unlock();
+      if (second === undefined) {
+        throw new DomainError(
+          credentials.first === undefined ? 'CREDENTIALS_UNAVAILABLE' : 'CREDENTIALS_REJECTED',
+        );
+      }
+      return attempt(second);
     };
-    if (credentials.first !== undefined) {
-      try {
-        return await attempt(credentials.first);
-      } catch (error) {
-        if (failure(error) !== 'CREDENTIALS_REJECTED' || credentials.encryptedKeys.length === 0) throw error;
+
+    try {
+      return await authenticate();
+    } catch (error) {
+      if (!isDomainError(error) || error.code !== 'HOST_KEY_UNKNOWN') throw error;
+      const presented = error.details?.['presented'] as PresentedKey | undefined;
+      const blob = error.cause instanceof Uint8Array ? error.cause : undefined;
+      if (presented === undefined || blob === undefined) throw error;
+      if (!(deps.trustOnFirstUse ?? true)) {
+        throw new DomainError('HOST_KEY_UNKNOWN', 'trust on first use is disabled', {
+          details: { presented, reason: 'trust_on_first_use_disabled' },
+        });
       }
+      const answer = await this.askHostKey(target, presented);
+      if (answer === 'cancel') {
+        throw new DomainError('HOST_KEY_UNKNOWN', 'not trusted', {
+          details: { presented, reason: 'not_trusted' },
+        });
+      }
+      if (answer === 'save') await deps.hostKeys.trust(target.host, target.port, blob);
+      const name = hostKeyName(target);
+      this.trustedOnce.set(name, [...(this.trustedOnce.get(name) ?? []), presented]);
+      await deps.audit.record({
+        action: 'SSH_HOST_KEY_TRUSTED',
+        target: target.id,
+        outcome: 'success',
+        detail: { fingerprint: presented.fingerprintSha256, saved: answer === 'save' },
+      });
+      // The retry trusts exactly this fingerprint: a host presenting another key now is a mismatch.
+      return authenticate();
     }
-    const unlocked = await credentials.unlock();
-    if (unlocked === undefined) {
-      throw new DomainError(
-        credentials.first === undefined ? 'CREDENTIALS_UNAVAILABLE' : 'CREDENTIALS_REJECTED',
-      );
+  }
+
+  /** One question per host and key at a time: connects that wait on the same answer share it. */
+  protected askHostKey(target: PersonalTarget, presented: PresentedKey): Promise<HostKeyAnswer> {
+    const key = `${hostKeyName(target)} ${presented.fingerprintSha256}`;
+    let pending = this.hostKeyQuestions.get(key);
+    if (pending === undefined) {
+      pending = (
+        this.client?.confirmHostKey({
+          targetName: target.alias,
+          host: target.host,
+          port: target.port,
+          ...presented,
+        }) ?? Promise.resolve<HostKeyAnswer>('cancel')
+      ).finally(() => this.hostKeyQuestions.delete(key));
+      this.hostKeyQuestions.set(key, pending);
     }
-    return attempt(unlocked);
+    return pending;
   }
 
   async openTerminal(
@@ -208,7 +314,7 @@ export class EmbeddedBroker implements EmbeddedBrokerService {
           outcome: 'failure',
           detail: { code },
         });
-        bridge.sendControl({ t: 'error', code, message: messageFor(code) });
+        bridge.sendControl({ t: 'error', code, message: personalMessage(error) });
         bridge.close('connect_failed', code);
       }
     })();

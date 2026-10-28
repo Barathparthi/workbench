@@ -51,4 +51,19 @@ export interface EmbeddedBrokerClient {
   onClosed(streamId: string, code: number, reason: string): void;
   /** Asks the user for a key file's passphrase (shown with the target's name); undefined when they cancel. */
   askPassphrase(targetName: string, keyFile: string): Promise<string | undefined>;
+  /**
+   * A personal host whose key is not in `known_hosts` (PHASE_10 §10.4): trust it for this window, trust it and save
+   * it to QE's own known_hosts, or cancel. Asked between connect attempts, never on the handshake's timer.
+   */
+  confirmHostKey(question: HostKeyQuestion): Promise<HostKeyAnswer>;
 }
+
+export interface HostKeyQuestion {
+  readonly targetName: string;
+  readonly host: string;
+  readonly port: number;
+  readonly algorithm: string;
+  readonly fingerprintSha256: string;
+}
+
+export type HostKeyAnswer = 'once' | 'save' | 'cancel';

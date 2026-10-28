@@ -1,6 +1,11 @@
 import type { FsOp } from '@qe/contracts';
 
-import type { EmbeddedBrokerClient, EmbeddedBrokerService } from './embedded-broker-protocol';
+import type {
+  EmbeddedBrokerClient,
+  EmbeddedBrokerService,
+  HostKeyAnswer,
+  HostKeyQuestion,
+} from './embedded-broker-protocol';
 import { RemoteApiError, streamTarget, type RemoteClient } from './remote-client';
 import type { RemoteFileSessions } from './remote-files';
 
@@ -116,12 +121,20 @@ export class EmbeddedConnection implements ConnectionClient {
       this.sinks.delete(streamId);
     },
     askPassphrase: (targetName, keyFile) => this.askPassphrase(targetName, keyFile),
+    confirmHostKey: (question) => this.confirmHostKey(question),
   };
+  protected confirmHostKey: (question: HostKeyQuestion) => Promise<HostKeyAnswer> = () =>
+    Promise.resolve('cancel');
 
   constructor(
     protected readonly service: () => EmbeddedBrokerService,
     protected readonly newId: () => string = () => crypto.randomUUID(),
   ) {}
+
+  /** The IDE's host-key dialog (set by the UI); without it, unknown host keys are never trusted. */
+  setHostKeyAsker(ask: (question: HostKeyQuestion) => Promise<HostKeyAnswer>): void {
+    this.confirmHostKey = ask;
+  }
 
   /** The IDE's input dialog (set by the UI once it exists); without it, passphrases are never asked. */
   setPassphraseAsker(ask: (targetName: string, keyFile: string) => Promise<string | undefined>): void {

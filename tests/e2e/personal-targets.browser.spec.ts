@@ -8,6 +8,8 @@
  *   QE_E2E_LAB_CONTAINER   the host's container, to check results "on the server" (default qews-lab-a)
  */
 import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
@@ -66,6 +68,33 @@ test.describe('personal targets (local web, embedded broker)', () => {
     await expect
       .poll(() => onServer('cat /tmp/qe-personal-marker 2>/dev/null || true').trim())
       .toBe('PERSONAL-42');
+  });
+
+  test('asks about an unknown host key, showing its fingerprint, and connects after "Trust once"', async ({
+    page,
+  }) => {
+    // With the host missing from known_hosts (restored afterwards), the embedded broker must ask.
+    const knownHosts = join(process.env['QE_E2E_HOME'] ?? '', '.ssh', 'known_hosts');
+    const saved = readFileSync(knownHosts, 'utf8');
+    writeFileSync(knownHosts, '');
+    try {
+      const fingerprint = onServer('ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub').split(' ')[1] ?? '';
+      await pickPersonalHost(page, 'Connect to Remote System');
+      const dialog = page.locator('.dialogOverlay', { hasText: `Unknown host key for ${alias ?? ''}` });
+      await expect(dialog).toContainText(fingerprint);
+      await dialog.locator('button', { hasText: 'Trust once' }).click();
+      const terminal = page.locator('.terminal-container .xterm-helper-textarea').last();
+      await terminal.waitFor({ state: 'attached' });
+      await terminal.focus();
+      await page.waitForTimeout(1_000);
+      await page.keyboard.type('echo TRUSTED-ONCE > /tmp/qe-personal-marker');
+      await page.keyboard.press('Enter');
+      await expect
+        .poll(() => onServer('cat /tmp/qe-personal-marker 2>/dev/null || true').trim())
+        .toBe('TRUSTED-ONCE');
+    } finally {
+      writeFileSync(knownHosts, saved);
+    }
   });
 
   test('opens the host’s home as a remote folder and saves an edit', async ({ page }) => {

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  DomainError,
   sha256Fingerprint,
   ssh2Transport,
   wrapSftp,
@@ -14,8 +15,12 @@ import { FakeSftp, startSshServer, type TestSshServer } from '@qe/test-utils';
 import ssh2 from 'ssh2';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { EmbeddedBrokerClient } from '../../common/embedded-broker-protocol';
-import { EmbeddedBroker, type EmbeddedBrokerDeps } from '../embedded-broker';
+import type {
+  EmbeddedBrokerClient,
+  HostKeyAnswer,
+  HostKeyQuestion,
+} from '../../common/embedded-broker-protocol';
+import { EmbeddedBroker, personalMessage, type EmbeddedBrokerDeps } from '../embedded-broker';
 
 const PASSPHRASE = 'correct horse';
 /** An encrypted key pair ssh2 can open with the passphrase. */
@@ -65,24 +70,41 @@ interface Recorded {
   closed: [number, string][];
   audit: LocalAuditEvent[];
   asked: string[];
+  /** Host-key questions the user was asked. */
+  questions: HostKeyQuestion[];
+  /** Keys saved by "trust and save". */
+  saved: Uint8Array[];
 }
 
 function setup(
   t: PersonalTarget,
   server: TestSshServer,
-  over: Partial<EmbeddedBrokerDeps> & { trusted?: boolean; answer?: string } = {},
+  over: Partial<EmbeddedBrokerDeps> & {
+    /** false: nothing in known_hosts; 'other': a different key for this host. */
+    trusted?: false | 'other';
+    answer?: string;
+    hostKeyAnswer?: () => Promise<HostKeyAnswer>;
+  } = {},
 ) {
-  const rec: Recorded = { frames: [], closed: [], audit: [], asked: [] };
+  const rec: Recorded = { frames: [], closed: [], audit: [], asked: [], questions: [], saved: [] };
   const hostKeys: HostKeyStore = {
     lookup: () =>
       Promise.resolve({
-        trusted:
-          over.trusted === false
-            ? []
-            : [{ algorithm: 'ssh-ed25519', fingerprintSha256: sha256Fingerprint(server.hostKeyBlob) }],
+        trusted: [
+          ...(over.trusted === undefined
+            ? [{ algorithm: 'ssh-ed25519', fingerprintSha256: sha256Fingerprint(server.hostKeyBlob) }]
+            : over.trusted === 'other'
+              ? [{ algorithm: 'ssh-ed25519', fingerprintSha256: `SHA256:${'A'.repeat(43)}` }]
+              : []),
+          // "trust and save" is visible to later lookups, as with the real file
+          ...rec.saved.map((k) => ({ algorithm: 'ssh-ed25519', fingerprintSha256: sha256Fingerprint(k) })),
+        ],
         revoked: [],
       }),
-    trust: () => Promise.resolve(),
+    trust: (_host, _port, key) => {
+      rec.saved.push(key);
+      return Promise.resolve();
+    },
   };
   const audit: AuditSink = {
     record: (e) => {
@@ -116,6 +138,10 @@ function setup(
     askPassphrase: (name, file) => {
       rec.asked.push(`${name}:${file}`);
       return Promise.resolve(over.answer);
+    },
+    confirmHostKey: (question) => {
+      rec.questions.push(question);
+      return over.hostKeyAnswer?.() ?? Promise.resolve('cancel');
     },
   };
   broker.setClient(client);
@@ -309,5 +335,147 @@ describe('embedded broker: files on personal targets', () => {
     await vi.waitFor(() => {
       expect(fake.calls).toContain('end');
     });
+  });
+});
+
+describe('embedded broker: host keys of personal targets (trust on first use)', () => {
+  const states = (controls: () => Record<string, unknown>[]) => controls().map((c) => c.state ?? c.t);
+  const fingerprint = () => sha256Fingerprint(plainServer.hostKeyBlob);
+
+  it('asks about an unknown host key, connects after "trust once", and does not ask again in this window', async () => {
+    const t = target(plainServer);
+    const { broker, rec, controls } = setup(t, plainServer, {
+      trusted: false,
+      hostKeyAnswer: () => Promise.resolve('once'),
+    });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(states(controls)).toContain('ACTIVE');
+    });
+    expect(rec.questions).toEqual([
+      {
+        targetName: 'box',
+        host: '127.0.0.1',
+        port: plainServer.port,
+        algorithm: 'ssh-ed25519',
+        fingerprintSha256: fingerprint(),
+      },
+    ]);
+    expect(rec.saved).toEqual([]);
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(states(controls).filter((s) => s === 'ACTIVE')).toHaveLength(2);
+    });
+    expect(rec.questions).toHaveLength(1);
+    expect(rec.audit.map((a) => a.action)).toEqual([
+      'SSH_HOST_KEY_TRUSTED',
+      'SSH_SESSION_OPENED',
+      'SSH_SESSION_OPENED',
+    ]);
+    expect(rec.audit[0]?.detail).toEqual({ fingerprint: fingerprint(), saved: false });
+  });
+
+  it('saves the exact key the server presented after "trust and save"', async () => {
+    const t = target(plainServer);
+    const { broker, rec, controls } = setup(t, plainServer, {
+      trusted: false,
+      hostKeyAnswer: () => Promise.resolve('save'),
+    });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(states(controls)).toContain('ACTIVE');
+    });
+    expect(rec.saved.map((k) => sha256Fingerprint(k))).toEqual([fingerprint()]);
+  });
+
+  it('refuses after "cancel", and asks no passphrase for a host the user did not trust', async () => {
+    const t = target(lockedServer, { identityFiles: ['/keys/locked'] });
+    const { broker, rec, controls } = setup(t, lockedServer, { trusted: false, answer: PASSPHRASE });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(rec.closed).toHaveLength(1);
+    });
+    expect(controls().find((c) => c.t === 'error')).toMatchObject({ code: 'HOST_KEY_UNKNOWN' });
+    expect(rec.questions).toHaveLength(1);
+    expect(rec.asked).toEqual([]);
+  });
+
+  it('asks for a passphrase only after the host is trusted, and only once across the retry', async () => {
+    const t = target(lockedServer, { identityFiles: ['/keys/locked'] });
+    const { broker, rec, controls } = setup(t, lockedServer, {
+      trusted: false,
+      answer: PASSPHRASE,
+      hostKeyAnswer: () => Promise.resolve('once'),
+    });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(states(controls)).toContain('ACTIVE');
+    });
+    expect(rec.questions).toHaveLength(1);
+    expect(rec.asked).toEqual(['box:locked']);
+  });
+
+  it('never asks when the organisation turned trust on first use off', async () => {
+    const t = target(plainServer);
+    const { broker, rec, controls } = setup(t, plainServer, {
+      trusted: false,
+      trustOnFirstUse: false,
+      hostKeyAnswer: () => Promise.resolve('save'),
+    });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(rec.closed).toHaveLength(1);
+    });
+    expect(rec.questions).toEqual([]);
+    expect(controls().find((c) => c.t === 'error')?.message).toContain('your organisation does not allow');
+  });
+
+  it('treats a different key as a hard error, OpenSSH style, with no question', async () => {
+    const t = target(plainServer);
+    const { broker, rec, controls } = setup(t, plainServer, {
+      trusted: 'other',
+      hostKeyAnswer: () => Promise.resolve('save'),
+    });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(rec.closed).toHaveLength(1);
+    });
+    expect(rec.questions).toEqual([]);
+    const error = controls().find((c) => c.t === 'error');
+    expect(error).toMatchObject({ code: 'HOST_KEY_MISMATCH' });
+    expect(error?.message).toContain('REMOTE HOST IDENTIFICATION HAS CHANGED');
+    expect(error?.message).toContain(fingerprint());
+  });
+
+  it('asks once for connections that wait on the same answer', async () => {
+    const t = target(plainServer);
+    let answer: (a: HostKeyAnswer) => void = () => undefined;
+    const { broker, rec, controls } = setup(t, plainServer, {
+      trusted: false,
+      hostKeyAnswer: () => new Promise((resolve) => (answer = resolve)),
+    });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(rec.questions).toHaveLength(1);
+    });
+    answer('once');
+    await vi.waitFor(() => {
+      expect(states(controls).filter((s) => s === 'ACTIVE')).toHaveLength(2);
+    });
+    expect(rec.questions).toHaveLength(1);
+  });
+
+  it('words a revoked key and a refused one plainly', () => {
+    const presented = { algorithm: 'ssh-ed25519', fingerprintSha256: 'SHA256:abc' };
+    expect(
+      personalMessage(new DomainError('HOST_KEY_MISMATCH', 'x', { details: { presented, revoked: true } })),
+    ).toBe('The host key (ssh-ed25519 SHA256:abc) is marked @revoked in your known_hosts. Do not connect.');
+    expect(
+      personalMessage(
+        new DomainError('HOST_KEY_UNKNOWN', 'x', { details: { presented, reason: 'not_trusted' } }),
+      ),
+    ).toBe('The host key (ssh-ed25519 SHA256:abc) is not in your known_hosts and was not trusted.');
+    expect(personalMessage(new DomainError('SSH_TIMEOUT'))).toBe('The remote system did not answer in time.');
   });
 });

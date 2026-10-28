@@ -76,6 +76,13 @@ export function toProviderError(error: unknown): Error {
         'Your sign-in has expired. Reload the page to sign in again.',
         FileSystemProviderErrorCode.NoPermissions,
       );
+    case 'HOST_KEY_MISMATCH':
+      return e(
+        'The remote system presented a different host key than the one on record. Do not continue; check with its owner.',
+        FileSystemProviderErrorCode.NoPermissions,
+      );
+    case 'HOST_KEY_UNKNOWN':
+      return e('The remote system’s host key is not trusted yet.', FileSystemProviderErrorCode.NoPermissions);
     case 'QUOTA_EXCEEDED':
       return e(
         'You have too many open remote sessions. Close a remote terminal or folder first.',

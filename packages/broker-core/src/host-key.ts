@@ -28,6 +28,8 @@ export interface HostKeyVerifier {
   readonly outcome: HostKeyOutcome | undefined;
   /** What the server presented (for the audit trail and the user's terminal header). */
   readonly presented: { algorithm: string; fingerprintSha256: string } | undefined;
+  /** The key blob itself, so a key the user chose to trust can be saved to known_hosts (personal targets). */
+  readonly presentedKey: Uint8Array | undefined;
 }
 
 /**
@@ -42,12 +44,16 @@ export function createHostKeyVerifier(
 ): HostKeyVerifier {
   const fingerprints = new Set(trusted.map((k) => k.fingerprintSha256));
   const revoked = new Set(options.revoked ?? []);
-  const state: { outcome?: HostKeyOutcome; presented?: { algorithm: string; fingerprintSha256: string } } =
-    {};
+  const state: {
+    outcome?: HostKeyOutcome;
+    presented?: { algorithm: string; fingerprintSha256: string };
+    key?: Uint8Array;
+  } = {};
   return {
     verify(key) {
       const presented = { algorithm: keyAlgorithm(key), fingerprintSha256: sha256Fingerprint(key) };
       state.presented = presented;
+      state.key = Uint8Array.from(key);
       state.outcome = revoked.has(presented.fingerprintSha256)
         ? 'revoked'
         : fingerprints.size === 0
@@ -62,6 +68,9 @@ export function createHostKeyVerifier(
     },
     get presented() {
       return state.presented;
+    },
+    get presentedKey() {
+      return state.key;
     },
   };
 }
