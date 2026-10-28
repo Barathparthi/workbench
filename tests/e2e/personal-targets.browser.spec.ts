@@ -89,7 +89,10 @@ test.describe('personal targets (local web, embedded broker)', () => {
 
     // Adding the remote root made an untitled multi-root workspace, which the IDE reopens next time: go back to the
     // sample project alone, so the other suites find the workspace they expect.
+    // (Leave the page first: a change of the URL fragment alone is not a reload, and Theia would not reopen.)
+    await page.goto('about:blank');
     await page.goto(`/#${workspace()}`);
     await waitForShell(page);
+    await expect(page.locator('#files')).not.toContainText(`[${alias ?? ''}]`);
   });
 });
