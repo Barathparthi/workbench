@@ -13,6 +13,7 @@ import {
 } from '../common/qe-environment';
 import { parseQeEnvironment, type QeAppTarget } from './qe-environment-config';
 import { QeFaviconContribution } from './qe-favicon';
+import { bindLocalWebAuth } from './qe-local-web-contribution';
 import { enforceTerminalPolicy, terminalPolicyFor, type TerminalServerLike } from './qe-terminal-policy';
 
 /** Serves the environment, derived once at startup, to the frontend over Theia's authenticated RPC channel. */
@@ -86,4 +87,7 @@ export default new ContainerModule((bind, _unbind, _isBound, _rebind, _unbindAsy
   const environment = environmentOrExit('browser');
   bindQeCoreBackend(bind, environment);
   bindQeTerminalPolicy(onActivation, environment);
+  // Local web: nothing is served without the run's sign-in cookie (PHASE_10 §10.6). Hosted mode sits behind the
+  // control plane's router, which authenticates every request; the desktop app has its own module.
+  if (environment.mode === 'local-web') bindLocalWebAuth(bind);
 });

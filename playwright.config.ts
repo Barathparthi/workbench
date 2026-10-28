@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 
 import { defineConfig } from '@playwright/test';
@@ -6,6 +7,13 @@ import { defineConfig } from '@playwright/test';
 const workspace = resolve(import.meta.dirname, 'test-results/e2e-workspace/sample-repo');
 process.env['QE_E2E_WORKSPACE'] = workspace;
 const port = 3030;
+// Local web mode opens with the run's sign-in link (PHASE_10 §10.6): one token per test run, handed to the IDE backend
+// the way the launcher does it. Workers load this file again and inherit the variable, so they see the same token.
+process.env['QE_E2E_LOCAL_TOKEN'] ??= randomBytes(32).toString('base64url');
+const localWebToken = process.env['QE_E2E_LOCAL_TOKEN'];
+// The browser project's signed-in state, written by local-web.setup.ts.
+const localWebState = resolve(import.meta.dirname, 'test-results/e2e-auth/local-web.json');
+process.env['QE_E2E_LOCAL_STATE'] = localWebState;
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -26,7 +34,16 @@ export default defineConfig({
     }),
   },
   projects: [
-    { name: 'browser', testMatch: /\.browser\.spec\.ts$/ },
+    // Signs in once with the run's link; the browser suite starts from that cookie.
+    { name: 'local-web-sign-in', testMatch: 'local-web.setup.ts' },
+    {
+      name: 'browser',
+      testMatch: /\.browser\.spec\.ts$/,
+      dependencies: ['local-web-sign-in'],
+      use: { storageState: localWebState },
+    },
+    // Without the cookie: what local web refuses.
+    { name: 'local-web-security', testMatch: 'local-web.security.spec.ts' },
     { name: 'electron', testMatch: 'smoke.electron.spec.ts' },
     // The hosted stack (control plane, broker, lab machine); remote-files.hosted.spec.ts says what it needs.
     { name: 'hosted', testMatch: /\.hosted\.spec\.ts$/ },
@@ -41,6 +58,7 @@ export default defineConfig({
     // QE_E2E_HOME: a prepared home (SSH configuration for personal targets, personal-targets.browser.spec.ts).
     env: {
       QE_MAX_TERMINALS: '50',
+      QE_LOCAL_WEB_TOKEN: localWebToken,
       ...(process.env['QE_E2E_HOME'] !== undefined && { HOME: process.env['QE_E2E_HOME'] }),
     },
     stdout: 'ignore',
