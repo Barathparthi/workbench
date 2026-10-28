@@ -13,7 +13,7 @@ import {
   wrapSftp,
   type SshTransport,
 } from '@qe/broker-core';
-import type { RedeemTicketResponse } from '@qe/contracts';
+import { DESKTOP_TICKET_ORIGIN, type RedeemTicketResponse } from '@qe/contracts';
 import { FakeSftp, startSshServer, type TestSshServer } from '@qe/test-utils';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -33,6 +33,8 @@ let app: FastifyInstance;
 let base: string;
 let snapshot: RedeemTicketResponse | undefined;
 let redeemError: Error | undefined;
+/** What the control plane bound the ticket to: the IDE's Origin, or the desktop marker for a bearer-token session. */
+let ticketOrigin = ORIGIN;
 let resolved: string[] = ['10.20.1.5'];
 const reports: [string, StateReport][] = [];
 const dialled: string[] = [];
@@ -56,7 +58,7 @@ const controlPlane: ControlPlaneClient = {
   redeem: (ticket, origin) =>
     redeemError !== undefined
       ? Promise.reject(redeemError)
-      : ticket === TICKET && origin === ORIGIN
+      : ticket === TICKET && origin === ticketOrigin
         ? Promise.resolve(snapshot ?? freshSnapshot())
         : Promise.reject(new Error('bad ticket')),
   report: (id, r) => {
@@ -128,6 +130,7 @@ afterEach(() => {
   files.closeAll('shutdown');
   snapshot = freshSnapshot();
   redeemError = undefined;
+  ticketOrigin = ORIGIN;
   resolved = ['10.20.1.5'];
   reports.length = 0;
   dialled.length = 0;
@@ -138,6 +141,9 @@ afterAll(async () => {
   await app.close();
   await ssh.close();
 });
+
+/** Connect as the desktop app does: without an Origin header. */
+const NO_ORIGIN = '<none>';
 
 interface Client {
   ws: WebSocket;
@@ -154,9 +160,8 @@ function connect(
     const ws = new WebSocket(
       `${base}${opts.path ?? `/api/v1/sessions/${SESSION}/stream`}`,
       opts.protocols ?? ['qews.v1', `ticket.${TICKET}`],
-      {
-        origin: opts.origin ?? ORIGIN,
-      },
+      // ws sends no Origin header unless one is given.
+      opts.origin === NO_ORIGIN ? {} : { origin: opts.origin ?? ORIGIN },
     );
     const controls: Record<string, unknown>[] = [];
     let out = '';
@@ -244,24 +249,36 @@ describe('remote terminal through the broker', () => {
 
   it.each([
     ['a foreign Origin', { origin: 'https://evil.example' }, 403],
-    ['no Origin', { origin: undefined as never }, 403],
+    // R17: an opaque origin (sandboxed frame, file:// page) and file:// itself are never the IDE.
+    ['the null Origin', { origin: 'null' }, 403],
+    ['a file:// Origin', { origin: 'file://' }, 403],
+    // Without an Origin the ticket is redeemed as a desktop one; a browser ticket is bound to its Origin and fails.
+    ['a browser ticket without its Origin', { origin: NO_ORIGIN }, 401],
     ['no ticket subprotocol', { protocols: ['qews.v1'] }, 401],
     ['a ticket without qews.v1', { protocols: [`ticket.${TICKET}`] }, 401],
     ['a ticket the control plane refuses', { protocols: ['qews.v1', `ticket.${'X'.repeat(43)}`] }, 401],
     ['a path outside the stream endpoint', { path: '/api/v1/sessions/nope/stream' }, 404],
   ])('refuses %s before any SSH connection', async (_label, opts, status) => {
-    if (_label === 'no Origin') {
-      // ws sends no Origin header unless one is given.
-      const ws = new WebSocket(`${base}/api/v1/sessions/${SESSION}/stream`, ['qews.v1', `ticket.${TICKET}`]);
-      const code = await new Promise<number>((r) =>
-        ws.on('unexpected-response', (_q, res) => {
-          r(res.statusCode ?? 0);
-        }),
-      );
-      expect(code).toBe(403);
-    } else {
-      expect(await connect(opts)).toBe(status);
-    }
+    expect(await connect(opts)).toBe(status);
+    expect(dialled).toEqual([]);
+  });
+
+  it('connects the desktop app, which sends no Origin, with a ticket bound to the desktop marker', async () => {
+    ticketOrigin = DESKTOP_TICKET_ORIGIN;
+    const c = asClient(await connect({ origin: NO_ORIGIN }));
+    await vi.waitFor(() => {
+      expect(c.controls).toContainEqual({ t: 'status', state: 'ACTIVE' });
+    });
+    c.ws.close();
+    await c.closed;
+    await vi.waitFor(() => {
+      expect(reports).toHaveLength(2);
+    });
+  });
+
+  it('refuses a desktop ticket presented by a browser, whose Origin it is not bound to', async () => {
+    ticketOrigin = DESKTOP_TICKET_ORIGIN;
+    expect(await connect()).toBe(401);
     expect(dialled).toEqual([]);
   });
 

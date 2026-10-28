@@ -104,6 +104,25 @@ describe('OIDC and session configuration', () => {
     });
   });
 
+  it('accepts desktop bearer tokens only when the desktop client is configured', () => {
+    expect(oidcSettings(loadConfig(oidcEnv)).desktop).toBeUndefined();
+    expect(
+      oidcSettings(loadConfig({ ...oidcEnv, OIDC_DESKTOP_CLIENT_ID: 'qe-workspace-desktop' })).desktop,
+    ).toEqual({
+      clientId: 'qe-workspace-desktop',
+      audience: 'qe-workspace',
+    });
+    expect(
+      oidcSettings(
+        loadConfig({
+          ...oidcEnv,
+          OIDC_DESKTOP_CLIENT_ID: 'qe-workspace-desktop',
+          OIDC_API_AUDIENCE: 'qe-api',
+        }),
+      ).desktop,
+    ).toEqual({ clientId: 'qe-workspace-desktop', audience: 'qe-api' });
+  });
+
   it('refuses oidcSettings outside oidc mode', () => {
     expect(() => oidcSettings(loadConfig(env))).toThrow(/not a complete oidc/);
   });

@@ -38,9 +38,13 @@ export interface ResolvedSession {
   readonly csrfHash: Buffer;
 }
 
-/** What authentication looks at: cookies only (HTTP requests and WebSocket upgrades alike). */
+/**
+ * What authentication looks at: cookies (HTTP requests and WebSocket upgrades alike) and, on API requests only, the
+ * Authorization header of the desktop app (PHASE_10 §10.4). The workspace router never passes the header.
+ */
 export interface AuthInput {
   readonly cookies: Readonly<Record<string, string | undefined>>;
+  readonly authorization?: string | undefined;
   readonly requestId: string;
 }
 
@@ -54,7 +58,9 @@ export interface Authenticator {
 
 export type Authenticated =
   | { readonly kind: 'dev'; readonly principal: Principal }
-  | { readonly kind: 'session'; readonly session: ResolvedSession };
+  | { readonly kind: 'session'; readonly session: ResolvedSession }
+  /** The desktop app's IdP access token: no ambient credential, so no CSRF check applies. */
+  | { readonly kind: 'bearer'; readonly principal: Principal };
 
 declare module 'fastify' {
   interface FastifyContextConfig {
@@ -71,6 +77,8 @@ declare module 'fastify' {
   interface FastifyRequest {
     principal?: Principal;
     webSession?: ResolvedSession;
+    /** How the principal was authenticated (absent on public and internal routes). */
+    authMethod?: Authenticated['kind'];
   }
 }
 
@@ -98,7 +106,7 @@ export const noAuthenticator: Authenticator = { authenticate: () => Promise.reso
  * Authentication, CSRF and authorization for every route, in that order (Phase 04 §4.3–4.6). Runs in
  * `onRequest`, before the body is parsed or validated:
  *  - `public` routes skip everything; unknown paths need a signed-in user (no route enumeration);
- *  - otherwise a principal is required (401);
+ *  - otherwise a principal is required (401): a cookie session, or the desktop app's bearer token (never both);
  *  - cookie sessions must send the session's CSRF token on unsafe methods (403 CSRF_REJECTED);
  *  - `authenticated` routes need nothing more; any other value is a permission the principal must hold
  *    (403 FORBIDDEN, audited for routes that audit).
@@ -119,10 +127,15 @@ export function authorize(authenticator: Authenticator, internalServiceToken?: s
       return;
     }
 
-    const result = await authenticator.authenticate({ cookies: request.cookies, requestId: request.id });
+    const result = await authenticator.authenticate({
+      cookies: request.cookies,
+      authorization: request.headers.authorization,
+      requestId: request.id,
+    });
     if (result === undefined) throw new DomainError('AUTH_REQUIRED');
-    const principal = result.kind === 'dev' ? result.principal : result.session.principal;
+    const principal = result.kind === 'session' ? result.session.principal : result.principal;
     request.principal = principal;
+    request.authMethod = result.kind;
 
     if (result.kind === 'session') {
       request.webSession = result.session;

@@ -20,3 +20,14 @@ export const CallbackQuery = z.looseObject({
   state: z.string().max(512).optional(),
   error: z.string().max(256).optional(),
 });
+
+/**
+ * `GET /auth/desktop` — how the desktop app signs in (PHASE_10 §10.4): an OIDC public client, authorization code with
+ * PKCE through the system browser, redirected to a loopback port. Its access tokens are then sent as bearer tokens.
+ */
+export const DesktopAuthConfig = z.strictObject({
+  issuer: z.url({ protocol: /^https?$/ }),
+  clientId: z.string().min(1).max(256),
+  scopes: z.string().min(1).max(512),
+});
+export type DesktopAuthConfig = z.infer<typeof DesktopAuthConfig>;

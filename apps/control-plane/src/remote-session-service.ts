@@ -1,6 +1,11 @@
 import { randomBytes } from 'node:crypto';
 
-import type { OpenSessionRequest, RedeemTicketResponse, SessionStateReport } from '@qe/contracts';
+import {
+  DESKTOP_TICKET_ORIGIN,
+  type OpenSessionRequest,
+  type RedeemTicketResponse,
+  type SessionStateReport,
+} from '@qe/contracts';
 import { DomainError, type SessionState } from '@qe/domain';
 import { evaluateConnection, type PolicyView } from '@qe/policy';
 import { sql, type Kysely, type Selectable } from 'kysely';
@@ -161,7 +166,8 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
      * (audited allow or deny), and only then a ticket — nothing touches the network here.
      */
     async open(ctx: RequestContext, targetId: string, input: OpenSessionRequest, origin: string | undefined) {
-      if (origin === undefined || !origins.has(origin)) {
+      // The route passes DESKTOP_TICKET_ORIGIN only for the desktop app's bearer token (ticketBinding).
+      if (origin === undefined || !(origin === DESKTOP_TICKET_ORIGIN || origins.has(origin))) {
         throw new DomainError('CSRF_REJECTED', 'sessions are opened from the IDE');
       }
       const row = await db

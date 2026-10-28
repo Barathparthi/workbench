@@ -204,7 +204,8 @@ export async function registerWorkspaceRouter(
         cookies: app.parseCookie(req.headers.cookie ?? ''),
         requestId: randomUUID(),
       });
-      if (auth === undefined) {
+      // Cookies only: the router never passes an Authorization header, and refuses a bearer result regardless.
+      if (auth === undefined || auth.kind === 'bearer') {
         refuse(socket, 401, 'Unauthorized');
         return;
       }

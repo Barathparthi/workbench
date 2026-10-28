@@ -5,6 +5,7 @@ import type { Duplex } from 'node:stream';
 import {
   BrokerFsParams,
   BrokerFsRequest,
+  DESKTOP_TICKET_ORIGIN,
   MAX_MESSAGE_BYTES,
   QEWS_PROTOCOL,
   REMOTE_FILE_LIMITS,
@@ -145,12 +146,15 @@ export async function buildBroker(deps: BrokerDeps): Promise<FastifyInstance> {
         refuse(socket, 503, 'Service Unavailable');
         return;
       }
-      // Browsers always send Origin on WebSockets; anything else is not our IDE (CSWSH, 07_SECURITY T12).
-      const origin = req.headers.origin;
-      if (origin === undefined || !allowedOrigins.has(origin)) {
+      // Browsers always send Origin on WebSockets, and it must be the IDE's (CSWSH, 07_SECURITY T12); `null` and
+      // file:// pages never qualify (R17). No Origin at all is the desktop app (PHASE_10 §10.4): its ticket was issued
+      // to a bearer token and bound to DESKTOP_TICKET_ORIGIN, which no browser ticket ever is.
+      const presented = req.headers.origin;
+      if (presented !== undefined && !allowedOrigins.has(presented)) {
         refuse(socket, 403, 'Forbidden');
         return;
       }
+      const origin = presented ?? DESKTOP_TICKET_ORIGIN;
       const ticket = ticketFromProtocols(req.headers['sec-websocket-protocol']);
       if (ticket === undefined) {
         refuse(socket, 401, 'Unauthorized');

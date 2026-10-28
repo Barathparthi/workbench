@@ -243,10 +243,17 @@ export const RemoteSession = z.object({
 export const RemoteSessionList = z.object({ items: z.array(RemoteSession) });
 export const SessionIdParams = z.object({ id: z.uuid() });
 
+/**
+ * What a ticket is bound to when the desktop app opened the session with a bearer token (PHASE_10 §10.4): desktop
+ * clients have no Origin, and the broker redeems Origin-less upgrades against this value. It is not a serialized
+ * origin, so no browser can ever present it, and browser tickets stay bound to their real Origin.
+ */
+export const DESKTOP_TICKET_ORIGIN = 'qe-desktop';
+
 /** Internal (broker → control plane): redeem a ticket exactly once. */
 export const RedeemTicketRequest = z.strictObject({
   ticket: z.string().min(16).max(128),
-  /** The `Origin` the broker saw on the WebSocket; must equal the one the ticket was issued for. */
+  /** The `Origin` the broker saw on the WebSocket (DESKTOP_TICKET_ORIGIN without one); must equal the ticket's. */
   origin: z.string().max(256),
 });
 

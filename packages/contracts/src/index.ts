@@ -7,7 +7,7 @@ export const PACKAGE_NAME = '@qe/contracts';
 // The API error vocabulary (problem+json `code`) is the domain's ErrorCode set.
 export { ErrorCodes, ErrorHttpStatus, type ErrorCode } from '@qe/domain';
 export { PROBLEM_TYPE_BASE, ProblemDetails } from './problem.js';
-export { CallbackQuery, LoginQuery, Me } from './auth.js';
+export { CallbackQuery, DesktopAuthConfig, LoginQuery, Me } from './auth.js';
 export {
   ClientControl,
   CloseCodes,
@@ -34,6 +34,7 @@ export {
   CreateCredentialRefRequest,
   CreatePolicyRequest,
   CredentialRef,
+  DESKTOP_TICKET_ORIGIN,
   HostKey,
   HostKeyParams,
   OpenSessionRequest,
