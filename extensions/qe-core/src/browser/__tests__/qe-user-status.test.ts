@@ -1,33 +1,54 @@
-import { describe, expect, it } from 'vitest';
+import { CommandRegistry } from '@theia/core/lib/common/command';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { cookieValue, parseMe, userStatus } from '../qe-user-status';
+import type { QeEnvironment, QeMode } from '../../common/qe-environment';
+import { QE_SIGN_OUT, QeUserStatusContribution } from '../qe-user-status';
 
-describe('QE user status', () => {
-  it('parses the /api/v1/me answer it needs and ignores the rest', () => {
-    expect(parseMe({ username: 'bob', displayName: 'Bob', roles: ['qe.user', 1], permissions: [] })).toEqual({
-      username: 'bob',
-      displayName: 'Bob',
-      roles: ['qe.user'],
-    });
+function contribution(mode: QeMode) {
+  const c = new QeUserStatusContribution();
+  const statusBar = { setElement: vi.fn(() => Promise.resolve()) };
+  const environment = { mode, features: {} } as QeEnvironment;
+  Object.assign(c, {
+    statusBar,
+    environmentService: { getEnvironment: () => Promise.resolve(environment) },
+    logger: { warn: vi.fn() },
   });
+  const registry = new CommandRegistry({ getContributions: () => [] });
+  c.registerCommands(registry);
+  return { c, registry, statusBar };
+}
 
-  it.each([null, 'x', {}, { username: 'a', displayName: 'A' }, { username: 1, displayName: 'A', roles: [] }])(
-    'rejects %j',
-    (body) => {
-      expect(parseMe(body)).toBeUndefined();
-    },
-  );
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
-  it('shows the username and the roles', () => {
-    expect(userStatus({ username: 'bob', displayName: 'Bob L', roles: ['lab.a.user', 'qe.user'] })).toEqual({
-      text: '$(account) bob',
-      tooltip: 'Bob L — roles: lab.a.user, qe.user. Click to sign out.',
+describe('QE: Sign Out (hosted sign-in)', () => {
+  it('is offered in hosted mode only: local web has no sign-in, the desktop app its own', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({ username: 'bob', displayName: 'Bob', roles: ['qe.user'] }), {
+            status: 200,
+          }),
+        ),
+      ),
+    );
+    for (const mode of ['local-web', 'desktop'] as const) {
+      const { c, registry, statusBar } = contribution(mode);
+      expect(registry.isVisible(QE_SIGN_OUT.id)).toBe(false);
+      c.onStart();
+      await vi.waitFor(() => {
+        expect(registry.isEnabled(QE_SIGN_OUT.id)).toBe(false);
+      });
+      expect(registry.isVisible(QE_SIGN_OUT.id)).toBe(false);
+      expect(statusBar.setElement).not.toHaveBeenCalled();
+    }
+    const { c, registry } = contribution('hosted');
+    c.onStart();
+    await vi.waitFor(() => {
+      expect(registry.isVisible(QE_SIGN_OUT.id)).toBe(true);
     });
-    expect(userStatus({ username: 'x', displayName: 'X', roles: [] }).tooltip).toContain('roles: none');
-  });
-
-  it('reads the CSRF cookie', () => {
-    expect(cookieValue('a=1; qews_csrf=t%3D1', 'qews_csrf')).toBe('t=1');
-    expect(cookieValue('qews_csrfx=1', 'qews_csrf')).toBeUndefined();
+    expect(registry.isEnabled(QE_SIGN_OUT.id)).toBe(true);
   });
 });

@@ -54,19 +54,26 @@ export class QeUserStatusContribution implements FrontendApplicationContribution
   @inject(StatusBar) protected readonly statusBar!: StatusBar;
   @inject(QeEnvironmentService) protected readonly environmentService!: QeEnvironmentService;
   @inject(ILogger) protected readonly logger!: ILogger;
+  /** Hosted only: local web has no sign-in and the desktop app has its own (QE: Sign Out of QE Workspace). */
+  protected hosted = false;
 
   onStart(): void {
     void this.show();
   }
 
   registerCommands(registry: CommandRegistry): void {
-    registry.registerCommand(QE_SIGN_OUT, { execute: () => this.signOut() });
+    registry.registerCommand(QE_SIGN_OUT, {
+      execute: () => this.signOut(),
+      isEnabled: () => this.hosted,
+      isVisible: () => this.hosted,
+    });
   }
 
   protected async show(): Promise<void> {
     try {
       const environment = await this.environmentService.getEnvironment();
-      if (environment.mode !== 'hosted') return;
+      this.hosted = environment.mode === 'hosted';
+      if (!this.hosted) return;
       const res = await fetch('/api/v1/me', { credentials: 'include', signal: AbortSignal.timeout(10_000) });
       const me = res.ok ? parseMe(await res.json()) : undefined;
       if (me === undefined) return;
