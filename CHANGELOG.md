@@ -22,8 +22,16 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   (signature, issuer, audience, authorized party and expiry checked); `GET /auth/desktop` tells the desktop app where
   to sign in. Broker: accepts a stream without an Origin when its ticket was issued to such a token. The dev realm has
   the `qe-workspace-desktop` client.
+- Local web mode serves nothing without its sign-in cookie: the link with the run's token (shown by the launcher, or
+  written to `~/.qe-workspace/local-web-url`) sets an HttpOnly, SameSite=Strict cookie; pages, bundles and WebSocket
+  handshakes are refused without it, and under any Host name but loopback. The backend refuses to listen on anything
+  but loopback outside the local-web container.
+- `scripts/qe-workspace-local` (bash) and `qe-workspace-local.ps1`: QE Workspace in a container for one folder,
+  published on 127.0.0.1 only, `~/.ssh` read-only, ssh-agent optional (`deploy/compose/docker-compose.local-web.yml`).
 
 ### Fixed
+
+- "QE: Sign Out" (hosted sign-in) is offered only in hosted mode; the desktop app has "QE: Sign Out of QE Workspace".
 
 - Broker: SSH connections use `TCP_NODELAY`. ssh2 leaves Nagle's algorithm on, so each SFTP round trip and
   terminal exchange waited ~45 ms for a delayed ACK (remote save p95 1344 → 142 ms).

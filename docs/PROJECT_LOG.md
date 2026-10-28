@@ -23,7 +23,7 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 07 — Target registry & policy        | **Done — gate PASS** (2026-10-27; integration green in WSL)                                                                      | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
 | 08 — SSH broker & remote terminal    | **Done — gate PASS** (M2 terminal run 2026-10-27, PR #18)                                                                        | [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md) |
 | 09 — Remote filesystem               | **Done — gate PASS** ([PR #22](https://github.com/Barathparthi/workbench/pull/22) merged; CI fix `1456e3c` needs a follow-up PR) | [`phase-gates/PHASE_09.md`](phase-gates/PHASE_09.md) |
-| 10 — Local desktop & local web       | **In progress** — P10.1–P10.4 built on `phase-10-local-desktop`; P10.5–P10.7 and gates 10a/10b open                              | `02_PHASES/`                                         |
+| 10 — Local desktop & local web       | **In progress** — P10.1–P10.5 built on `phase-10-local-desktop`; P10.6–P10.7 and gates 10a/10b open                              | `02_PHASES/`                                         |
 | 11 – 19                              | Not started                                                                                                                      | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached. M2 (remote terminal + remote files) — met 2026-10-27.
@@ -632,3 +632,36 @@ sign-out.
 Open: the hosted "QE: Sign Out" command (qe-core) is also registered in the desktop app, where it does nothing useful;
 the dev Keycloak must be recreated to import the desktop client; P10.5 (local web), P10.6 (installers and managed
 settings, which also feed the deny list and the TOFU switch), P10.7 (parity), then gates 10a and 10b.
+
+### 2026-10-28 — Phase 10: local web mode, P10.5 (branch `phase-10-local-desktop`)
+
+Local web was reachable by other local users and processes, and by any web page through DNS rebinding. Now
+(`6543617`, `d4bb7d8`, `f5ef57c`): the backend takes the run's token from the launcher (or generates one) and removes
+it from its environment; nothing is served — pages, bundles, Socket.IO and WebSocket handshakes — without the
+HttpOnly, SameSite=Strict cookie the sign-in link sets, and the link redirects to the same address without the token.
+The guard runs first, ahead of Theia's own connection-token middleware, so a refused request gets no cookie at all.
+Requests under any Host but loopback are refused even with the cookie. Outside the local-web container the backend
+refuses to listen on anything but loopback (exit 78). `deploy/compose/docker-compose.local-web.yml` (127.0.0.1 only,
+`~/.ssh` read-only, QE state in a volume, all capabilities dropped, no-new-privileges; agent socket as an overlay)
+and the `qe-workspace-local` launchers (bash, PowerShell). Also `f06cfd0`: the hosted "QE: Sign Out" is offered in
+hosted mode only.
+
+Choices to review: CLAUDE.md rule 4 (never log tokens) against the kit's "print `http://127.0.0.1:3000/?token=…`" —
+the backend never prints or logs the token; the launcher generates it and shows the link in the user's own terminal,
+and a backend started without the launcher writes it to `~/.qe-workspace/local-web-url` (0600). The token is
+reusable for the run (Jupyter-style) rather than single-use, so a second browser or a lost cookie does not need a
+restart; the cookie is derived from it. The container's environment still holds the token (`docker inspect`, `docker
+exec`), which only the machine's Docker users — root-equivalent — can see; the IDE's children never inherit it.
+
+Evidence (2026-10-28, WSL): local-web security spec 6/6 against the real backend (all paths refused without the
+cookie, a wrong token refused with no cookie handed out, the link's 303 and cookie attributes, the cookie opens the IDE
+and its WebSocket while Theia's own token alone does not, foreign Host refused, nothing on WSL's network address);
+browser suite 23/23 signed in through the link (personal terminal, TOFU dialog, remote folder); terminal spec 7/7
+including that a shell never sees `QE_LOCAL_WEB_TOKEN`. Runtime image built from this commit (two earlier attempts
+failed on proxy resets during `npm ci`) and the real launcher run on a scratch project: 401 without the cookie, 401
+for a wrong token, 303 with `qe_local=…; Path=/; HttpOnly; SameSite=Strict`, 200 with the cookie, 403 under another
+Host, connection refused on 172.17.232.14:3100, published as `127.0.0.1:3100`, `~/.ssh` read-only, `CapDrop [ALL]`
+and `no-new-privileges`, the token 0 times in the container logs.
+
+Open: webviews (`<uuid>.webview.<host>` origins) in local web are to be checked in the parity suite (P10.7); the
+PowerShell launcher has not been run yet (Windows with Docker Desktop); container keys must be readable by uid 1000.
