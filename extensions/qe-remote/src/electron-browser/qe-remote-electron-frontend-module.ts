@@ -1,26 +1,12 @@
-import { CommandContribution, CommandRegistry } from '@theia/core/lib/common/command';
-import { MessageService } from '@theia/core/lib/common/message-service';
-import { ContainerModule, inject, injectable } from '@theia/core/shared/inversify';
-import { QeCommands } from '@qe/theia-qe-core/lib/browser/qe-commands';
+import { ContainerModule } from '@theia/core/shared/inversify';
+
+import { bindQeRemoteFrontend } from '../browser/qe-remote-frontend-module';
 
 /**
- * Desktop: the renderer runs from `file://`, so it must not talk to the broker itself — remote connections relay
- * through the Electron backend with the user's desktop sign-in (ADR-006, risk R17). That arrives in Phase 10; until
- * then the command explains it instead of trying an origin the broker (correctly) refuses.
+ * Desktop: the same remote features as the browser app. The renderer runs from `file://`, so it never talks to the
+ * hosted broker itself (risk R17): personal targets go through the embedded broker in the Electron backend; managed
+ * targets arrive with desktop sign-in and a backend relay (Phase 10.4).
  */
-@injectable()
-export class QeRemoteDesktopContribution implements CommandContribution {
-  @inject(MessageService) protected readonly messages!: MessageService;
-
-  registerCommands(registry: CommandRegistry): void {
-    const explain = () =>
-      this.messages.info('Remote systems in the desktop app arrive with desktop sign-in.');
-    registry.registerCommand(QeCommands.CONNECT_TARGET, { execute: explain });
-    registry.registerCommand(QeCommands.OPEN_REMOTE_FOLDER, { execute: explain });
-  }
-}
-
-export default new ContainerModule((bind) => {
-  bind(QeRemoteDesktopContribution).toSelf().inSingletonScope();
-  bind(CommandContribution).toService(QeRemoteDesktopContribution);
+export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
+  bindQeRemoteFrontend(bind, rebind);
 });

@@ -5,26 +5,76 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import type { FileService, FileServiceContribution } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 
-import { remoteClient, type TargetSummary } from '../common/remote-client';
+import { QeEnvironmentService } from '@qe/theia-qe-core/lib/common/qe-environment';
+
+import {
+  compositeConnectionClient,
+  EmbeddedConnection,
+  hostedConnectionClient,
+  type ConnectionClient,
+  type RemoteTarget,
+} from '../common/connection-client';
+import type { EmbeddedBrokerClient, EmbeddedBrokerService } from '../common/embedded-broker-protocol';
+import { remoteClient } from '../common/remote-client';
 import { QE_SSH_SCHEME, RemoteFileSessions, type SessionStore } from '../common/remote-files';
 import { QeSshFileSystemProvider } from './qe-ssh-file-system-provider';
 
+/** Creates the RPC proxy to the backend's embedded broker, with the given client for its callbacks. */
+export const EmbeddedBrokerConnector = Symbol('EmbeddedBrokerConnector');
+export type EmbeddedBrokerConnector = (client: EmbeddedBrokerClient) => EmbeddedBrokerService;
+
 /**
- * The page's remote API client, files-sessions and `qe-ssh` provider. Deliberately free of injected dependencies:
- * FileService collects FileServiceContributions while it is being constructed, so anything they inject must not need
- * FileService (spike S3: a cycle there stops the frontend).
+ * The page's connection client, files-sessions and `qe-ssh` provider. Its dependencies must not need FileService:
+ * FileService collects FileServiceContributions while it is being constructed (spike S3: a cycle there stops the
+ * frontend) — the environment and the embedded broker are RPC proxies, which do not.
+ *
+ * Which parts exist follows the mode: hosted reaches managed targets through the control plane on its own origin;
+ * local web and desktop reach personal targets through the embedded broker (managed ones arrive with desktop
+ * sign-in, Phase 10.4). The embedded broker's proxy is created on first use only, so a hosted page never opens it.
  */
 @injectable()
 export class QeRemoteServices {
+  @inject(QeEnvironmentService) protected readonly environment!: QeEnvironmentService;
+  @inject(EmbeddedBrokerConnector) protected readonly connectEmbedded!: EmbeddedBrokerConnector;
+
   readonly client = remoteClient({
     origin: window.location.origin,
     cookies: () => document.cookie,
     fetch: (input, init) => fetch(input, init),
   });
-  readonly provider = new QeSshFileSystemProvider(
-    new RemoteFileSessions(this.client, tabSessionStore()),
-    userIsActive(),
-  );
+  protected embeddedService: EmbeddedBrokerService | undefined;
+  readonly embedded = new EmbeddedConnection(() => {
+    this.embeddedService ??= this.connectEmbedded(this.embedded.client);
+    return this.embeddedService;
+  });
+  protected parts: Promise<ConnectionClient> | undefined;
+
+  /** Managed and personal targets as this mode offers them, resolved on first use (after injection). */
+  readonly connections: ConnectionClient = {
+    listTargets: async () => (await this.resolve()).listTargets(),
+    openTerminal: async (target, size, sink) => (await this.resolve()).openTerminal(target, size, sink),
+    call: async (targetId, op, body) => (await this.resolve()).call(targetId, op, body),
+  };
+
+  readonly provider = new QeSshFileSystemProvider(this.connections, userIsActive());
+
+  protected resolve(): Promise<ConnectionClient> {
+    this.parts ??= this.environment.getEnvironment().then((env) =>
+      compositeConnectionClient({
+        managed:
+          env.mode === 'hosted'
+            ? hostedConnectionClient({
+                client: this.client,
+                files: new RemoteFileSessions(this.client, tabSessionStore()),
+                origin: window.location.origin,
+                createSocket: (url, protocols) => new WebSocket(url, protocols),
+              })
+            : undefined,
+        personal: env.features.personalTargets ? this.embedded : undefined,
+      }),
+    );
+    return this.parts;
+  }
 }
 
 /** Per tab, kept across reloads; best effort (storage may be unavailable, e.g. in a private window). */
@@ -88,18 +138,19 @@ export class RemoteTargetNames {
   readonly onDidChange = this.changed.event;
   protected loading: Promise<void> | undefined;
 
-  remember(targets: readonly TargetSummary[]): void {
-    for (const t of targets) this.names.set(t.id, t.name);
+  remember(targets: readonly RemoteTarget[]): void {
+    // URIs lowercase their authority, so names are kept by lowercase id.
+    for (const t of targets) this.names.set(t.id.toLowerCase(), t.name);
     this.changed.fire();
   }
 
   /** The target's name, or undefined until the list has loaded (a change event follows). */
   get(targetId: string): string | undefined {
-    const name = this.names.get(targetId);
+    const name = this.names.get(targetId.toLowerCase());
     if (name === undefined) {
-      this.loading ??= this.services.client
+      this.loading ??= this.services.connections
         .listTargets()
-        .then((targets) => {
+        .then(({ targets }) => {
           this.remember(targets);
         })
         .catch(() => {

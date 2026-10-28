@@ -60,6 +60,8 @@ export interface SessionSummary {
 /** A file operation can open the session's SFTP connection first (10 s) and then move up to 10 MB. */
 const FILE_OP_TIMEOUT_MS = 60_000;
 
+export type RemoteClient = ReturnType<typeof remoteClient>;
+
 export function remoteClient(deps: RemoteClientDeps) {
   /** A same-origin POST with the session cookie and the CSRF token echoed from its cookie. */
   const post = async (path: string, body: unknown, timeoutMs: number): Promise<unknown> => {
