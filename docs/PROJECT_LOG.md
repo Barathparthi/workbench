@@ -9,21 +9,22 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 ---
 
-## Status snapshot (updated 2026-10-27)
+## Status snapshot (updated 2026-10-28)
 
-| Phase                                | State                                                                                                                        | Record                                               |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open                                  | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
-| 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                                                        | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
-| 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                                                 | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
-| 03 — Control plane and database      | **Done — gate PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7) merged, CI green)                            | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
-| 04 — Dev identity & RBAC             | **Done — gate PASS** ([PR #9](https://github.com/Barathparthi/workbench/pull/9); Keycloak + session integration green in CI) | [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md) |
-| 05 — Workspace runtime & routing     | **Done** ([PR #10](https://github.com/Barathparthi/workbench/pull/10), CI green) — M1 end-to-end run with Docker still open  | [`phase-gates/PHASE_05.md`](phase-gates/PHASE_05.md) |
-| 06 — Terminal hardening              | **Done** (merged to `main`, `1771c61`; CI smoke green after resize-test fix)                                                 | [`phase-gates/PHASE_06.md`](phase-gates/PHASE_06.md) |
-| 07 — Target registry & policy        | **Done — gate PASS** (2026-10-27; integration green in WSL)                                                                  | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
-| 08 — SSH broker & remote terminal    | **Done — gate PASS** (M2 terminal run 2026-10-27, PR #18)                                                                    | [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md) |
-| 09 — Remote filesystem               | **Built — gate PASS** (M2 complete; PR from `phase-09-remote-fs` pending CI)                                                 | [`phase-gates/PHASE_09.md`](phase-gates/PHASE_09.md) |
-| 10 – 19                              | Not started                                                                                                                  | `02_PHASES/`                                         |
+| Phase                                | State                                                                                                                            | Record                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 00 — Environment, decisions & spikes | **Gate proposed CONDITIONAL** — S1–S5 done, ADR-005/006 accepted; org answers + review open                                      | [`phase-gates/PHASE_00.md`](phase-gates/PHASE_00.md) |
+| 01 — Monorepo foundation             | **Done — gate PASS** (CI green, branch protection on)                                                                            | [`phase-gates/PHASE_01.md`](phase-gates/PHASE_01.md) |
+| 02 — Theia product shell             | **Merged — gate CONDITIONAL** (internal Open VSX mirror, D7)                                                                     | [`phase-gates/PHASE_02.md`](phase-gates/PHASE_02.md) |
+| 03 — Control plane and database      | **Done — gate PASS** ([PR #7](https://github.com/Barathparthi/workbench/pull/7) merged, CI green)                                | [`phase-gates/PHASE_03.md`](phase-gates/PHASE_03.md) |
+| 04 — Dev identity & RBAC             | **Done — gate PASS** ([PR #9](https://github.com/Barathparthi/workbench/pull/9); Keycloak + session integration green in CI)     | [`phase-gates/PHASE_04.md`](phase-gates/PHASE_04.md) |
+| 05 — Workspace runtime & routing     | **Done** ([PR #10](https://github.com/Barathparthi/workbench/pull/10), CI green) — M1 end-to-end run with Docker still open      | [`phase-gates/PHASE_05.md`](phase-gates/PHASE_05.md) |
+| 06 — Terminal hardening              | **Done** (merged to `main`, `1771c61`; CI smoke green after resize-test fix)                                                     | [`phase-gates/PHASE_06.md`](phase-gates/PHASE_06.md) |
+| 07 — Target registry & policy        | **Done — gate PASS** (2026-10-27; integration green in WSL)                                                                      | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
+| 08 — SSH broker & remote terminal    | **Done — gate PASS** (M2 terminal run 2026-10-27, PR #18)                                                                        | [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md) |
+| 09 — Remote filesystem               | **Done — gate PASS** ([PR #22](https://github.com/Barathparthi/workbench/pull/22) merged; CI fix `1456e3c` needs a follow-up PR) | [`phase-gates/PHASE_09.md`](phase-gates/PHASE_09.md) |
+| 10 — Local desktop & local web       | **In progress** — P10.1–P10.4 built on `phase-10-local-desktop`; P10.5–P10.7 and gates 10a/10b open                              | `02_PHASES/`                                         |
+| 11 – 19                              | Not started                                                                                                                      | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached. M2 (remote terminal + remote files) — met 2026-10-27.
 
@@ -578,3 +579,56 @@ Evidence: unit 1371/1371, integration 121/121 (WSL), browser smoke 13/13, hosted
 `phase-gates/PHASE_09.md`. Environment notes: Playwright's Chromium needed system libraries in WSL
 (`npx playwright install-deps chromium`, run by the owner); processes started from a script must be detached
 (`setsid`) or they end with the WSL session.
+
+### 2026-10-28 — Phase 10: local desktop and local web, P10.1–P10.4 (branch `phase-10-local-desktop`)
+
+Personal targets for the local modes and the desktop app's sign-in to a control plane. Plan approved by the owner with
+six decisions: unsigned installers with signing wired to environment variables (a gate condition); desktop tested on
+Windows and Linux locally, macOS in CI nightly; the control plane and broker accept IdP bearer tokens (never for
+cookies; `file://` and `null` origins stay refused, R17); new pinned dependencies `ssh-config` and `electron-builder`;
+trust on first use for personal hosts, on by default with an org switch; two gates, 10a (P10.1–P10.3 + local web) and
+10b (sign-in, installers, parity).
+
+- **P10.1** `551394f`, `a679d0a`: personal targets in broker-core — `~/.ssh/config` and `~/.qe-workspace/ssh_hosts`
+  read with `ssh-config`'s parser only (its `compute()` can run `nslookup` and `Match exec` shells), ssh-agent then key
+  files with passphrases asked only after a refusal, OpenSSH `known_hosts` (hashed, wildcards, `@revoked`), the org
+  deny list without SSRF ranges, a local audit log. Ids are `personal-<alias>` so they survive `qe-ssh://` URIs.
+- **P10.2** `300be94`, `8167590`, `da606dc`, `4e3a6fc`: the embedded broker in the Electron backend and, in local-web
+  mode only, the Node backend (ADR-008 addendum: a lint element for qe-remote's backends); one connection client over
+  managed and personal targets, so terminals and `qe-ssh://` folders behave the same in every mode.
+- **P10.3** `126b35a`: trust on first use — the user sees the host's fingerprint and chooses trust once, trust and
+  save (to `~/.qe-workspace/known_hosts`) or cancel; a changed key is a hard error worded like OpenSSH's; no
+  passphrase is asked before the host is trusted.
+- **P10.4** `5adc8d4`, `d640132`, `609f842`, `a310ae3`: desktop sign-in. The control plane accepts the desktop
+  client's access tokens (JWKS signature with asymmetric algorithms only, issuer, audience, `azp`, expiry, lifetime at
+  most 1 h), maps them like a browser login and audits one sign-in per IdP session (`AUTH_LOGIN_SUCCESS`, method
+  `desktop_token`); a request with an `Authorization` header is judged on it alone. Bearer callers get tickets bound to
+  the `qe-desktop` marker, which the broker redeems for Origin-less upgrades. Electron's main process opens a private,
+  token-guarded channel for the backend before forking it, owns `safeStorage` (Linux `basic_text` counts as no
+  encryption: nothing is stored) and opens the system browser (http(s) only); the backend runs authorization code +
+  PKCE with a one-shot `127.0.0.1` loopback, keeps the access token in memory, rotates and revokes refresh tokens, and
+  relays managed targets (bearer REST, `ws` stream without an Origin). The renderer gets status only. New: "QE: Sign
+  In to QE Workspace" / "Sign Out of QE Workspace" and an account entry in the status bar.
+
+Deviations and choices to review: `jose` 6.2.12 became a direct control-plane dependency (not in decision 4; it is the
+version openid-client already installed). The broker does not verify bearer tokens itself: the control plane is the
+only place that checks them, and the broker trusts the single-use ticket it minted for a bearer caller. Desktop
+refresh tokens are ordinary ones, so a sign-in lasts as long as the IdP's SSO session (Keycloak's default 10 h);
+longer (`offline_access`) is an org decision. A sign-in through the system browser cannot run in CI, so P10.4's end to
+end evidence is a scripted run of the backend's real sign-in and relay code against the dev stack.
+
+Defects found and fixed on the way: a sign-in still discovering the IdP could not be cancelled and would wait out its
+five minutes; the desktop host waited forever on close for its client connection; the relay's default socket had no
+`'error'` listener, so a refused upgrade would have thrown in the backend.
+
+Evidence (2026-10-28): unit 1505/1505 (Windows); control-plane integration 44/44 in WSL (PostgreSQL and a real
+Keycloak: the desktop client's token accepted on two loopback ports, ID and refresh tokens refused, other redirect
+paths and `localhost` refused); browser suite 16/16 (personal terminal, TOFU dialog, remote folder); Electron smoke
+4/4, including that a terminal in the desktop app cannot see the host channel; end to end against the dev stack —
+Keycloak sign-in as bob, `lab-a-dev` listed and a terminal opened through the broker without an Origin (`DESKTOP-42`
+written on the lab host), a file stat, `AUTH_LOGIN_SUCCESS … desktop_token` in the audit log, `SIGN_IN_REQUIRED` after
+sign-out.
+
+Open: the hosted "QE: Sign Out" command (qe-core) is also registered in the desktop app, where it does nothing useful;
+the dev Keycloak must be recreated to import the desktop client; P10.5 (local web), P10.6 (installers and managed
+settings, which also feed the deny list and the TOFU switch), P10.7 (parity), then gates 10a and 10b.

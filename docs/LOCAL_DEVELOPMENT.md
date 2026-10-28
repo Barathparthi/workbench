@@ -292,6 +292,20 @@ node node_modules/electron/install.js
 npm run start -w @qe/ide-electron
 ```
 
+Both local modes list the hosts in your `~/.ssh/config` as personal targets (Phase 10). To try the desktop app's
+**managed targets** (sign-in through your browser, Phase 10.4), the control plane must run with `AUTH_MODE=oidc` and
+`OIDC_DESKTOP_CLIENT_ID=qe-workspace-desktop`, and Keycloak must have the realm's `qe-workspace-desktop` client: realms
+are imported only when the container is created, so after pulling the change run
+`docker compose -f deploy/compose/docker-compose.dev.yml up -d --force-recreate keycloak`. Then start the desktop app
+pointed at the control plane and run **QE: Sign In to QE Workspace** (alice / bob, passwords in the realm file):
+
+```bash
+QE_CONTROL_PLANE_URL=http://localhost:8080 npm run start -w @qe/ide-electron
+```
+
+On Linux the refresh token is kept only with a keyring (GNOME Keyring or KWallet); without one the app signs in for
+that run only and never writes the token to disk.
+
 Smoke tests (browser + Electron):
 
 ```bash
