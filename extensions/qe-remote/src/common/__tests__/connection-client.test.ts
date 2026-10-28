@@ -5,11 +5,14 @@ import {
   EmbeddedConnection,
   hostedConnectionClient,
   isPersonalTarget,
+  RelayedConnection,
+  SIGN_IN_NOTICE,
   type ConnectionClient,
   type RemoteTarget,
   type TerminalSink,
 } from '../connection-client';
 import type { EmbeddedBrokerService } from '../embedded-broker-protocol';
+import type { ManagedRelayService } from '../managed-relay-protocol';
 import { RemoteApiError, type RemoteClient } from '../remote-client';
 import type { RemoteFileSessions } from '../remote-files';
 
@@ -248,5 +251,72 @@ describe('hosted connection client (control plane + broker WebSocket)', () => {
     stream.close();
     expect(socket.closedWith).toBe(1000);
     expect(await hosted.call(managed.id, 'stat', { path: '' })).toBe('file-result');
+  });
+});
+
+describe('relayed connection (desktop managed targets through the Electron backend)', () => {
+  const relayService = (over: Partial<ManagedRelayService> = {}): ManagedRelayService =>
+    ({
+      listTargets: () =>
+        Promise.resolve({
+          ok: true,
+          value: [{ id: managed.id, name: 'lab-a', host: 'qe-linux-01.lab', detail: 'linux · lab-a' }],
+        }),
+      openTerminal: (streamId: string) => Promise.resolve({ ok: true, value: streamId }),
+      send: () => Promise.resolve(),
+      closeTerminal: () => Promise.resolve(),
+      fs: () => Promise.resolve({ ok: false, code: 'SIGN_IN_REQUIRED' }),
+      ...over,
+    }) as ManagedRelayService;
+
+  it('lists managed targets as the picker shows them', async () => {
+    const c = new RelayedConnection(() => relayService());
+    expect(await c.listTargets()).toEqual({
+      targets: [
+        {
+          id: managed.id,
+          name: 'lab-a',
+          description: 'qe-linux-01.lab',
+          detail: 'linux · lab-a',
+          kind: 'managed',
+        },
+      ],
+      problems: [],
+    });
+  });
+
+  it('turns a missing sign-in into a notice, not an error, and keeps personal targets listed', async () => {
+    const c = new RelayedConnection(() =>
+      relayService({ listTargets: () => Promise.resolve({ ok: false, code: 'SIGN_IN_REQUIRED' }) }),
+    );
+    expect(await c.listTargets()).toEqual({ targets: [], problems: [], notices: [SIGN_IN_NOTICE] });
+    const personalPart: ConnectionClient = {
+      listTargets: () => Promise.resolve({ targets: [personal], problems: [] }),
+      openTerminal: () => Promise.reject(new Error('unused')),
+      call: () => Promise.reject(new Error('unused')),
+    };
+    expect(await compositeConnectionClient({ managed: c, personal: personalPart }).listTargets()).toEqual({
+      targets: [personal],
+      problems: [],
+      notices: [SIGN_IN_NOTICE],
+    });
+  });
+
+  it('routes stream frames to the sink registered for the stream, and reports refusals by code', async () => {
+    let id = 0;
+    const c = new RelayedConnection(
+      () => relayService(),
+      () => `00000000-0000-4000-8000-${String(++id).padStart(12, '0')}`,
+    );
+    const { s, frames, closes: closed } = sink();
+    await c.openTerminal(managed, { cols: 80, rows: 24 }, s);
+    c.client.onFrame('00000000-0000-4000-8000-000000000001', 'hello');
+    c.client.onFrame('00000000-0000-4000-8000-000000000999', 'not mine');
+    c.client.onClosed('00000000-0000-4000-8000-000000000001', 1000, '');
+    expect(frames).toEqual(['hello']);
+    expect(closed).toEqual([1000]);
+    await expect(c.call(managed.id, 'stat', { path: '' })).rejects.toMatchObject({
+      code: 'SIGN_IN_REQUIRED',
+    });
   });
 });

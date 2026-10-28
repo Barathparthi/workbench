@@ -76,6 +76,11 @@ export function toProviderError(error: unknown): Error {
         'Your sign-in has expired. Reload the page to sign in again.',
         FileSystemProviderErrorCode.NoPermissions,
       );
+    case 'SIGN_IN_REQUIRED':
+      return e(
+        'Sign in to QE Workspace to open files on this system: run “QE: Sign In to QE Workspace”.',
+        FileSystemProviderErrorCode.NoPermissions,
+      );
     case 'HOST_KEY_MISMATCH':
       return e(
         'The remote system presented a different host key than the one on record. Do not continue; check with its owner.',

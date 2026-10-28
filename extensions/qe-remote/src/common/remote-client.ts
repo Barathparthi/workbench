@@ -158,6 +158,8 @@ export function describeFailure(error: unknown): string {
       return 'You have too many open remote sessions. Close one first.';
     case 'AUTH_REQUIRED':
       return 'Your sign-in has expired. Reload the page to sign in again.';
+    case 'SIGN_IN_REQUIRED':
+      return 'Sign in to QE Workspace first: run “QE: Sign In to QE Workspace”.';
     case 'RATE_LIMITED':
       return 'Too many connection attempts. Wait a minute and try again.';
     default:

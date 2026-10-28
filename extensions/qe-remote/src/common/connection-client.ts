@@ -3,9 +3,11 @@ import type { FsOp } from '@qe/contracts';
 import type {
   EmbeddedBrokerClient,
   EmbeddedBrokerService,
+  EmbeddedResult,
   HostKeyAnswer,
   HostKeyQuestion,
 } from './embedded-broker-protocol';
+import { SIGN_IN_REQUIRED, type ManagedRelayService, type StreamClient } from './managed-relay-protocol';
 import { RemoteApiError, streamTarget, type RemoteClient } from './remote-client';
 import type { RemoteFileSessions } from './remote-files';
 
@@ -38,9 +40,19 @@ export interface FileCaller {
   call<T>(targetId: string, op: FsOp, body: object): Promise<T>;
 }
 
+/**
+ * `problems`: entries that cannot be used (a broken SSH config entry, a part that failed). `notices`: what the user
+ * can do to see more (sign in to QE Workspace) — information, not an error.
+ */
+export interface TargetListing {
+  readonly targets: RemoteTarget[];
+  readonly problems: string[];
+  readonly notices?: string[];
+}
+
 export interface ConnectionClient extends FileCaller {
   /** Every reachable system; a part that fails is reported in `problems` while the others are still listed. */
-  listTargets(): Promise<{ targets: RemoteTarget[]; problems: string[] }>;
+  listTargets(): Promise<TargetListing>;
   /** Opens a terminal; failures before the stream exists reject with a `RemoteApiError`. */
   openTerminal(
     target: RemoteTarget,
@@ -102,17 +114,26 @@ export function hostedConnectionClient(deps: {
   };
 }
 
-/**
- * Personal targets through the embedded broker (desktop, local web). The backend calls `client` back with frames,
- * closes and passphrase questions; streams get an id chosen here, so their sink exists before the first frame.
- */
-export class EmbeddedConnection implements ConnectionClient {
-  protected readonly sinks = new Map<string, TerminalSink>();
-  protected askPassphrase: (targetName: string, keyFile: string) => Promise<string | undefined> = () =>
-    Promise.resolve(undefined);
+/** What a backend that streams terminals over RPC offers (the embedded broker, the desktop managed relay). */
+interface StreamService {
+  openTerminal(
+    streamId: string,
+    targetId: string,
+    size: { cols: number; rows: number },
+  ): Promise<EmbeddedResult<string>>;
+  send(streamId: string, frame: string | Uint8Array): Promise<void>;
+  closeTerminal(streamId: string): Promise<void>;
+  fs(targetId: string, op: FsOp, request: unknown): Promise<EmbeddedResult<unknown>>;
+}
 
-  /** What the backend calls: hand this to the RPC proxy as its client. */
-  readonly client: EmbeddedBrokerClient = {
+/**
+ * Terminals and files through a backend service over Theia's RPC channel. Streams get an id chosen here, so their
+ * sink exists before the backend sends the first frame; the backend calls `streams` back with frames and closes.
+ */
+abstract class StreamedConnection<S extends StreamService> implements ConnectionClient {
+  protected readonly sinks = new Map<string, TerminalSink>();
+
+  protected readonly streams: StreamClient = {
     onFrame: (streamId, frame) => {
       this.sinks.get(streamId)?.frame(frame);
     },
@@ -120,42 +141,14 @@ export class EmbeddedConnection implements ConnectionClient {
       this.sinks.get(streamId)?.closed(code);
       this.sinks.delete(streamId);
     },
-    askPassphrase: (targetName, keyFile) => this.askPassphrase(targetName, keyFile),
-    confirmHostKey: (question) => this.confirmHostKey(question),
   };
-  protected confirmHostKey: (question: HostKeyQuestion) => Promise<HostKeyAnswer> = () =>
-    Promise.resolve('cancel');
 
   constructor(
-    protected readonly service: () => EmbeddedBrokerService,
+    protected readonly service: () => S,
     protected readonly newId: () => string = () => crypto.randomUUID(),
   ) {}
 
-  /** The IDE's host-key dialog (set by the UI); without it, unknown host keys are never trusted. */
-  setHostKeyAsker(ask: (question: HostKeyQuestion) => Promise<HostKeyAnswer>): void {
-    this.confirmHostKey = ask;
-  }
-
-  /** The IDE's input dialog (set by the UI once it exists); without it, passphrases are never asked. */
-  setPassphraseAsker(ask: (targetName: string, keyFile: string) => Promise<string | undefined>): void {
-    this.askPassphrase = ask;
-  }
-
-  async listTargets() {
-    const { targets, problems } = await this.service().listTargets();
-    return {
-      targets: targets.map((t) => ({
-        id: t.id,
-        name: t.name,
-        description: `${t.user}@${t.host}${t.port === 22 ? '' : `:${String(t.port)}`}`,
-        detail: t.viaJumpHost
-          ? 'from your SSH configuration — via a jump host, not supported yet'
-          : 'from your SSH configuration',
-        kind: 'personal' as const,
-      })),
-      problems,
-    };
-  }
+  abstract listTargets(): Promise<TargetListing>;
 
   async openTerminal(target: RemoteTarget, size: { cols: number; rows: number }, sink: TerminalSink) {
     const service = this.service();
@@ -183,6 +176,78 @@ export class EmbeddedConnection implements ConnectionClient {
   }
 }
 
+/**
+ * Personal targets through the embedded broker (desktop, local web). Besides frames and closes, the backend asks the
+ * user for passphrases and about unknown host keys through `client`.
+ */
+export class EmbeddedConnection extends StreamedConnection<EmbeddedBrokerService> {
+  protected askPassphrase: (targetName: string, keyFile: string) => Promise<string | undefined> = () =>
+    Promise.resolve(undefined);
+  protected confirmHostKey: (question: HostKeyQuestion) => Promise<HostKeyAnswer> = () =>
+    Promise.resolve('cancel');
+
+  /** What the backend calls: hand this to the RPC proxy as its client. */
+  readonly client: EmbeddedBrokerClient = {
+    ...this.streams,
+    askPassphrase: (targetName, keyFile) => this.askPassphrase(targetName, keyFile),
+    confirmHostKey: (question) => this.confirmHostKey(question),
+  };
+
+  /** The IDE's host-key dialog (set by the UI); without it, unknown host keys are never trusted. */
+  setHostKeyAsker(ask: (question: HostKeyQuestion) => Promise<HostKeyAnswer>): void {
+    this.confirmHostKey = ask;
+  }
+
+  /** The IDE's input dialog (set by the UI once it exists); without it, passphrases are never asked. */
+  setPassphraseAsker(ask: (targetName: string, keyFile: string) => Promise<string | undefined>): void {
+    this.askPassphrase = ask;
+  }
+
+  async listTargets() {
+    const { targets, problems } = await this.service().listTargets();
+    return {
+      targets: targets.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: `${t.user}@${t.host}${t.port === 22 ? '' : `:${String(t.port)}`}`,
+        detail: t.viaJumpHost
+          ? 'from your SSH configuration — via a jump host, not supported yet'
+          : 'from your SSH configuration',
+        kind: 'personal' as const,
+      })),
+      problems,
+    };
+  }
+}
+
+/** Shown in the picker while the desktop app is not signed in to its control plane. */
+export const SIGN_IN_NOTICE =
+  'Sign in to QE Workspace to see your organisation’s systems: run “QE: Sign In to QE Workspace”.';
+
+/** Managed targets in the desktop app, through the backend's relay (managed-relay-protocol.ts). */
+export class RelayedConnection extends StreamedConnection<ManagedRelayService> {
+  /** What the backend calls: hand this to the RPC proxy as its client. */
+  readonly client: StreamClient = this.streams;
+
+  async listTargets(): Promise<TargetListing> {
+    const result = await this.service().listTargets();
+    if (!result.ok) {
+      if (result.code === SIGN_IN_REQUIRED) return { targets: [], problems: [], notices: [SIGN_IN_NOTICE] };
+      throw new RemoteApiError(0, result.code);
+    }
+    return {
+      targets: result.value.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.host,
+        detail: t.detail,
+        kind: 'managed' as const,
+      })),
+      problems: [],
+    };
+  }
+}
+
 /** Managed and personal targets in one list; each request goes to the part that owns its target. */
 export function compositeConnectionClient(parts: {
   readonly managed?: ConnectionClient | undefined;
@@ -199,11 +264,13 @@ export function compositeConnectionClient(parts: {
       const results = await Promise.allSettled(present.map((p) => p.listTargets()));
       const targets: RemoteTarget[] = [];
       const problems: string[] = [];
+      const notices: string[] = [];
       let firstError: unknown;
       for (const r of results) {
         if (r.status === 'fulfilled') {
           targets.push(...r.value.targets);
           problems.push(...r.value.problems);
+          notices.push(...(r.value.notices ?? []));
         } else firstError ??= r.reason;
       }
       // Every part failed: that is an error, not an empty list.
@@ -211,7 +278,7 @@ export function compositeConnectionClient(parts: {
         throw firstError instanceof Error ? firstError : new Error('the remote systems could not be listed');
       }
       if (firstError !== undefined) problems.push('Some remote systems could not be listed.');
-      return { targets, problems };
+      return notices.length > 0 ? { targets, problems, notices } : { targets, problems };
     },
     // async: a target no part owns rejects like any other failure, never throws synchronously.
     openTerminal: async (target, size, sink) => owner(target.id).openTerminal(target, size, sink),

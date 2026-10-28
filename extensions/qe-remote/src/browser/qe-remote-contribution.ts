@@ -12,7 +12,7 @@ import { encodeInput, type ServerControl } from '@qe/contracts';
 import { QeCommands } from '@qe/theia-qe-core/lib/browser/qe-commands';
 import { QeEnvironmentService } from '@qe/theia-qe-core/lib/common/qe-environment';
 
-import type { RemoteTarget, TerminalStream } from '../common/connection-client';
+import type { RemoteTarget, TargetListing, TerminalStream } from '../common/connection-client';
 import { describeFailure } from '../common/remote-client';
 import { HostKeyDialog } from './host-key-dialog';
 import { remoteRootUri } from '../common/remote-files';
@@ -86,15 +86,16 @@ export class QeRemoteContribution implements CommandContribution {
       );
       return undefined;
     }
-    let listing: { targets: RemoteTarget[]; problems: string[] };
+    let listing: TargetListing;
     try {
       listing = await this.services.connections.listTargets();
     } catch (error) {
       await this.messages.error(describeFailure(error));
       return undefined;
     }
-    const { targets, problems } = listing;
+    const { targets, problems, notices = [] } = listing;
     this.targetNames.remember(targets);
+    for (const notice of notices) void this.messages.info(notice);
     if (problems.length > 0) {
       void this.messages.warn(
         `Some hosts in your SSH configuration cannot be used: ${problems.slice(0, 3).join('; ')}` +
@@ -102,6 +103,7 @@ export class QeRemoteContribution implements CommandContribution {
       );
     }
     if (targets.length === 0) {
+      if (notices.length > 0) return undefined; // the notice already says what to do
       await this.messages.info(
         env.mode === 'hosted'
           ? 'No remote systems are available to you. Ask a lab admin for access.'

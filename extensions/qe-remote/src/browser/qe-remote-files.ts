@@ -1,7 +1,7 @@
 import type { LabelProviderContribution, DidChangeLabelEvent } from '@theia/core/lib/browser/label-provider';
 import { Emitter } from '@theia/core/lib/common';
 import URI from '@theia/core/lib/common/uri';
-import { inject, injectable } from '@theia/core/shared/inversify';
+import { inject, injectable, optional } from '@theia/core/shared/inversify';
 import type { FileService, FileServiceContribution } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 
@@ -11,10 +11,12 @@ import {
   compositeConnectionClient,
   EmbeddedConnection,
   hostedConnectionClient,
+  RelayedConnection,
   type ConnectionClient,
   type RemoteTarget,
 } from '../common/connection-client';
 import type { EmbeddedBrokerClient, EmbeddedBrokerService } from '../common/embedded-broker-protocol';
+import type { ManagedRelayService, StreamClient } from '../common/managed-relay-protocol';
 import { remoteClient } from '../common/remote-client';
 import { QE_SSH_SCHEME, RemoteFileSessions, type SessionStore } from '../common/remote-files';
 import { QeSshFileSystemProvider } from './qe-ssh-file-system-provider';
@@ -23,19 +25,26 @@ import { QeSshFileSystemProvider } from './qe-ssh-file-system-provider';
 export const EmbeddedBrokerConnector = Symbol('EmbeddedBrokerConnector');
 export type EmbeddedBrokerConnector = (client: EmbeddedBrokerClient) => EmbeddedBrokerService;
 
+/** Desktop only: creates the RPC proxy to the backend's managed-target relay (PHASE_10 §10.4). */
+export const ManagedRelayConnector = Symbol('ManagedRelayConnector');
+export type ManagedRelayConnector = (client: StreamClient) => ManagedRelayService;
+
 /**
  * The page's connection client, files-sessions and `qe-ssh` provider. Its dependencies must not need FileService:
  * FileService collects FileServiceContributions while it is being constructed (spike S3: a cycle there stops the
  * frontend) — the environment and the embedded broker are RPC proxies, which do not.
  *
  * Which parts exist follows the mode: hosted reaches managed targets through the control plane on its own origin;
- * local web and desktop reach personal targets through the embedded broker (managed ones arrive with desktop
- * sign-in, Phase 10.4). The embedded broker's proxy is created on first use only, so a hosted page never opens it.
+ * local web and desktop reach personal targets through the embedded broker; the desktop app reaches managed targets
+ * through its backend's relay, signed in to its control plane (PHASE_10 §10.4). Proxies are created on first use
+ * only, so a hosted page never opens the embedded broker's.
  */
 @injectable()
 export class QeRemoteServices {
   @inject(QeEnvironmentService) protected readonly environment!: QeEnvironmentService;
   @inject(EmbeddedBrokerConnector) protected readonly connectEmbedded!: EmbeddedBrokerConnector;
+  @inject(ManagedRelayConnector) @optional() protected readonly connectRelay:
+    ManagedRelayConnector | undefined;
 
   readonly client = remoteClient({
     origin: window.location.origin,
@@ -46,6 +55,12 @@ export class QeRemoteServices {
   readonly embedded = new EmbeddedConnection(() => {
     this.embeddedService ??= this.connectEmbedded(this.embedded.client);
     return this.embeddedService;
+  });
+  protected relayService: ManagedRelayService | undefined;
+  readonly relayed = new RelayedConnection(() => {
+    if (this.connectRelay === undefined) throw new Error('no managed relay in this app');
+    this.relayService ??= this.connectRelay(this.relayed.client);
+    return this.relayService;
   });
   protected parts: Promise<ConnectionClient> | undefined;
 
@@ -69,7 +84,9 @@ export class QeRemoteServices {
                 origin: window.location.origin,
                 createSocket: (url, protocols) => new WebSocket(url, protocols),
               })
-            : undefined,
+            : env.mode === 'desktop' && env.features.managedTargets && this.connectRelay !== undefined
+              ? this.relayed
+              : undefined,
         personal: env.features.personalTargets ? this.embedded : undefined,
       }),
     );
