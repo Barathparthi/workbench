@@ -22,7 +22,7 @@ import {
 
 const HOME = '/home/ada';
 const target = (over: Partial<PersonalTarget> = {}): PersonalTarget => ({
-  id: 'personal:box',
+  id: 'personal-box',
   alias: 'box',
   host: '127.0.0.1',
   port: 22,
@@ -189,10 +189,10 @@ describe('local audit log', () => {
     const dir = await mkdtemp(join(tmpdir(), 'qe-audit-'));
     const path = join(dir, '.qe-workspace', 'audit.log');
     const log = localAuditLog({ path, maxBytes: 200, now: () => new Date('2026-10-28T09:00:00Z') });
-    await log.record({ action: 'SSH_SESSION_OPENED', target: 'personal:box', outcome: 'success' });
+    await log.record({ action: 'SSH_SESSION_OPENED', target: 'personal-box', outcome: 'success' });
     await log.record({
       action: 'SSH_HOST_KEY_TRUSTED',
-      target: 'personal:box',
+      target: 'personal-box',
       outcome: 'success',
       detail: { saved: true },
     });
@@ -201,19 +201,19 @@ describe('local audit log', () => {
       {
         time: '2026-10-28T09:00:00.000Z',
         action: 'SSH_SESSION_OPENED',
-        target: 'personal:box',
+        target: 'personal-box',
         outcome: 'success',
       },
       {
         time: '2026-10-28T09:00:00.000Z',
         action: 'SSH_HOST_KEY_TRUSTED',
-        target: 'personal:box',
+        target: 'personal-box',
         outcome: 'success',
         detail: { saved: true },
       },
     ]);
     if (process.platform !== 'win32') expect((await stat(path)).mode & 0o777).toBe(0o600);
-    await log.record({ action: 'SSH_SESSION_CLOSED', target: 'personal:box', outcome: 'success' });
+    await log.record({ action: 'SSH_SESSION_CLOSED', target: 'personal-box', outcome: 'success' });
     expect(await readFile(`${path}.1`, 'utf8')).toContain('SSH_HOST_KEY_TRUSTED');
     expect(await readFile(path, 'utf8')).toContain('SSH_SESSION_CLOSED');
   });
@@ -221,7 +221,7 @@ describe('local audit log', () => {
   it('never fails the caller when the log cannot be written', async () => {
     const log = localAuditLog({ path: join(tmpdir(), '\0invalid', 'audit.log') });
     await expect(
-      log.record({ action: 'X', target: 'personal:box', outcome: 'failure' }),
+      log.record({ action: 'X', target: 'personal-box', outcome: 'failure' }),
     ).resolves.toBeUndefined();
   });
 });

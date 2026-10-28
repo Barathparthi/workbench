@@ -61,7 +61,11 @@ export type {
   PersonalTarget,
   TargetSource,
 } from './sources.js';
-export { sshConfigTargetSource, type SshConfigTargetsOptions } from './ssh-config-targets.js';
+export {
+  personalTargetId,
+  sshConfigTargetSource,
+  type SshConfigTargetsOptions,
+} from './ssh-config-targets.js';
 export { knownHostsName, knownHostsStore, type KnownHostsOptions } from './known-hosts.js';
 export {
   detectAgent,

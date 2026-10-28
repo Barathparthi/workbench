@@ -45,7 +45,7 @@ Host *
 
     expect(targets.map((t) => t.alias)).toEqual(['build.corp', 'lab-a', 'lab-a-alias']);
     expect(targets.find((t) => t.alias === 'lab-a')).toEqual({
-      id: 'personal:lab-a',
+      id: 'personal-lab-a',
       alias: 'lab-a',
       host: '10.20.1.5',
       port: 2222,
@@ -149,10 +149,19 @@ Host good
     expect(target?.port).toBe(22);
   });
 
+  it('keeps aliases URI-safe and finds them case-insensitively, as ssh matches them', async () => {
+    const s = source({ [CONFIG]: 'Host Lab-A\nHost we%ird\n' });
+    expect((await s.list()).map((t) => t.id)).toEqual(['personal-Lab-A']);
+    expect(await s.get('personal-lab-a')).toMatchObject({ alias: 'Lab-A' });
+    expect(await s.problems()).toEqual([
+      "we%ird: use only letters, digits, '.', '_' and '-' in the Host alias",
+    ]);
+  });
+
   it('finds a target by id, and lists nothing without configuration files', async () => {
     const s = source({ [CONFIG]: 'Host box\n' });
-    expect(await s.get('personal:box')).toMatchObject({ alias: 'box' });
-    expect(await s.get('personal:nope')).toBeUndefined();
+    expect(await s.get('personal-box')).toMatchObject({ alias: 'box' });
+    expect(await s.get('personal-nope')).toBeUndefined();
     expect(await source({}).list()).toEqual([]);
   });
 });

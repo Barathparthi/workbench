@@ -108,7 +108,7 @@ describe.skipIf(onWindows)('personal targets on OpenSSH', () => {
   });
 
   const lab = async () => {
-    const t = await sshConfigTargetSource({ home, localUser: 'ada' }).get('personal:lab');
+    const t = await sshConfigTargetSource({ home, localUser: 'ada' }).get('personal-lab');
     if (t === undefined) throw new Error('lab target missing');
     return t;
   };

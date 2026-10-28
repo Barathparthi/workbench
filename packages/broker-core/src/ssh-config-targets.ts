@@ -56,6 +56,11 @@ function hostLineMatches(patterns: readonly string[], alias: string): boolean {
 }
 
 const isConcreteAlias = (name: string) => !/[*?!]/.test(name) && name.length > 0;
+/** Aliases become part of target ids and qe-ssh:// URIs, so they are kept to letters, digits, '.', '_' and '-'. */
+const USABLE_ALIAS = /^[A-Za-z0-9._-]{1,63}$/;
+
+/** `personal-<alias>`: never a UUID (managed targets), and safe as the authority of a `qe-ssh://` URI. */
+export const personalTargetId = (alias: string): string => `personal-${alias}`;
 
 /**
  * Personal targets from `~/.ssh/config` and the hosts added in the IDE (`~/.qe-workspace/ssh_hosts`, same syntax;
@@ -150,7 +155,7 @@ export function sshConfigTargetSource(options: SshConfigTargetsOptions): TargetS
     }
     const proxyJump = first.get('proxyjump');
     return {
-      id: `personal:${alias}`,
+      id: personalTargetId(alias),
       alias,
       host,
       port,
@@ -179,6 +184,10 @@ export function sshConfigTargetSource(options: SshConfigTargetsOptions): TargetS
         if (line.type !== LineType.DIRECTIVE || line.param.toLowerCase() !== 'host') continue;
         for (const alias of values(line).filter(isConcreteAlias)) {
           if (targets.has(alias.toLowerCase())) continue; // the first definition wins, as in OpenSSH
+          if (!USABLE_ALIAS.test(alias)) {
+            problems.push(`${alias}: use only letters, digits, '.', '_' and '-' in the Host alias`);
+            continue;
+          }
           const target = targetFrom(config, alias, file.source);
           if (typeof target === 'string') problems.push(target);
           else targets.set(alias.toLowerCase(), target);
@@ -196,7 +205,8 @@ export function sshConfigTargetSource(options: SshConfigTargetsOptions): TargetS
       return (await load()).targets;
     },
     async get(id) {
-      return (await load()).targets.find((t) => t.id === id);
+      // ssh matches host aliases case-insensitively, and URIs lowercase them.
+      return (await load()).targets.find((t) => t.id.toLowerCase() === id.toLowerCase());
     },
     async problems() {
       return (await load()).problems;

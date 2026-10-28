@@ -8,7 +8,7 @@ import type { TrustedHostKey } from './host-key.js';
 
 /** A host from the user's SSH configuration (a "personal target"). */
 export interface PersonalTarget {
-  /** `personal:<alias>` — never collides with a managed target's UUID. */
+  /** `personal-<alias>` — never collides with a managed target's UUID. */
   readonly id: string;
   /** The `Host` alias as written in the configuration. */
   readonly alias: string;
@@ -47,7 +47,7 @@ export interface HostKeyStore {
 /** One line of the embedded broker's audit trail: names and outcomes only, never contents, keys or commands. */
 export interface LocalAuditEvent {
   readonly action: string;
-  /** The target's id (`personal:<alias>`). */
+  /** The target's id (`personal-<alias>`). */
   readonly target: string;
   readonly outcome: 'success' | 'failure' | 'denied';
   readonly detail?: Readonly<Record<string, string | number | boolean>>;
