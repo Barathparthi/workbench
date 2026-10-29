@@ -75,12 +75,12 @@ jobs:
           else
             npm run package -w @qe/ide-electron
           fi
-      - name: Smoke test (Electron)
+      - name: Smoke and parity tests (Electron)
         shell: bash
         run: |
           npx playwright install --with-deps chromium
-          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a npx playwright test --project=electron
-          else npx playwright test --project=electron; fi
+          if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a npx playwright test --project=electron --project=parity-desktop
+          else npx playwright test --project=electron --project=parity-desktop; fi
       # Nightly runs only prove the installers build and start: ~300 MB a night would fill the artifact quota. A manual
       # run with `upload` (or `sign`) keeps them.
       - if: inputs.upload || inputs.sign
