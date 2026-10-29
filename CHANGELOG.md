@@ -35,6 +35,11 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 - Desktop installers (`npm run package -w @qe/ide-electron`): Windows NSIS, macOS dmg, Linux AppImage and deb, with the
   built-in plugins; signing and notarization from environment variables only. Nightly `desktop` workflow builds and
   smoke-tests them on Linux, Windows and macOS.
+- Parity suite (`tests/parity`, Playwright projects `parity-hosted`, `parity-local-web`, `parity-desktop`): the same
+  scenarios in every mode — QE commands, explorer, edit and save, terminal, Ctrl+C, webview, remote terminal, remote
+  edit and save, links out of the remote folder. Desktop runs nightly on Linux, Windows and macOS.
+- Local web: webviews (Markdown preview, plugin panels) work, on their own `<id>.webview.localhost` origin; the sign-in
+  link uses `localhost`.
 
 ### Security
 
