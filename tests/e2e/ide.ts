@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { expect, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 export const workspace = (): string => {
   const dir = process.env['QE_E2E_WORKSPACE'];
@@ -76,4 +76,19 @@ export async function preferenceRows(page: Page, preferenceId: string): Promise<
   // Rows render after a debounce; give the filter a moment before counting.
   await page.waitForTimeout(1_500);
   return page.locator(`[data-pref-id="${preferenceId}"]`).count();
+}
+
+/**
+ * Hosted only: ends the signed-in user's live remote sessions. Each test's new browser context opens its own files
+ * session, which the IDE would otherwise leave to the 30-minute idle timeout — against the policy's per-user limit
+ * (lab-a-dev allows 5). Works on the dev stack, where API calls need no sign-in.
+ */
+export async function closeRemoteSessions(request: APIRequestContext, hostedUrl: string): Promise<void> {
+  const api = new URL(hostedUrl).origin;
+  const res = await request.get(`${api}/api/v1/sessions`);
+  if (!res.ok()) return;
+  const { items } = (await res.json()) as { items: { id: string; state: string }[] };
+  for (const session of items.filter((s) => ['AUTHORIZED', 'CONNECTING', 'ACTIVE'].includes(s.state))) {
+    await request.delete(`${api}/api/v1/sessions/${session.id}`);
+  }
 }

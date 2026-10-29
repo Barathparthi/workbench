@@ -24,7 +24,7 @@ import {
   type Page,
 } from '@playwright/test';
 
-import { waitForShell, workspace } from '../e2e/ide.js';
+import { closeRemoteSessions, waitForShell, workspace } from '../e2e/ide.js';
 
 export type Mode = 'hosted' | 'local-web' | 'desktop';
 export interface ParityOptions {
@@ -139,7 +139,7 @@ export const test = base.extend<
     { scope: 'worker' },
   ],
 
-  ide: async ({ mode, page, desktop }, use, testInfo) => {
+  ide: async ({ mode, page, desktop, request }, use, testInfo) => {
     if (mode === 'desktop') {
       const shell = await shellWindow(desktop as ElectronApplication);
       await waitForShell(shell);
@@ -152,6 +152,7 @@ export const test = base.extend<
     await page.goto(url ?? '/');
     await waitForShell(page);
     await use(page);
+    if (mode === 'hosted' && url !== undefined) await closeRemoteSessions(request, url);
   },
 
   files: async ({ mode }, use, testInfo) => {

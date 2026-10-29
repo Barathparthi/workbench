@@ -12,7 +12,7 @@ import { spawnSync } from 'node:child_process';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { acceptTrust, runCommand, waitForShell } from './ide.js';
+import { acceptTrust, closeRemoteSessions, runCommand, waitForShell } from './ide.js';
 
 const url = process.env['QE_E2E_HOSTED_URL'];
 const target = process.env['QE_E2E_TARGET'] ?? 'lab-a-dev';
@@ -59,6 +59,11 @@ test.describe('remote files (hosted)', () => {
 
   test.beforeAll(() => {
     onServer(`rm -rf ${dir} && mkdir -p ${dir} && printf 'hello remote\\n' > ${dir}/notes.txt`);
+  });
+
+  // Each test opens its own files session (new browser context); end it, or the per-user limit is reached.
+  test.afterEach(async ({ request }) => {
+    await closeRemoteSessions(request, url ?? '');
   });
 
   test.beforeEach(async ({ page }) => {
