@@ -21,7 +21,9 @@ async function type(page: Page, line: string): Promise<void> {
 
 /** Opens a project file through Quick Open, as a user would. */
 async function quickOpen(page: Page, name: string): Promise<void> {
-  await page.keyboard.press('Control+P');
+  // A focused terminal takes Ctrl+P for its shell (the desktop window keeps its terminals between tests).
+  await runCommand(page, 'Focus on Files Explorer');
+  await page.keyboard.press('ControlOrMeta+P');
   await page.locator('.quick-input-widget input').waitFor({ state: 'visible' });
   await page.keyboard.type(name);
   await page.locator('.quick-input-widget .monaco-list-row', { hasText: name }).first().click();
