@@ -28,6 +28,9 @@
     "plugins:download": "node scripts/plugins.ts download",
     "test:e2e": "playwright test"
   },
+  "dependencies": {
+    "decompress": "file:vendor/decompress-compat"
+  },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
@@ -64,7 +67,8 @@
     "@vscode/proxy-agent": {
       "@tootallnate/once": "2.0.1",
       "http-proxy-agent": "5.0.0"
-    }
+    },
+    "decompress": "$decompress"
   },
   "allowScripts": {
     "@parcel/watcher@2.6.0": true,
