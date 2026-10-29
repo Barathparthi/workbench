@@ -104,7 +104,11 @@ test('interrupts a running command with Ctrl+C', async ({ ide, files, mode }) =>
   files.remove('parity-int.txt');
 });
 
-test('renders a webview: the Markdown preview of the README', async ({ ide }) => {
+test('renders a webview: the Markdown preview of the README', async ({ ide, mode }) => {
+  test.fixme(
+    mode === 'hosted',
+    'hosted webviews need their own origin: wildcard DNS and TLS for *.webview.<host> and the router (ADR-005, org decision D9)',
+  );
   await quickOpen(ide, 'README.md');
   await expect(editor(ide)).toContainText('Sample QE project');
   // The Markdown plugin's own key (Theia's palette does not list this plugin's when-scoped commands). Plugins load
