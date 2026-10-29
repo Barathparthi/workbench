@@ -23,7 +23,7 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 07 — Target registry & policy        | **Done — gate PASS** (2026-10-27; integration green in WSL)                                                                      | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
 | 08 — SSH broker & remote terminal    | **Done — gate PASS** (M2 terminal run 2026-10-27, PR #18)                                                                        | [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md) |
 | 09 — Remote filesystem               | **Done — gate PASS** ([PR #22](https://github.com/Barathparthi/workbench/pull/22) merged; CI fix `1456e3c` needs a follow-up PR) | [`phase-gates/PHASE_09.md`](phase-gates/PHASE_09.md) |
-| 10 — Local desktop & local web       | **In progress** — P10.1–P10.6 built on `phase-10-local-desktop`; P10.7 (parity) and gates 10a/10b open                           | `02_PHASES/`                                         |
+| 10 — Local desktop & local web       | **In progress** — P10.1–P10.7 built on `phase-10-local-desktop` (parity green in all three modes); review and gates 10a/10b open | `02_PHASES/`                                         |
 | 11 – 19                              | Not started                                                                                                                      | `02_PHASES/`                                         |
 
 Milestones: M1 (end of Phase 06) — not reached. M2 (remote terminal + remote files) — met 2026-10-27.
@@ -727,3 +727,46 @@ test, then failed to upload — the account's artifact storage quota is full; ni
 a manual run with `upload` or `sign` keeps the installers for 3 days. macOS failed in packaging: missing secrets arrive
 as empty strings and electron-builder took the empty `CSC_LINK` for a certificate path; empty ones are now unset
 (checked under `bash -e -o pipefail`). Existing artifacts still fill the quota until they expire or are deleted.
+
+### 2026-10-29 — Phase 10: parity suite, P10.7 (branch `phase-10-local-desktop`)
+
+`tests/parity` (a new test workspace) runs one set of scenarios in three Playwright projects —
+`parity-hosted` (the dev stack's workspace at `/w/{id}/`), `parity-local-web` (the browser app, signed in with the
+run's link) and `parity-desktop` (Electron, one window per worker) — and checks every result from outside the IDE:
+on disk, in the workspace container, or on the lab machine. Scenarios: same QE commands; a file added on disk appears
+in the explorer; edit and save; a terminal command; Ctrl+C; a webview (the Markdown preview); a terminal on the remote
+target (managed in hosted, the personal `lab-a` in the local modes); remote edit and save; a link out of the remote
+folder never shows its target. "Run the pytest sample" waits for the QE runner (Phase 11). Commits `4a5f20f` …
+`1c4d757`; the nightly `desktop` workflow now runs `parity-desktop` on all three OSes, and `ide` runs every project.
+
+Owner's decision on webviews in local web: **their own origin on localhost** (`2ac371b`, `1907be5`). Theia serves each
+webview from `<uuid>.webview.<host>`, which `127.0.0.1` cannot provide and the P10.5 guard refused. The sign-in link
+now uses `localhost`; a request whose Host is exactly `<uuid>.webview.localhost` may `GET`/`HEAD` Theia's static
+webview shell under `/webview/` without the cookie, and nothing else (no token, no WebSocket, no other path). Checked
+before relying on it: the webview's resource requests (`/webview/theia-resource/…`) are answered by Theia's service
+worker through the signed-in IDE page — asked directly without the cookie, the backend returns 404 for
+`/webview/theia-resource/file///etc/hostname` and 403 for `../`, `%2e%2e` and every other path.
+
+Defects the suite found:
+
+- **Desktop SSH never connected** (`151171d`). Electron's Node uses BoringSSL, which has no ChaCha20-Poly1305; the
+  pinned cipher list asked ssh2 for it and ssh2 refused the configuration (`Unsupported algorithm`), reported as
+  `INTERNAL_ERROR` — every SSH connection the desktop app made itself failed. Unit tests and local web run on OpenSSL
+  Node, so nothing caught it earlier. The pinned lists are now limited, in order, to ssh2's own `SUPPORTED_*` lists for
+  the running runtime; nothing outside them is added (tested with SHA-1, CBC, DSS offered), and an empty category is an
+  error. Verified: broker-core integration 15/15 against OpenSSH; the embedded broker under Electron's Node reaches
+  ACTIVE; desktop parity 8/8.
+- Harness only: Playwright starts Electron as `electron --inspect=0 --remote-debugging-port=0 <app> …`, so Theia took
+  the app folder for the folder to open (the existing Electron smoke test never noticed); `tests/parity/desktop-launcher`
+  removes its own path before starting the real main. Terminals: tests typed into `.last()` of all terminals (a desktop
+  window keeps its earlier ones) — now the terminal on show; and every scenario closes its terminal, after the hosted
+  run hit QE's limit of 10 (terminals outlive page loads there: the limit worked as designed).
+
+Evidence (2026-10-29, WSL): local web 8/8, desktop 8/8, hosted 7/8 with the webview scenario `fixme` for hosted —
+hosted webviews need wildcard DNS and TLS for `*.webview.<host>` and the router (ADR-005, org decision D9); unit
+1550/1550; browser suite 23/23 and local-web security 6/6 on `localhost`.
+
+For the phase review: the embedded broker reports unexpected errors as `INTERNAL_ERROR` without logging anything (the
+cipher bug needed a probe — log the error class and message, never secrets); opening a link out of a remote folder
+silently does nothing (no editor, no message); Theia's palette does not list the Markdown plugin's `when`-scoped
+commands (its key works).

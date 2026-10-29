@@ -46,6 +46,9 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ### Fixed
 
+- Desktop app: SSH connections failed with "The remote session could not be opened" (`INTERNAL_ERROR`). Electron's
+  Node has no ChaCha20-Poly1305 and ssh2 refused the pinned cipher list; the pinned lists are now limited to what the
+  runtime supports, never extended.
 - CI `desktop`: empty signing secrets are unset (macOS took an empty `CSC_LINK` for a certificate path); installers are
   uploaded only on a manual run with `upload` or `sign`, for 3 days (the artifact storage quota was full).
 - CI: the runtime image's local-web check starts the container as the launcher does (published on loopback, with a
