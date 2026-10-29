@@ -1,5 +1,6 @@
 import type { LabelProviderContribution, DidChangeLabelEvent } from '@theia/core/lib/browser/label-provider';
 import { Emitter } from '@theia/core/lib/common';
+import { MessageService } from '@theia/core/lib/common/message-service';
 import URI from '@theia/core/lib/common/uri';
 import { inject, injectable, optional } from '@theia/core/shared/inversify';
 import type { FileService, FileServiceContribution } from '@theia/filesystem/lib/browser/file-service';
@@ -20,6 +21,7 @@ import type { ManagedRelayService, StreamClient } from '../common/managed-relay-
 import { remoteClient } from '../common/remote-client';
 import { QE_SSH_SCHEME, RemoteFileSessions, type SessionStore } from '../common/remote-files';
 import { QeSshFileSystemProvider } from './qe-ssh-file-system-provider';
+import { DEFAULT_WATCHER_OPTIONS } from './remote-watcher';
 
 /** Creates the RPC proxy to the backend's embedded broker, with the given client for its callbacks. */
 export const EmbeddedBrokerConnector = Symbol('EmbeddedBrokerConnector');
@@ -42,6 +44,7 @@ export type ManagedRelayConnector = (client: StreamClient) => ManagedRelayServic
 @injectable()
 export class QeRemoteServices {
   @inject(QeEnvironmentService) protected readonly environment!: QeEnvironmentService;
+  @inject(MessageService) protected readonly messages!: MessageService;
   @inject(EmbeddedBrokerConnector) protected readonly connectEmbedded!: EmbeddedBrokerConnector;
   @inject(ManagedRelayConnector) @optional() protected readonly connectRelay:
     ManagedRelayConnector | undefined;
@@ -71,7 +74,12 @@ export class QeRemoteServices {
     call: async (targetId, op, body) => (await this.resolve()).call(targetId, op, body),
   };
 
-  readonly provider = new QeSshFileSystemProvider(this.connections, userIsActive());
+  readonly provider = new QeSshFileSystemProvider(
+    this.connections,
+    userIsActive(),
+    DEFAULT_WATCHER_OPTIONS,
+    (message) => void this.messages.warn(message),
+  );
 
   protected resolve(): Promise<ConnectionClient> {
     this.parts ??= this.environment.getEnvironment().then((env) =>
