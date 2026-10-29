@@ -36,8 +36,18 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   built-in plugins; signing and notarization from environment variables only. Nightly `desktop` workflow builds and
   smoke-tests them on Linux, Windows and macOS.
 
+### Security
+
+- `decompress` 4.2.1 (Theia's plugin unpacking; no fixed release for archive entries and symlink chains that write
+  outside the target, GHSA-mp2f-45pm-3cg9 and three others) is replaced for every consumer by
+  `vendor/decompress-compat`, its CommonJS API on the patched `@xhmikosr/decompress` 11.1.4 (root `overrides`).
+- `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4, low, no fixed release) is kept: Theia merges only its own configuration
+  defaults with it, never user or network input.
+
 ### Fixed
 
+- CI `desktop`: empty signing secrets are unset (macOS took an empty `CSC_LINK` for a certificate path); installers are
+  uploaded only on a manual run with `upload` or `sign`, for 3 days (the artifact storage quota was full).
 - CI: the runtime image's local-web check starts the container as the launcher does (published on loopback, with a
   sign-in token) and checks the cookie flow, instead of expecting an open page.
 - "QE: Sign Out" (hosted sign-in) is offered only in hosted mode; the desktop app has "QE: Sign Out of QE Workspace".

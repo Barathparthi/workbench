@@ -706,3 +706,24 @@ the packaged binary, started with no plugin location, reaches its shell as "QE D
 Open: D15 (signing certificates, a gate 10b condition) and D16 (package identity) in `ORG_DECISIONS.md`; the Windows
 and macOS installers are built only by the `desktop` workflow so far; managed settings have not been tried with a
 real Group Policy or `/etc` file on a test machine.
+
+### 2026-10-29 — Dependency advisories and the desktop workflow (branch `phase-10-local-desktop`)
+
+Owner: "fix all". **`decompress`** (`75fe4fd`): Theia's plugin-ext, plugin-ext-vscode and cli unpack plugin archives
+with `decompress` 4.2.1, which has no fixed release for the four advisories of 2026-10-28 (critical: entries and
+symlink chains writing outside the target). The maintained fork `@xhmikosr/decompress` fixes them from 11.1.4 but is
+ESM-only; `vendor/decompress-compat` keeps the CommonJS `decompress(input, output?, options?)` API on it, installed as
+a root dependency and put in place for every consumer with `"overrides": {"decompress": "$decompress"}` (a `file:`
+spec directly in `overrides` is resolved relative to the overridden package and silently dropped). Security tests
+load it with `require('decompress')` as Theia does: plain extraction and filter-only reads work; `../`, absolute
+paths, symlink chains and hard links never land outside the target. In WSL: `npm ci` from the lockfile links it,
+both IDE bundles contain the fork's checks ("Refusing to keep a symlink that escapes the output directory") and no
+`require` of the old package, smoke tests 13/13. **`deepmerge`** 4.3.1 (low, no fixed release) is accepted: Theia
+merges only its own configuration defaults with our build-time `package.json` settings; `npm audit --omit=dev` now
+reports only this (38 low, all through it).
+
+**Desktop workflow** (`8acf25d`, reported by the owner): Linux and Windows built the installers and passed the smoke
+test, then failed to upload — the account's artifact storage quota is full; nightly runs now only build and test, and
+a manual run with `upload` or `sign` keeps the installers for 3 days. macOS failed in packaging: missing secrets arrive
+as empty strings and electron-builder took the empty `CSC_LINK` for a certificate path; empty ones are now unset
+(checked under `bash -e -o pipefail`). Existing artifacts still fill the quota until they expire or are deleted.
