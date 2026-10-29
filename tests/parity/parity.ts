@@ -14,9 +14,15 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
-import { _electron as electron, test as base, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  _electron as electron,
+  expect,
+  test as base,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
 
 import { waitForShell, workspace } from '../e2e/ide.js';
 
@@ -134,9 +140,20 @@ export const test = base.extend<
 
   ide: async ({ mode, page, desktop }, use, testInfo) => {
     if (mode === 'desktop') {
-      const window = await shellWindow(desktop as ElectronApplication);
-      await waitForShell(window);
-      await use(window);
+      const shell = await shellWindow(desktop as ElectronApplication);
+      await waitForShell(shell);
+      // Playwright starts Electron as `electron --inspect=0 --remote-debugging-port=0 <app> …`; Theia expects the app
+      // folder second and so takes it for the folder to open. Open the project the way Theia's windows do.
+      if (!(await shell.title()).includes(basename(workspace()))) {
+        await shell.evaluate((folder) => {
+          window.location.hash = folder;
+          window.location.reload();
+        }, workspace());
+        await shell.waitForLoadState('domcontentloaded');
+        await waitForShell(shell);
+        await expect(shell).toHaveTitle(new RegExp(basename(workspace())));
+      }
+      await use(shell);
       return;
     }
     const url = mode === 'hosted' ? process.env['QE_E2E_HOSTED_URL'] : '/';
@@ -174,4 +191,4 @@ export const test = base.extend<
   },
 });
 
-export { expect } from '@playwright/test';
+export { expect };
