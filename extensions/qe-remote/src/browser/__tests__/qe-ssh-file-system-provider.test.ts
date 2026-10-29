@@ -1,11 +1,21 @@
 import type { FsOp } from '@qe/contracts';
 import URI from '@theia/core/lib/common/uri';
-import { FilePermission, FileSystemProviderErrorCode, FileType } from '@theia/filesystem/lib/common/files';
+import {
+  ETAG_DISABLED,
+  etag,
+  FilePermission,
+  FileSystemProviderErrorCode,
+  FileType,
+} from '@theia/filesystem/lib/common/files';
 import { describe, expect, it, vi } from 'vitest';
 
 import { RemoteApiError } from '../../common/remote-client';
 import type { RemoteFileSessions } from '../../common/remote-files';
-import { QeSshFileSystemProvider, toProviderError } from '../qe-ssh-file-system-provider';
+import {
+  QeSshFileSystemProvider,
+  remoteModifiedSince,
+  toProviderError,
+} from '../qe-ssh-file-system-provider';
 
 const TARGET = '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d6f';
 const uri = (path: string) => new URI(`qe-ssh://${TARGET}/${path}`);
@@ -226,5 +236,36 @@ describe('qe-ssh links out of the remote folder', () => {
     const p = refusing(notices);
     expect(await p.readdir(uri(''))).toEqual([['escape', FileType.File | FileType.SymbolicLink]]);
     expect(notices).toEqual([]);
+  });
+});
+
+describe('remote "modified since"', () => {
+  // The version an editor holds, as Theia's FileResource records it: Theia's ETag of (mtime, size).
+  const held = (mtime: number, size: number) => ({ mtime, etag: etag({ mtime, size }) });
+
+  it('counts a change on the server within the same second (SFTP mtimes have whole seconds)', async () => {
+    const { p } = provider(() => fileStat({ mtimeMs: 1_761_000_000_000, size: 39 }));
+    const stat = await p.stat(uri('notes.txt'));
+    expect(remoteModifiedSince(stat, held(1_761_000_000_000, 27))).toBe(true);
+  });
+
+  it('counts any other mtime, earlier or later', async () => {
+    const { p } = provider(() => fileStat({ mtimeMs: 1_761_000_000_000, size: 9 }));
+    const stat = await p.stat(uri('notes.txt'));
+    expect(remoteModifiedSince(stat, held(1_760_999_999_000, 9))).toBe(true);
+    expect(remoteModifiedSince(stat, held(1_761_000_001_000, 9))).toBe(true);
+  });
+
+  it('passes the version the editor holds, and a write that asked not to check', async () => {
+    const { p } = provider(() => fileStat());
+    const stat = await p.stat(uri('notes.txt'));
+    expect(remoteModifiedSince(stat, held(1_761_000_000_000, 9))).toBe(false);
+    expect(remoteModifiedSince(stat, { mtime: 1, etag: ETAG_DISABLED })).toBe(false);
+    expect(remoteModifiedSince(stat, undefined)).toBe(false);
+  });
+
+  it("leaves other files' stats to Theia's check", () => {
+    const local = { type: FileType.File, mtime: 1_761_000_000_000, ctime: 0, size: 39 };
+    expect(remoteModifiedSince(local, held(1_761_000_000_000, 27))).toBeUndefined();
   });
 });

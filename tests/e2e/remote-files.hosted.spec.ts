@@ -114,6 +114,8 @@ test.describe('remote files (hosted)', () => {
     await editorText(page).click();
     await page.keyboard.press('Control+End');
     await page.keyboard.type(' mine');
+    // The browser auto-saves after 1 s, so " mine" is usually saved just before this change, often within the same
+    // (whole) SFTP mtime second: the save below must still see the change and ask.
     await changeOnServer('changed again on the server, meanwhile');
 
     const conflict = page.locator('.dialogOverlay', { hasText: 'has been changed on the file system' });
