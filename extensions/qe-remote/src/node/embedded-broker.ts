@@ -48,6 +48,8 @@ export interface EmbeddedBrokerDeps {
   readonly filesIdleMs?: number;
   /** Whether an unknown host key may be offered to the user (managed setting, Phase 10.6). Default true. */
   readonly trustOnFirstUse?: boolean;
+  /** Where unexpected failures are reported (the backend's logger); coded failures need no log. */
+  readonly log?: { warn(message: string): void };
 }
 
 interface PresentedKey {
@@ -87,6 +89,17 @@ const TERMINAL_MAX_MS = 12 * 60 * 60_000;
 const STREAM_ID = /^[0-9a-f-]{36}$/;
 
 const failure = (error: unknown): ErrorCode => (isDomainError(error) ? error.code : 'INTERNAL_ERROR');
+
+/**
+ * One line about an unexpected failure — its kind and message, bounded — so INTERNAL_ERROR can be diagnosed (the
+ * desktop cipher bug of Phase 10 needed a probe). Never frames, terminal data, file contents, commands or keys: those
+ * are not in an error's message.
+ */
+export function describeUnexpected(where: string, error: unknown): string {
+  const kind = error instanceof Error ? error.name : typeof error;
+  const message = error instanceof Error ? error.message : String(error);
+  return `embedded broker: ${where} failed unexpectedly (${kind}: ${message.replace(/\s+/g, ' ').slice(0, 300)})`;
+}
 
 /**
  * The embedded broker for one IDE window (09_LOCAL_AND_WEB_PARITY §3.4): personal targets from the user's SSH
@@ -184,6 +197,8 @@ export class EmbeddedBroker implements EmbeddedBrokerService {
           };
         } catch (error) {
           const code = mapSshError(error, verifier.outcome);
+          // Wrapped below without its cause: report what INTERNAL_ERROR stands for while it is still known.
+          if (code === 'INTERNAL_ERROR') deps.log?.warn(describeUnexpected(`connect to ${target.id}`, error));
           throw new DomainError(code, 'connect failed', {
             ...(verifier.presented !== undefined &&
               code.startsWith('HOST_KEY_') && {
@@ -308,6 +323,7 @@ export class EmbeddedBroker implements EmbeddedBrokerService {
         await this.deps.audit.record({ action: 'SSH_SESSION_OPENED', target: target.id, outcome: 'success' });
       } catch (error) {
         const code = failure(error);
+        if (!isDomainError(error)) this.deps.log?.warn(describeUnexpected(`terminal to ${target.id}`, error));
         await this.deps.audit.record({
           action: 'SSH_CONNECT_FAILED',
           target: target.id,
@@ -386,6 +402,9 @@ export class EmbeddedBroker implements EmbeddedBrokerService {
       }
       return { ok: true, value };
     } catch (error) {
+      if (!isDomainError(error) && !(error instanceof Error && error.name === 'ZodError')) {
+        this.deps.log?.warn(describeUnexpected(`file ${op} on ${targetId}`, error));
+      }
       return {
         ok: false,
         code: isDomainError(error)

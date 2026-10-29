@@ -20,7 +20,12 @@ import type {
   HostKeyAnswer,
   HostKeyQuestion,
 } from '../../common/embedded-broker-protocol';
-import { EmbeddedBroker, personalMessage, type EmbeddedBrokerDeps } from '../embedded-broker';
+import {
+  describeUnexpected,
+  EmbeddedBroker,
+  personalMessage,
+  type EmbeddedBrokerDeps,
+} from '../embedded-broker';
 
 const PASSPHRASE = 'correct horse';
 /** An encrypted key pair ssh2 can open with the passphrase. */
@@ -477,5 +482,51 @@ describe('embedded broker: host keys of personal targets (trust on first use)', 
       ),
     ).toBe('The host key (ssh-ed25519 SHA256:abc) is not in your known_hosts and was not trusted.');
     expect(personalMessage(new DomainError('SSH_TIMEOUT'))).toBe('The remote system did not answer in time.');
+  });
+});
+
+describe('embedded broker: unexpected failures', () => {
+  it('logs one bounded line for an unexpected failure (the cause of INTERNAL_ERROR)', async () => {
+    const warnings: string[] = [];
+    const t = target(plainServer);
+    const { broker, rec, controls } = setup(t, plainServer, {
+      transport: {
+        connect: () => Promise.reject(new Error('Unsupported algorithm: chacha20-poly1305@openssh.com')),
+      },
+      log: { warn: (message) => warnings.push(message) },
+    });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(rec.closed).toHaveLength(1);
+    });
+    expect(controls().find((c) => c.t === 'error')).toMatchObject({ code: 'INTERNAL_ERROR' });
+    expect(warnings).toEqual([
+      `embedded broker: connect to ${t.id} failed unexpectedly (Error: Unsupported algorithm: chacha20-poly1305@openssh.com)`,
+    ]);
+  });
+
+  it('logs nothing for a coded failure, such as a changed host key', async () => {
+    const warnings: string[] = [];
+    const t = target(plainServer);
+    const { broker, rec } = setup(t, plainServer, {
+      trusted: 'other',
+      log: { warn: (message) => warnings.push(message) },
+    });
+    await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
+    await vi.waitFor(() => {
+      expect(rec.closed).toHaveLength(1);
+    });
+    expect(warnings).toEqual([]);
+  });
+
+  it('keeps the line to one bounded line', () => {
+    const line = describeUnexpected(
+      'file read on personal-box',
+      new TypeError(`a\nb   c ${'x'.repeat(1_000)}`),
+    );
+    expect(line).toMatch(
+      /^embedded broker: file read on personal-box failed unexpectedly \(TypeError: a b c x+\)$/,
+    );
+    expect(line.length).toBeLessThan(400);
   });
 });
