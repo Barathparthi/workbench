@@ -121,7 +121,8 @@ export const test = base.extend<
       const app = await electron.launch({
         executablePath: electronBinary,
         args: [
-          appDir,
+          // Starts apps/ide-electron's main so that Theia opens workspace() (desktop-launcher/main.cjs says why).
+          resolve(import.meta.dirname, 'desktop-launcher'),
           ...(process.platform === 'linux' ? ['--no-sandbox'] : []),
           `--electronUserData=${userData}`,
           '--plugins=local-dir:../../plugins',
@@ -142,19 +143,7 @@ export const test = base.extend<
     if (mode === 'desktop') {
       const shell = await shellWindow(desktop as ElectronApplication);
       await waitForShell(shell);
-      // Playwright starts Electron as `electron --inspect=0 --remote-debugging-port=0 <app> …`; Theia expects the app
-      // folder second and so takes it for the folder to open. Open the project the way Theia's windows do.
-      if (!(await shell.title()).includes(basename(workspace()))) {
-        // Theia asks before the window unloads; Playwright would dismiss that and so cancel the reload.
-        shell.once('dialog', (dialog) => void dialog.accept());
-        await shell.evaluate((folder) => {
-          window.location.hash = folder;
-          window.location.reload();
-        }, workspace());
-        await shell.waitForLoadState('domcontentloaded');
-        await waitForShell(shell);
-        await expect(shell).toHaveTitle(new RegExp(basename(workspace())));
-      }
+      await expect(shell).toHaveTitle(new RegExp(basename(workspace())));
       await use(shell);
       return;
     }

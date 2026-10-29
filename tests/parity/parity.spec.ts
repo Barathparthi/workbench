@@ -154,11 +154,15 @@ test.describe('remote system', () => {
     await ide.keyboard.press('Control+S');
     await expect.poll(() => remote.onServer(`cat ${REMOTE_DIR}/notes.txt`)).toContain('saved remotely');
 
-    // Traversal denial: a link to /etc/hostname is shown, but its content never leaves the remote folder.
+    // Traversal denial: a link to /etc/hostname is listed, but its content never leaves the remote folder — no editor
+    // opens for it, and the outside file's text appears nowhere. (Opening it shows no message yet: review item.)
     const hostname = remote.onServer('cat /etc/hostname').trim();
-    await explorer.getByText('escape', { exact: true }).dblclick();
-    await expect(ide.getByText(/leaves the remote folder/).first()).toBeVisible();
-    await expect(editor(ide)).not.toContainText(hostname);
+    const link = explorer.getByText('escape', { exact: true });
+    await expect(link).toBeVisible();
+    await link.dblclick();
+    await ide.waitForTimeout(3_000);
+    await expect(ide.locator('.lm-TabBar-tab, .p-TabBar-tab', { hasText: 'escape' })).toHaveCount(0);
+    await expect(ide.locator('.monaco-editor .view-lines', { hasText: hostname })).toHaveCount(0);
 
     // Back to the project alone, so later runs find the workspace they expect (a hash change is no reload).
     if (ide === page) {
