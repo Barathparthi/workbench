@@ -54,7 +54,8 @@ export class QeLocalWebContribution
       console.info('QE Workspace (local web) is ready: open the sign-in link qe-workspace-local showed.');
     } else if (port !== undefined) {
       // Never printed or logged: the link is the run's credential.
-      const file = await writeSignInLink(`http://127.0.0.1:${String(port)}/?token=${this.secret.token}`);
+      // localhost, not 127.0.0.1: webviews open on their own <id>.webview.localhost origin (qe-local-web-auth.ts).
+      const file = await writeSignInLink(`http://localhost:${String(port)}/?token=${this.secret.token}`);
       console.info(`QE Workspace (local web) is ready. Its sign-in link is in ${file}.`);
     }
   }

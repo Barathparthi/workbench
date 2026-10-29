@@ -1,0 +1,6 @@
+{
+  "name": "qe-parity-desktop-launcher",
+  "private": true,
+  "description": "Starts the desktop app for the parity suite; not a workspace package.",
+  "main": "main.cjs"
+}

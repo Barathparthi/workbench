@@ -1,0 +1,8 @@
+{
+  "name": "@qe/parity-tests",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Parity suite (01_ARCHITECTURE/09_LOCAL_AND_WEB_PARITY §4, PHASE_10 §10.8): the same scenarios in hosted, local web and desktop mode.",
+  "license": "UNLICENSED",
+  "type": "module"
+}

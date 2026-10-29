@@ -182,3 +182,49 @@ describe('qe-ssh watching', () => {
     }
   });
 });
+
+describe('qe-ssh links out of the remote folder', () => {
+  const refusing = (notices: string[], clock = { now: 0 }) => {
+    const sessions = {
+      call: vi.fn((_target: string, op: FsOp, body: Record<string, unknown>) => {
+        if (op === 'list') {
+          return Promise.resolve({
+            entries: [{ name: 'escape', type: 'symlink', size: 0, mtimeMs: 0 }],
+            truncated: false,
+          });
+        }
+        return body['path'] === 'escape'
+          ? Promise.reject(new RemoteApiError(403, 'PATH_OUTSIDE_ROOT'))
+          : Promise.resolve(fileStat());
+      }),
+    } as unknown as RemoteFileSessions;
+    return new QeSshFileSystemProvider(
+      sessions,
+      () => true,
+      undefined,
+      (message) => notices.push(message),
+      () => clock.now,
+    );
+  };
+
+  it('tells the user why a link out of the folder does not open, once per file per 10 s', async () => {
+    const notices: string[] = [];
+    const clock = { now: 0 };
+    const p = refusing(notices, clock);
+    await expect(p.stat(uri('escape'))).rejects.toMatchObject({
+      code: FileSystemProviderErrorCode.NoPermissions,
+    });
+    await expect(p.readFile(uri('escape'))).rejects.toThrow();
+    expect(notices).toEqual(['“escape” points outside the remote folder, so QE Workspace does not open it.']);
+    clock.now = 11_000;
+    await expect(p.stat(uri('escape'))).rejects.toThrow();
+    expect(notices).toHaveLength(2);
+  });
+
+  it('says nothing while listing a folder that contains such a link', async () => {
+    const notices: string[] = [];
+    const p = refusing(notices);
+    expect(await p.readdir(uri(''))).toEqual([['escape', FileType.File | FileType.SymbolicLink]]);
+    expect(notices).toEqual([]);
+  });
+});

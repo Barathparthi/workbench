@@ -35,9 +35,27 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 - Desktop installers (`npm run package -w @qe/ide-electron`): Windows NSIS, macOS dmg, Linux AppImage and deb, with the
   built-in plugins; signing and notarization from environment variables only. Nightly `desktop` workflow builds and
   smoke-tests them on Linux, Windows and macOS.
+- Parity suite (`tests/parity`, Playwright projects `parity-hosted`, `parity-local-web`, `parity-desktop`): the same
+  scenarios in every mode — QE commands, explorer, edit and save, terminal, Ctrl+C, webview, remote terminal, remote
+  edit and save, links out of the remote folder. Desktop runs nightly on Linux, Windows and macOS.
+- Local web: webviews (Markdown preview, plugin panels) work, on their own `<id>.webview.localhost` origin; the sign-in
+  link uses `localhost`.
+
+### Security
+
+- `decompress` 4.2.1 (Theia's plugin unpacking; no fixed release for archive entries and symlink chains that write
+  outside the target, GHSA-mp2f-45pm-3cg9 and three others) is replaced for every consumer by
+  `vendor/decompress-compat`, its CommonJS API on the patched `@xhmikosr/decompress` 11.1.4 (root `overrides`).
+- `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4, low, no fixed release) is kept: Theia merges only its own configuration
+  defaults with it, never user or network input.
 
 ### Fixed
 
+- Desktop app: SSH connections failed with "The remote session could not be opened" (`INTERNAL_ERROR`). Electron's
+  Node has no ChaCha20-Poly1305 and ssh2 refused the pinned cipher list; the pinned lists are now limited to what the
+  runtime supports, never extended.
+- CI `desktop`: empty signing secrets are unset (macOS took an empty `CSC_LINK` for a certificate path); installers are
+  uploaded only on a manual run with `upload` or `sign`, for 3 days (the artifact storage quota was full).
 - CI: the runtime image's local-web check starts the container as the launcher does (published on loopback, with a
   sign-in token) and checks the cookie flow, instead of expecting an open page.
 - "QE: Sign Out" (hosted sign-in) is offered only in hosted mode; the desktop app has "QE: Sign Out of QE Workspace".

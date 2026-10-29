@@ -1,6 +1,7 @@
 import type { Duplex } from 'node:stream';
 
 import ssh2 from 'ssh2';
+import ssh2Constants from 'ssh2/lib/protocol/constants.js';
 
 import type { HostKeyVerifier } from './host-key.js';
 import { mapSftpError, wrapSftp, type SftpChannel } from './sftp.js';
@@ -69,6 +70,39 @@ export const ALGORITHMS = {
   hmac: ['hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512'],
 } as const;
 
+export interface SupportedAlgorithms {
+  readonly kex: readonly string[];
+  readonly serverHostKey: readonly string[];
+  readonly cipher: readonly string[];
+  readonly hmac: readonly string[];
+}
+
+/**
+ * The pinned lists, in their order, limited to what this runtime's ssh2 can negotiate: Electron's Node (BoringSSL,
+ * the desktop app's backend) has no ChaCha20-Poly1305, and ssh2 refuses to connect when asked for an algorithm it
+ * cannot use. Nothing outside the pinned lists is ever added; a category left empty is a configuration error.
+ */
+export function algorithmsFor(supported: SupportedAlgorithms) {
+  const keep = <T extends string>(pinned: readonly T[], available: readonly string[], name: string): T[] => {
+    const usable = pinned.filter((algorithm) => available.includes(algorithm));
+    if (usable.length === 0) throw new Error(`no pinned SSH ${name} algorithm is available in this runtime`);
+    return usable;
+  };
+  return {
+    kex: keep(ALGORITHMS.kex, supported.kex, 'key exchange'),
+    serverHostKey: keep(ALGORITHMS.serverHostKey, supported.serverHostKey, 'host key'),
+    cipher: keep(ALGORITHMS.cipher, supported.cipher, 'cipher'),
+    hmac: keep(ALGORITHMS.hmac, supported.hmac, 'MAC'),
+  };
+}
+
+const RUNTIME_ALGORITHMS = algorithmsFor({
+  kex: ssh2Constants.SUPPORTED_KEX,
+  serverHostKey: ssh2Constants.SUPPORTED_SERVER_HOST_KEY,
+  cipher: ssh2Constants.SUPPORTED_CIPHER,
+  hmac: ssh2Constants.SUPPORTED_MAC,
+});
+
 export const CONNECT_TIMEOUT_MS = 10_000;
 
 /**
@@ -112,12 +146,7 @@ export const ssh2Transport: SshTransport = {
         ...(options?.sock !== undefined && { sock: options.sock }),
         ...credentialOptions(credential, endpoint.username),
         hostVerifier: (key: Buffer) => verifier.verify(key),
-        algorithms: {
-          kex: [...ALGORITHMS.kex],
-          serverHostKey: [...ALGORITHMS.serverHostKey],
-          cipher: [...ALGORITHMS.cipher],
-          hmac: [...ALGORITHMS.hmac],
-        },
+        algorithms: RUNTIME_ALGORITHMS,
         readyTimeout: CONNECT_TIMEOUT_MS,
         keepaliveInterval: 15_000,
         keepaliveCountMax: 3,

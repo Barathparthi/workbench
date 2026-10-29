@@ -56,7 +56,8 @@ try {
   Remove-Item Env:QE_LOCAL_WEB_TOKEN
 }
 
-$url = "http://127.0.0.1:$port"
+# The link uses localhost: webviews (Markdown preview, plugin panels) open on their own <id>.webview.localhost origin.
+$url = "http://localhost:$port"
 Write-Host -NoNewline "Starting QE Workspace for $project "
 $ready = $false
 for ($i = 0; $i -lt 90; $i++) {

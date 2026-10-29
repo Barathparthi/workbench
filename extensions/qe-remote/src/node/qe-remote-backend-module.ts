@@ -1,4 +1,5 @@
 import { environmentOrExit, managedSettingsOrExit } from '@qe/theia-qe-core/lib/node/qe-core-backend-module';
+import { ILogger } from '@theia/core/lib/common/logger';
 import { ConnectionHandler, RpcConnectionHandler } from '@theia/core/lib/common/messaging';
 import { ContainerModule, type interfaces } from '@theia/core/shared/inversify';
 
@@ -9,17 +10,20 @@ import { localBrokerDeps } from './local-broker-deps';
 /** One embedded broker per IDE window, over Theia's RPC channel; it ends when the window's connection closes. */
 export function bindEmbeddedBroker(bind: interfaces.Bind): void {
   bind(ConnectionHandler)
-    .toDynamicValue(
-      () =>
-        new RpcConnectionHandler<EmbeddedBrokerClient>(EMBEDDED_BROKER_PATH, (client) => {
-          const broker = new EmbeddedBroker(localBrokerDeps(managedSettingsOrExit()));
-          broker.setClient(client);
-          client.onDidCloseConnection(() => {
-            broker.dispose();
-          });
-          return broker;
-        }),
-    )
+    .toDynamicValue((ctx) => {
+      const logger = ctx.container.get<ILogger>(ILogger);
+      return new RpcConnectionHandler<EmbeddedBrokerClient>(EMBEDDED_BROKER_PATH, (client) => {
+        const broker = new EmbeddedBroker({
+          ...localBrokerDeps(managedSettingsOrExit()),
+          log: { warn: (message) => void logger.warn(message) },
+        });
+        broker.setClient(client);
+        client.onDidCloseConnection(() => {
+          broker.dispose();
+        });
+        return broker;
+      });
+    })
     .inSingletonScope();
 }
 

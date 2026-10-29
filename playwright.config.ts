@@ -15,7 +15,12 @@ const localWebToken = process.env['QE_E2E_LOCAL_TOKEN'];
 const localWebState = resolve(import.meta.dirname, 'test-results/e2e-auth/local-web.json');
 process.env['QE_E2E_LOCAL_STATE'] = localWebState;
 
-export default defineConfig({
+/** The parity suite's option (tests/parity/parity.ts): which mode a project runs the scenarios in. */
+interface ParityOptions {
+  mode: 'hosted' | 'local-web' | 'desktop';
+}
+
+export default defineConfig<ParityOptions>({
   testDir: 'tests/e2e',
   outputDir: 'test-results/e2e',
   timeout: 90_000,
@@ -25,7 +30,8 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: `http://127.0.0.1:${port}`,
+    // localhost, as the launcher's link: webviews need their <id>.webview.localhost origin (PHASE_10 §10.6).
+    baseURL: `http://localhost:${port}`,
     viewport: { width: 1280, height: 800 },
     trace: 'retain-on-failure',
     // Containers that ship their own Chromium (no `playwright install`) point at it here.
@@ -47,6 +53,16 @@ export default defineConfig({
     { name: 'electron', testMatch: 'smoke.electron.spec.ts' },
     // The hosted stack (control plane, broker, lab machine); remote-files.hosted.spec.ts says what it needs.
     { name: 'hosted', testMatch: /\.hosted\.spec\.ts$/ },
+    // The parity suite (09_LOCAL_AND_WEB_PARITY §4): the same scenarios in each mode; tests/parity/parity.ts says
+    // what each needs. Hosted is skipped without the dev stack.
+    {
+      name: 'parity-local-web',
+      testDir: 'tests/parity',
+      dependencies: ['local-web-sign-in'],
+      use: { mode: 'local-web', storageState: localWebState },
+    },
+    { name: 'parity-desktop', testDir: 'tests/parity', use: { mode: 'desktop' } },
+    { name: 'parity-hosted', testDir: 'tests/parity', use: { mode: 'hosted' } },
   ],
   webServer: {
     command: `node tests/e2e/prepare-workspace.ts "${workspace}" && node apps/ide-browser/lib/backend/main.js "${workspace}" --hostname=127.0.0.1 --port=${port} --plugins=local-dir:plugins`,

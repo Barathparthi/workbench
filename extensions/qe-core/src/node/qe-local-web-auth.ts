@@ -73,11 +73,40 @@ export type LocalWebDecision =
   | { readonly kind: 'sign-in'; readonly location: string; readonly cookie: string }
   | { readonly kind: 'refuse'; readonly status: 401 | 403 };
 
+/**
+ * A webview's own origin (`<uuid>.webview.localhost`, Theia's default endpoint; browsers resolve *.localhost to
+ * loopback). Webview content is kept off the IDE's origin, as in hosted mode (ADR-005), so the cookie never reaches it.
+ */
+const WEBVIEW_HOST = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webview\.localhost$/;
+
+export function isWebviewHost(hostHeader: string | undefined): boolean {
+  if (hostHeader === undefined) return false;
+  try {
+    return WEBVIEW_HOST.test(new URL(`http://${hostHeader}`).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * What a webview origin may load without the cookie: Theia's static webview host page and its scripts under
+ * `/webview/` — the same files for everyone, no data. Its content comes from the IDE page over postMessage.
+ */
+function isWebviewShell(method: string | undefined, rawUrl: string | undefined): boolean {
+  if (method !== 'GET' && method !== 'HEAD') return false;
+  const raw = rawUrl ?? '/';
+  if (raw.includes('..') || raw.includes('%2e') || raw.includes('%2E') || raw.includes('\\')) return false;
+  return new URL(raw, 'http://local').pathname.startsWith('/webview/');
+}
+
 /** What a request may do, from its method, URL, Host and Cookie headers. */
 export function decide(
   secret: LocalWebSecret,
   request: { method?: string | undefined; url?: string | undefined; headers: IncomingMessage['headers'] },
 ): LocalWebDecision {
+  if (isWebviewHost(request.headers.host)) {
+    return isWebviewShell(request.method, request.url) ? { kind: 'allow' } : { kind: 'refuse', status: 403 };
+  }
   if (!isLoopbackHost(request.headers.host)) return { kind: 'refuse', status: 403 };
   const cookie = cookieOf(request.headers.cookie, LOCAL_WEB_COOKIE);
   const expected = localWebCookieValue(secret.token);
@@ -99,7 +128,7 @@ export function decide(
 const REFUSED_PAGE = (status: 401 | 403) =>
   `<!doctype html><html><head><meta charset="utf-8"><title>QE Workspace</title></head><body><p>${
     status === 403
-      ? 'This QE Workspace answers on 127.0.0.1 only.'
+      ? 'This QE Workspace answers on localhost only.'
       : 'This QE Workspace runs on your machine and opens with its sign-in link: use the address qe-workspace-local printed (with its token).'
   }</p></body></html>`;
 

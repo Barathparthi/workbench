@@ -138,14 +138,21 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
   readonly onFileWatchError = Event.None;
   /** ETag of the last stat, read or write of each file, by URI. */
   protected readonly etags = new Map<string, string>();
+  /** When each file was last reported as pointing out of the remote folder (one message per file per 10 s). */
+  protected readonly refusals = new Map<string, number>();
 
   protected readonly watcher: RemoteWatcher;
 
-  /** `isActive`: whether the user is here (page visible, recent input); polling pauses otherwise. */
+  /**
+   * `isActive`: whether the user is here (page visible, recent input); polling pauses otherwise. `notify`: tells the
+   * user why something they opened was refused (Theia's open path drops the provider's error).
+   */
   constructor(
     protected readonly sessions: FileCaller,
     isActive: () => boolean = () => true,
     watcherOptions: RemoteWatcherOptions = DEFAULT_WATCHER_OPTIONS,
+    protected readonly notify: (message: string) => void = () => undefined,
+    protected readonly now: () => number = Date.now,
   ) {
     const gone = (error: unknown) => {
       if (error instanceof RemoteApiError && error.code === 'NOT_FOUND') return undefined;
@@ -170,21 +177,40 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
     );
   }
 
-  protected async call<T>(uri: URI, op: FsOp, body: object): Promise<T> {
+  /** `opened`: the user asked for this file itself (not a listing): a refusal is explained to them. */
+  protected async call<T>(uri: URI, op: FsOp, body: object, opened = false): Promise<T> {
     try {
       return await this.sessions.call<T>(uri.authority, op, body);
     } catch (error) {
+      if (opened && error instanceof RemoteApiError && error.code === 'PATH_OUTSIDE_ROOT') this.refused(uri);
       throw toProviderError(error);
     }
+  }
+
+  protected refused(uri: URI): void {
+    const key = uri.toString();
+    const at = this.now();
+    if (at - (this.refusals.get(key) ?? -Infinity) < 10_000) return;
+    this.refusals.set(key, at);
+    this.notify(`“${uri.path.base}” points outside the remote folder, so QE Workspace does not open it.`);
   }
 
   watch(resource: URI, options: WatchOptions): Disposable {
     return this.watcher.watch(resource, options.recursive);
   }
 
-  async stat(resource: URI): Promise<Stat> {
+  stat(resource: URI): Promise<Stat> {
+    return this.statOf(resource, true);
+  }
+
+  protected async statOf(resource: URI, opened: boolean): Promise<Stat> {
     try {
-      const s = await this.call<FsStat>(resource, 'stat', { path: relativePath(resource.path.toString()) });
+      const s = await this.call<FsStat>(
+        resource,
+        'stat',
+        { path: relativePath(resource.path.toString()) },
+        opened,
+      );
       this.etags.set(resource.toString(), s.etag);
       if (s.type === 'file') this.watcher.updateFile(resource, s.etag);
       return toStat(s);
@@ -206,16 +232,19 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
         if (entry.type === 'directory') return [entry.name, FileType.Directory];
         if (entry.type !== 'symlink')
           return [entry.name, entry.type === 'file' ? FileType.File : FileType.Unknown];
-        const linked = await this.stat(resource.resolve(entry.name)).catch(() => undefined);
+        const linked = await this.statOf(resource.resolve(entry.name), false).catch(() => undefined);
         return [entry.name, linked?.type ?? withLink(FileType.File, true)];
       }),
     );
   }
 
   async readFile(resource: URI): Promise<Uint8Array> {
-    const r = await this.call<FsReadResult>(resource, 'read', {
-      path: relativePath(resource.path.toString()),
-    });
+    const r = await this.call<FsReadResult>(
+      resource,
+      'read',
+      { path: relativePath(resource.path.toString()) },
+      true,
+    );
     this.etags.set(resource.toString(), r.etag);
     this.watcher.noteFile(resource, r.etag);
     return fromBase64(r.contentBase64);

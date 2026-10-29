@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "../../.tsbuild/tests-parity",
+    "tsBuildInfoFile": "../../.tsbuild/tests-parity/.tsbuildinfo",
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["*.ts", "../e2e/ide.ts"]
+}

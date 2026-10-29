@@ -9,6 +9,7 @@ import {
   allowsLocalWebUpgrade,
   decide,
   isLoopbackHost,
+  isWebviewHost,
   listeningProblem,
   LOCAL_WEB_CONTAINER_ENV,
   LOCAL_WEB_TOKEN_ENV,
@@ -146,6 +147,55 @@ describe('allowsLocalWebUpgrade (WebSocket and Socket.IO handshakes)', () => {
       url: `/socket.io/?token=${TOKEN}`,
     } as unknown as IncomingMessage;
     expect(allowsLocalWebUpgrade(secret, withToken)).toBe(false);
+  });
+});
+
+describe('webview origins (<uuid>.webview.localhost)', () => {
+  const host = '1fdb1e9a-66d1-549b-81bb-90b2525b22c9.webview.localhost:3000';
+
+  it('may load Theia’s static webview shell without the cookie, and nothing else', () => {
+    for (const path of ['/webview/index.html', '/webview/main.js', '/webview/service-worker.js']) {
+      expect(decide(secret, req(path, { host }))).toEqual({ kind: 'allow' });
+    }
+    expect(decide(secret, req('/webview/index.html', { host }, 'HEAD'))).toEqual({ kind: 'allow' });
+    for (const path of ['/', '/bundle.js', '/file/etc/passwd', '/services/x', '/socket.io/?EIO=4']) {
+      expect(decide(secret, req(path, { host }))).toEqual({ kind: 'refuse', status: 403 });
+    }
+  });
+
+  it('refuses writes, traversal and the sign-in link there; the cookie is never needed nor used', () => {
+    expect(decide(secret, req('/webview/index.html', { host }, 'POST'))).toEqual({
+      kind: 'refuse',
+      status: 403,
+    });
+    for (const path of [
+      '/webview/../services',
+      '/webview/%2e%2e/bundle.js',
+      '/webview/%2E%2E/x',
+      '/webview/..\\x',
+    ]) {
+      expect(decide(secret, req(path, { host }))).toEqual({ kind: 'refuse', status: 403 });
+    }
+    expect(decide(secret, req(`/?token=${TOKEN}`, { host }))).toEqual({ kind: 'refuse', status: 403 });
+    expect(decide(secret, req('/bundle.js', { host, cookie }))).toEqual({ kind: 'refuse', status: 403 });
+  });
+
+  it('never opens a WebSocket from a webview origin', () => {
+    const upgrade = { headers: { host, cookie }, url: '/socket.io/?EIO=4' } as unknown as IncomingMessage;
+    expect(allowsLocalWebUpgrade(secret, upgrade)).toBe(false);
+  });
+
+  it('accepts only the exact shape: a UUID under .webview.localhost', () => {
+    expect(isWebviewHost(host)).toBe(true);
+    for (const other of [
+      'evil.webview.localhost:3000',
+      '1fdb1e9a-66d1-549b-81bb-90b2525b22c9.webview.127.0.0.1:3000',
+      '1fdb1e9a-66d1-549b-81bb-90b2525b22c9.webview.localhost.evil.example',
+      'webview.localhost',
+      undefined,
+    ]) {
+      expect(isWebviewHost(other)).toBe(false);
+    }
   });
 });
 

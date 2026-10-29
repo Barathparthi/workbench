@@ -42,7 +42,8 @@ fi
 
 docker compose "${files[@]}" up -d --force-recreate >/dev/null
 
-url="http://127.0.0.1:$port"
+# The link uses localhost: webviews (Markdown preview, plugin panels) open on their own <id>.webview.localhost origin.
+url="http://localhost:$port"
 printf 'Starting QE Workspace for %s ' "$project"
 for _ in $(seq 1 90); do
   # Up means it refuses us: 401 without the sign-in cookie.
