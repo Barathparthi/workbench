@@ -53,6 +53,9 @@
       "path": "tests/security"
     },
     {
+      "path": "tests/parity"
+    },
+    {
       "path": "tsconfig.tools.json"
     },
     {
