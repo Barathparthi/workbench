@@ -7,7 +7,14 @@
  */
 import type { Page } from '@playwright/test';
 
-import { acceptTrust, newTerminal, openPalette, QE_COMMANDS, runCommand } from '../e2e/ide.js';
+import {
+  acceptTrust,
+  newTerminal,
+  openPalette,
+  QE_COMMANDS,
+  runCommand,
+  VISIBLE_TERMINAL_INPUT,
+} from '../e2e/ide.js';
 import { expect, test, type RemoteTarget } from './parity.js';
 
 test.describe.configure({ mode: 'serial' });
@@ -123,7 +130,8 @@ test.describe('remote system', () => {
 
   test('opens a terminal on the target', async ({ ide, remote }) => {
     await pickTarget(ide, 'Connect to Remote System', remote);
-    const terminal = ide.locator('.terminal-container .xterm-helper-textarea').last();
+    // The terminal on show (a desktop window keeps its earlier local terminals, hidden).
+    const terminal = ide.locator(VISIBLE_TERMINAL_INPUT).last();
     await terminal.waitFor({ state: 'attached' });
     await terminal.focus();
     await ide.waitForTimeout(1_000);

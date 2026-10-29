@@ -53,10 +53,14 @@ export async function runCommand(page: Page, label: string): Promise<void> {
   await page.locator('.quick-input-widget .monaco-list-row', { hasText: label }).first().click();
 }
 
+/** The input of the terminal on show: other terminals stay in the DOM, hidden by Lumino. */
+export const VISIBLE_TERMINAL_INPUT =
+  '.terminal-container:not(.lm-mod-hidden):not(.p-mod-hidden) .xterm-helper-textarea';
+
 /** Opens a new integrated terminal, focused and ready for input. */
 export async function newTerminal(page: Page): Promise<void> {
   await runCommand(page, 'Create New Terminal');
-  const input = page.locator('.terminal-container .xterm-helper-textarea').last();
+  const input = page.locator(VISIBLE_TERMINAL_INPUT).last();
   await input.waitFor({ state: 'attached' });
   await input.focus();
   // The shell prints its prompt once it is ready; typing earlier can be lost.
