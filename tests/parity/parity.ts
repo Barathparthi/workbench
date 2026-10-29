@@ -145,6 +145,8 @@ export const test = base.extend<
       // Playwright starts Electron as `electron --inspect=0 --remote-debugging-port=0 <app> …`; Theia expects the app
       // folder second and so takes it for the folder to open. Open the project the way Theia's windows do.
       if (!(await shell.title()).includes(basename(workspace()))) {
+        // Theia asks before the window unloads; Playwright would dismiss that and so cancel the reload.
+        shell.once('dialog', (dialog) => void dialog.accept());
         await shell.evaluate((folder) => {
           window.location.hash = folder;
           window.location.reload();

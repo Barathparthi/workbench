@@ -128,7 +128,7 @@ export function decide(
 const REFUSED_PAGE = (status: 401 | 403) =>
   `<!doctype html><html><head><meta charset="utf-8"><title>QE Workspace</title></head><body><p>${
     status === 403
-      ? 'This QE Workspace answers on 127.0.0.1 only.'
+      ? 'This QE Workspace answers on localhost only.'
       : 'This QE Workspace runs on your machine and opens with its sign-in link: use the address qe-workspace-local printed (with its token).'
   }</p></body></html>`;
 

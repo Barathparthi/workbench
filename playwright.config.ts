@@ -30,7 +30,8 @@ export default defineConfig<ParityOptions>({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: `http://127.0.0.1:${port}`,
+    // localhost, as the launcher's link: webviews need their <id>.webview.localhost origin (PHASE_10 §10.6).
+    baseURL: `http://localhost:${port}`,
     viewport: { width: 1280, height: 800 },
     trace: 'retain-on-failure',
     // Containers that ship their own Chromium (no `playwright install`) point at it here.

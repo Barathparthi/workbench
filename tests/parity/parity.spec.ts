@@ -38,20 +38,6 @@ async function pickTarget(page: Page, command: string, remote: RemoteTarget): Pr
 
 const editor = (page: Page) => page.locator('.monaco-editor .view-lines').first();
 
-/**
- * A command a plugin contributes: plugins deploy after the shell is up and an open palette does not refresh its
- * list, so look again until the command is there.
- */
-async function runPluginCommand(page: Page, label: string): Promise<void> {
-  const row = page.locator('.quick-input-widget .monaco-list-row', { hasText: label }).first();
-  await expect(async () => {
-    await page.keyboard.press('Escape');
-    await openPalette(page, label);
-    await expect(row).toBeVisible({ timeout: 3_000 });
-  }).toPass({ timeout: 60_000 });
-  await row.click();
-}
-
 test('offers the same QE commands', async ({ ide }) => {
   await openPalette(ide, 'QE:');
   const rows = ide.locator('.quick-input-widget .monaco-list-row');
@@ -112,8 +98,15 @@ test('interrupts a running command with Ctrl+C', async ({ ide, files, mode }) =>
 test('renders a webview: the Markdown preview of the README', async ({ ide }) => {
   await quickOpen(ide, 'README.md');
   await expect(editor(ide)).toContainText('Sample QE project');
-  await runPluginCommand(ide, 'Markdown: Open Preview to the Side');
-  // Webviews live in their own origin's iframe; the preview is a frame inside it.
+  // The Markdown plugin's own key (Theia's palette does not list this plugin's when-scoped commands). Plugins load
+  // after the shell, so press it until the preview opens.
+  const webview = ide.locator('iframe.webview');
+  await expect(async () => {
+    await editor(ide).click();
+    await ide.keyboard.press('ControlOrMeta+Shift+V');
+    await expect(webview).toHaveCount(1, { timeout: 3_000 });
+  }).toPass({ timeout: 60_000 });
+  // Webviews live on their own origin (local web: <id>.webview.localhost); the preview is a frame inside it.
   const preview = ide.frameLocator('iframe.webview').frameLocator('iframe#active-frame');
   await expect(preview.locator('h1')).toHaveText('Sample QE project', { timeout: 30_000 });
 });
