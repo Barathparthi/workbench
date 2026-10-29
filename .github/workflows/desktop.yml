@@ -13,6 +13,10 @@ on:
         description: Require signed (and on macOS notarized) installers
         type: boolean
         default: false
+      upload:
+        description: Keep the installers as run artifacts (3 days; they count against the account's storage)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -59,8 +63,13 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.QE_APPLE_TEAM_ID }}
           SIGN: ${{ inputs.sign || false }}
         run: |
+          # A secret that does not exist arrives as an empty string; electron-builder takes an empty CSC_LINK for a
+          # certificate (and resolves it to the app folder), so unset whatever is empty.
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [ -n "${!name}" ] || unset "$name"
+          done
           # Without a certificate, never search the runner's keychain for one.
-          [ -n "$CSC_LINK" ] || export CSC_IDENTITY_AUTO_DISCOVERY=false
+          [ -n "${CSC_LINK:-}" ] || export CSC_IDENTITY_AUTO_DISCOVERY=false
           if [ "$SIGN" = true ]; then
             npm run package -w @qe/ide-electron -- -c.forceCodeSigning=true
           else
@@ -72,7 +81,10 @@ jobs:
           npx playwright install --with-deps chromium
           if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a npx playwright test --project=electron
           else npx playwright test --project=electron; fi
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      # Nightly runs only prove the installers build and start: ~300 MB a night would fill the artifact quota. A manual
+      # run with `upload` (or `sign`) keeps them.
+      - if: inputs.upload || inputs.sign
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: qe-workspace-${{ runner.os }}
           path: |
@@ -81,4 +93,4 @@ jobs:
             apps/ide-electron/dist-electron/*.AppImage
             apps/ide-electron/dist-electron/*.deb
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
