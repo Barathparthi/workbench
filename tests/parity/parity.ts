@@ -168,6 +168,11 @@ export const test = base.extend<
   },
 
   remote: async ({ mode }, use, testInfo) => {
+    // Checked before the scenarios' beforeEach reaches the lab machine: without the stack there is none.
+    testInfo.skip(
+      mode === 'hosted' && process.env['QE_E2E_HOSTED_URL'] === undefined,
+      'hosted mode needs the dev stack: set QE_E2E_HOSTED_URL',
+    );
     const personal = process.env['QE_E2E_PERSONAL_HOST'];
     const name = mode === 'hosted' ? (process.env['QE_E2E_TARGET'] ?? 'lab-a-dev') : personal;
     testInfo.skip(
