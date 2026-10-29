@@ -47,6 +47,14 @@ async function pickTarget(page: Page, command: string, remote: RemoteTarget): Pr
 
 const editor = (page: Page) => page.locator('.monaco-editor .view-lines').first();
 
+/**
+ * Closes the terminal on show. Hosted terminals outlive page loads and a workspace allows 10, so every scenario closes
+ * what it opens — even when it fails.
+ */
+async function closeTerminal(page: Page): Promise<void> {
+  await runCommand(page, 'Terminal: Kill Terminal').catch(() => undefined);
+}
+
 test('offers the same QE commands', async ({ ide }) => {
   await openPalette(ide, 'QE:');
   const rows = ide.locator('.quick-input-widget .monaco-list-row');
@@ -85,23 +93,31 @@ test('edits and saves a project file', async ({ ide, files }) => {
 test('runs a command in the integrated terminal', async ({ ide, files }) => {
   files.remove('parity-term.txt');
   await newTerminal(ide);
-  // Works in bash, zsh, PowerShell and cmd alike.
-  await type(ide, 'echo parity-terminal> parity-term.txt');
-  await expect.poll(() => files.read('parity-term.txt')).toBe('parity-terminal');
-  files.remove('parity-term.txt');
+  try {
+    // Works in bash, zsh, PowerShell and cmd alike.
+    await type(ide, 'echo parity-terminal> parity-term.txt');
+    await expect.poll(() => files.read('parity-term.txt')).toBe('parity-terminal');
+  } finally {
+    files.remove('parity-term.txt');
+    await closeTerminal(ide);
+  }
 });
 
 test('interrupts a running command with Ctrl+C', async ({ ide, files, mode }) => {
   test.skip(mode === 'desktop' && process.platform === 'win32', 'the check uses a POSIX shell');
   files.remove('parity-int.txt');
   await newTerminal(ide);
-  await type(ide, 'sleep 30; echo slept > parity-slept.txt');
-  await ide.waitForTimeout(1_000);
-  await ide.keyboard.press('Control+C');
-  await type(ide, 'echo interrupted > parity-int.txt');
-  await expect.poll(() => files.read('parity-int.txt'), { timeout: 10_000 }).toBe('interrupted');
-  expect(files.read('parity-slept.txt')).toBe('');
-  files.remove('parity-int.txt');
+  try {
+    await type(ide, 'sleep 30; echo slept > parity-slept.txt');
+    await ide.waitForTimeout(1_000);
+    await ide.keyboard.press('Control+C');
+    await type(ide, 'echo interrupted > parity-int.txt');
+    await expect.poll(() => files.read('parity-int.txt'), { timeout: 10_000 }).toBe('interrupted');
+    expect(files.read('parity-slept.txt')).toBe('');
+  } finally {
+    files.remove('parity-int.txt');
+    await closeTerminal(ide);
+  }
 });
 
 test('renders a webview: the Markdown preview of the README', async ({ ide, mode }) => {
@@ -137,12 +153,16 @@ test.describe('remote system', () => {
     // The terminal on show (a desktop window keeps its earlier local terminals, hidden).
     const terminal = ide.locator(VISIBLE_TERMINAL_INPUT).last();
     await terminal.waitFor({ state: 'attached' });
-    await terminal.focus();
-    await ide.waitForTimeout(1_000);
-    await type(ide, 'echo PARITY-$((40+2)) > /tmp/qe-parity-marker');
-    await expect
-      .poll(() => remote.onServer('cat /tmp/qe-parity-marker 2>/dev/null || true').trim())
-      .toBe('PARITY-42');
+    try {
+      await terminal.focus();
+      await ide.waitForTimeout(1_000);
+      await type(ide, 'echo PARITY-$((40+2)) > /tmp/qe-parity-marker');
+      await expect
+        .poll(() => remote.onServer('cat /tmp/qe-parity-marker 2>/dev/null || true').trim())
+        .toBe('PARITY-42');
+    } finally {
+      await closeTerminal(ide);
+    }
   });
 
   test('opens the remote folder, saves an edit, and refuses a link out of it', async ({
