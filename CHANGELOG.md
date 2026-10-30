@@ -35,6 +35,8 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 - Desktop installers (`npm run package -w @qe/ide-electron`): Windows NSIS, macOS dmg, Linux AppImage and deb, with the
   built-in plugins; signing and notarization from environment variables only. Nightly `desktop` workflow builds and
   smoke-tests them on Linux, Windows and macOS.
+- "QE: Add SSH Host…" (desktop and local web, also the last entry of the host picker): `user@host:port` and a
+  name, saved to `~/.qe-workspace/ssh_hosts`; `~/.ssh/config` is never changed.
 - Parity suite (`tests/parity`, Playwright projects `parity-hosted`, `parity-local-web`, `parity-desktop`): the same
   scenarios in every mode — QE commands, explorer, edit and save, terminal, Ctrl+C, webview, remote terminal, remote
   edit and save, links out of the remote folder. Desktop runs nightly on Linux, Windows and macOS.
@@ -51,6 +53,15 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
 
 ### Fixed
 
+- Remote files: a save over a change made on the server could overwrite it without asking. SFTP mtimes have whole
+  seconds and the browser auto-saves after 1 s, so an auto-save and a change on the server often fell in one second,
+  which Theia's check does not count. Remote files now count any other mtime or size as changed, and the save asks.
+- Terminals: each new browser, device or private window started a terminal that kept running after the page closed,
+  and after 10 the IDE refused every new terminal until the workspace restarted. A fresh layout now starts no terminal,
+  and a terminal no page has been attached to for 30 minutes is ended (`QE_TERMINAL_DETACHED_MINUTES`, 1–1440).
+- Remote files: opening a link that points outside the remote folder now says so, instead of doing nothing.
+- Embedded broker: an unexpected failure (`INTERNAL_ERROR`) is logged with its kind and message, never data or
+  secrets.
 - Desktop app: SSH connections failed with "The remote session could not be opened" (`INTERNAL_ERROR`). Electron's
   Node has no ChaCha20-Poly1305 and ssh2 refused the pinned cipher list; the pinned lists are now limited to what the
   runtime supports, never extended.

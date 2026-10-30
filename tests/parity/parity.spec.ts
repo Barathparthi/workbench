@@ -8,15 +8,15 @@
 import type { Page } from '@playwright/test';
 
 import {
-  acceptTrust,
   newTerminal,
   openPalette,
   QE_COMMANDS,
   runCommand,
   VISIBLE_TERMINAL_INPUT,
+  waitForMultiRootWorkspace,
   workspace,
 } from '../e2e/ide.js';
-import { expect, test, type RemoteTarget } from './parity.js';
+import { expect, HOSTED_PROJECT, test, type RemoteTarget } from './parity.js';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -173,7 +173,7 @@ test.describe('remote system', () => {
     mode,
   }) => {
     await pickTarget(ide, 'Open Remote Folder', remote);
-    await acceptTrust(ide);
+    await waitForMultiRootWorkspace(ide);
     await runCommand(ide, 'Focus on Files Explorer');
     const explorer = ide.locator('#files');
     const root = explorer.getByText(`[${remote.name}]`, { exact: true });
@@ -205,7 +205,9 @@ test.describe('remote system', () => {
     // fragment alone is no reload. The desktop window closes with its worker.
     if (mode !== 'desktop') {
       const project =
-        mode === 'hosted' ? `${process.env['QE_E2E_HOSTED_URL'] ?? ''}#/home/qe/project` : `/#${workspace()}`;
+        mode === 'hosted'
+          ? `${process.env['QE_E2E_HOSTED_URL'] ?? ''}#${HOSTED_PROJECT}`
+          : `/#${workspace()}`;
       await page.goto('about:blank');
       await page.goto(project);
       await expect(page.locator('#theia-app-shell')).toBeVisible({ timeout: 60_000 });

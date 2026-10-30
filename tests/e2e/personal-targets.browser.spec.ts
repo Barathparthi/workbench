@@ -8,12 +8,12 @@
  *   QE_E2E_LAB_CONTAINER   the host's container, to check results "on the server" (default qews-lab-a)
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { acceptTrust, runCommand, waitForShell, workspace } from './ide.js';
+import { runCommand, waitForMultiRootWorkspace, waitForShell, workspace } from './ide.js';
 
 const alias = process.env['QE_E2E_PERSONAL_HOST'];
 const container = process.env['QE_E2E_LAB_CONTAINER'] ?? 'qews-lab-a';
@@ -97,9 +97,42 @@ test.describe('personal targets (local web, embedded broker)', () => {
     }
   });
 
+  test('adds a host with “Add SSH Host…” to QE’s own file, never ~/.ssh/config, and lists it', async ({
+    page,
+  }) => {
+    const home = process.env['QE_E2E_HOME'] ?? '';
+    const qeHosts = join(home, '.qe-workspace', 'ssh_hosts');
+    const sshConfig = join(home, '.ssh', 'config');
+    const savedHosts = existsSync(qeHosts) ? readFileSync(qeHosts, 'utf8') : undefined;
+    const savedConfig = readFileSync(sshConfig, 'utf8');
+    const input = page.locator('.quick-input-widget input');
+    try {
+      await runCommand(page, 'Add SSH Host');
+      await input.fill('qe@10.99.0.1:2222');
+      await page.keyboard.press('Enter');
+      await expect(input).toHaveValue('10.99.0.1');
+      await input.fill('e2e-added');
+      await page.keyboard.press('Enter');
+      await expect(page.getByText('Added e2e-added (qe@10.99.0.1:2222)').first()).toBeVisible();
+      expect(readFileSync(qeHosts, 'utf8')).toContain(
+        'Host e2e-added\n  HostName 10.99.0.1\n  User qe\n  Port 2222\n',
+      );
+      expect(readFileSync(sshConfig, 'utf8')).toBe(savedConfig);
+
+      await runCommand(page, 'Connect to Remote System');
+      const picker = page.locator('.quick-input-widget');
+      await expect(picker.locator('.monaco-list-row', { hasText: 'e2e-added' })).toBeVisible();
+      await expect(picker.locator('.monaco-list-row', { hasText: 'Add SSH Host…' })).toBeVisible();
+      await page.keyboard.press('Escape');
+    } finally {
+      if (savedHosts === undefined) rmSync(qeHosts, { force: true });
+      else writeFileSync(qeHosts, savedHosts);
+    }
+  });
+
   test('opens the host’s home as a remote folder and saves an edit', async ({ page }) => {
     await pickPersonalHost(page, 'Open Remote Folder');
-    await acceptTrust(page);
+    await waitForMultiRootWorkspace(page);
     await runCommand(page, 'Focus on Files Explorer');
     const explorer = page.locator('#files');
     const root = explorer.getByText(`[${alias ?? ''}]`, { exact: true });

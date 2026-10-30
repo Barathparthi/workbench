@@ -770,3 +770,37 @@ For the phase review: the embedded broker reports unexpected errors as `INTERNAL
 cipher bug needed a probe — log the error class and message, never secrets); opening a link out of a remote folder
 silently does nothing (no editor, no message); Theia's palette does not list the Markdown plugin's `when`-scoped
 commands (its key works).
+
+### 2026-10-30 — Phase 10 review and gate (branch `phase-10-local-desktop`)
+
+Review of the whole phase before the gate (`docs/phase-gates/PHASE_10.md`). Defects found and fixed, each with tests:
+
+- **A remote save could silently overwrite a change made on the server** (`6066083`) — found when Phase 09's hosted
+  conflict test began failing every time. The browser auto-saves after 1 s and SFTP mtimes have whole seconds;
+  Theia's "modified since" only counts a later mtime, so an auto-save and a server change within one second passed.
+  The server's `ifMatch` missed it too: Theia reads the file for its encoding right before each write, which refreshed
+  the ETag the provider sent. `QeFileService` now counts any other mtime or size of a remote file as changed, so the
+  save asks. Phase 09's test had passed by timing.
+- **Terminals leaked until the IDE refused new ones** (`6c6729d`). Theia starts a terminal in every fresh layout, and
+  terminals outlive the page; each new browser, device or private window kept one, and after 10 the IDE refused all
+  new terminals until the workspace restarted (present since Phase 02/06; it showed when parity ran after the other
+  hosted suites). Owner's decision: a terminal no page has been attached to for 30 minutes is ended
+  (`QE_TERMINAL_DETACHED_MINUTES`), and a fresh layout starts none.
+- **"Add SSH Host…" was missing** (guide 10.2, `43b2382`): `user@host:port` and a name, saved to
+  `~/.qe-workspace/ssh_hosts`; `~/.ssh/config` is never changed; every value must match what the reader accepts, so
+  nothing else can be written into the file; recorded in the local audit log.
+- Earlier in the review: unexpected embedded-broker failures are logged (kind and message only, `c416ce4`); opening a
+  link out of a remote folder says why (`dd6ed0a`); hosted tests end their remote sessions and open the project
+  folder by name instead of the workspace used last (`e527269`, `c32fdf8`, `f6d7e5b`, `2e2e65f`).
+
+New open org decision **D17** (desktop distribution and updates: software centre / MDM or auto-update from an internal
+feed). The guide's "auto-update channel or software-center distribution" waits on it.
+
+Evidence (2026-10-30): unit 1577/1577 (Windows); integration 134/134 (WSL; a first run straight after the E2E
+suites failed 4 files without its cause captured); runtime image built from `6c6729d`: hosted 3/3 and parity-hosted 7/7
+(+1 `fixme`, D9) twice each, browser 20/20, local-web security 6/6, electron 4/4, parity local web 9/9, parity desktop
+8/8. Parity desktop failed twice at the same step in full runs (the `lab-a` row of the host picker never became
+clickable) and passed three times since, once in the same order; the nightly `desktop` workflow is to confirm it.
+
+Gate: **10a PASS**, **10b CONDITIONAL** on D15 (signing), D16 (package identity), D17 (update channel), a green
+`desktop` workflow run on Windows and macOS, and D9 (hosted webview domain).

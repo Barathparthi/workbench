@@ -1,14 +1,18 @@
+import { EventEmitter } from 'node:events';
+
 import { ILogger } from '@theia/core/lib/common/logger';
 import { Container, ContainerModule } from '@theia/core/shared/inversify';
 import { ProcessManager } from '@theia/process/lib/node/process-manager';
 import { IShellTerminalServer } from '@theia/terminal/lib/common/shell-terminal-protocol';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { bindQeTerminalPolicy } from '../qe-core-backend-module';
 import {
   applyTerminalPolicy,
+  DEFAULT_DETACHED_MINUTES,
   DEFAULT_MAX_TERMINALS,
   DEFAULT_SHELLS,
+  endWhenDetached,
   enforceTerminalPolicy,
   terminalPolicyFor,
   type ShellOptionsLike,
@@ -74,7 +78,12 @@ describe('applyTerminalPolicy', () => {
 });
 
 describe('enforceTerminalPolicy', () => {
-  const policy: TerminalPolicy = { allowedShells: new Set(['/bin/bash']), maxTerminals: 2, envDefaults: {} };
+  const policy: TerminalPolicy = {
+    allowedShells: new Set(['/bin/bash']),
+    maxTerminals: 2,
+    detachedTimeoutMs: 60_000,
+    envDefaults: {},
+  };
 
   function setup(createResult: (o: ShellOptionsLike) => Promise<number> = () => Promise.resolve(nextId++)) {
     const exits = new Map<number, () => void>();
@@ -152,5 +161,103 @@ describe('bindQeTerminalPolicy', () => {
     const server = container.get<{ create(o: ShellOptionsLike): Promise<number> }>(IShellTerminalServer);
     expect(await server.create({ shell: '/usr/bin/perl' })).toBe(7);
     expect(created[0]).toEqual({ env: { TERM: 'xterm-256color', LANG: 'C.UTF-8' } });
+  });
+});
+
+describe('terminals left without a page', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function fakeTerminal() {
+    const streams: EventEmitter[] = [];
+    const kill = vi.fn<() => void>();
+    const terminal = {
+      createOutputStream: () => {
+        const stream = new EventEmitter();
+        streams.push(stream);
+        return stream;
+      },
+      kill,
+    };
+    // A page attaches (Theia's terminal channel opens a stream) and leaves (the channel disposes it).
+    const attach = () => terminal.createOutputStream();
+    return { terminal, attach, kill, leave: (s: EventEmitter) => s.emit('close') };
+  }
+
+  it('waits 30 minutes by default, or what the runtime sets (1 min to 24 h)', () => {
+    expect(DEFAULT_DETACHED_MINUTES).toBe(30);
+    expect(terminalPolicyFor(hosted, {}).detachedTimeoutMs).toBe(30 * 60_000);
+    expect(terminalPolicyFor({ mode: 'desktop' }, {}).detachedTimeoutMs).toBe(30 * 60_000);
+    expect(terminalPolicyFor(hosted, { QE_TERMINAL_DETACHED_MINUTES: '5' }).detachedTimeoutMs).toBe(
+      5 * 60_000,
+    );
+    for (const bad of ['0', '1441', '1.5', 'never'])
+      expect(terminalPolicyFor(hosted, { QE_TERMINAL_DETACHED_MINUTES: bad }).detachedTimeoutMs).toBe(
+        30 * 60_000,
+      );
+  });
+
+  it('ends a terminal no page ever attached to', () => {
+    vi.useFakeTimers();
+    const { terminal, kill } = fakeTerminal();
+    const ended = vi.fn();
+    endWhenDetached(terminal, 60_000, ended);
+    vi.advanceTimersByTime(59_999);
+    expect(kill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(ended).toHaveBeenCalledOnce();
+    expect(kill).toHaveBeenCalledOnce();
+  });
+
+  it('keeps it while a page is attached and through a reload, and ends it once the last page has been gone that long', () => {
+    vi.useFakeTimers();
+    const { terminal, attach, leave, kill } = fakeTerminal();
+    endWhenDetached(terminal, 60_000, () => undefined);
+    const first = attach();
+    const second = attach();
+    vi.advanceTimersByTime(10 * 60_000);
+    leave(first);
+    vi.advanceTimersByTime(10 * 60_000);
+    expect(kill).not.toHaveBeenCalled(); // the second page is still there
+    leave(second);
+    vi.advanceTimersByTime(30_000);
+    leave(attach()); // a reload: the page comes back, then goes again
+    vi.advanceTimersByTime(59_999);
+    expect(kill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(kill).toHaveBeenCalledOnce();
+  });
+
+  it('stops watching once the process has ended', () => {
+    vi.useFakeTimers();
+    const { terminal, attach, leave, kill } = fakeTerminal();
+    const stop = endWhenDetached(terminal, 60_000, () => undefined);
+    const page = attach();
+    stop();
+    leave(page); // the channel closes because the process ended
+    vi.advanceTimersByTime(10 * 60_000);
+    expect(kill).not.toHaveBeenCalled();
+  });
+
+  it('is applied to every terminal the policy lets through, and says so when it ends one', async () => {
+    vi.useFakeTimers();
+    const { terminal, kill } = fakeTerminal();
+    const exits = new Map<number, () => void>();
+    const warn = vi.fn<(m: string) => void>();
+    const server: { create(o: ShellOptionsLike): Promise<number> } = { create: () => Promise.resolve(42) };
+    enforceTerminalPolicy(
+      server,
+      { allowedShells: undefined, maxTerminals: 1, detachedTimeoutMs: 60_000, envDefaults: {} },
+      (id, onExit) => exits.set(id, onExit),
+      { warn },
+      (id) => (id === 42 ? terminal : undefined),
+    );
+    expect(await server.create({})).toBe(42);
+    vi.advanceTimersByTime(60_000);
+    expect(kill).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith('QE: terminal ended — no page attached for 1 min');
+    exits.get(42)?.(); // the kill ends the process: its slot is free again
+    expect(await server.create({})).toBe(42);
   });
 });

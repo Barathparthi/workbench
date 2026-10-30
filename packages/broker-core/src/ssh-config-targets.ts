@@ -1,6 +1,7 @@
-import { readFile } from 'node:fs/promises';
-import { isAbsolute, join, normalize } from 'node:path';
+import { appendFile, chmod, mkdir, readFile } from 'node:fs/promises';
+import { dirname, isAbsolute, join, normalize } from 'node:path';
 
+import { DomainError } from '@qe/domain';
 import SSHConfig, { LineType, type Line } from 'ssh-config';
 
 import type { PersonalTarget, TargetSource } from './sources.js';
@@ -12,6 +13,18 @@ export interface SshConfigTargetsOptions {
   readonly localUser: string;
   /** Reads a file, or undefined when it does not exist (tests replace it). */
   readonly read?: (path: string) => Promise<string | undefined>;
+  /** Appends to a file, creating it (and its folder) private to the user (tests replace it). */
+  readonly append?: (path: string, text: string) => Promise<void>;
+}
+
+/** A host the user adds in the IDE (PHASE_10 §10.2). */
+export interface NewPersonalHost {
+  readonly alias: string;
+  readonly host: string;
+  /** Default: the local user name, as for ssh. */
+  readonly user?: string;
+  /** Default: 22. */
+  readonly port?: number;
 }
 
 /** Larger configuration files are not read (a real one is a few kB). */
@@ -20,6 +33,12 @@ const HOST_NAME =
   /^(?=.{1,253}$)[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?(?:\.[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*\.?$/;
 const IPV6 = /^[0-9A-Fa-f:.]{2,45}$/;
 const USER = /^[^\s\0/\\:@]{1,64}$/;
+
+async function appendPrivate(path: string, text: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await appendFile(path, text, { mode: 0o600 });
+  await chmod(path, 0o600).catch(() => undefined);
+}
 
 async function readIfPresent(path: string): Promise<string | undefined> {
   try {
@@ -73,11 +92,19 @@ export const personalTargetId = (alias: string): string => `personal-${alias}`;
 export function sshConfigTargetSource(options: SshConfigTargetsOptions): TargetSource & {
   /** Entries that could not become targets, with the reason (shown to the user, never secrets). */
   problems(): Promise<string[]>;
+  /**
+   * Appends a `Host` block to `~/.qe-workspace/ssh_hosts` and returns the new target. Every value must match the
+   * patterns the reader accepts, so nothing else can be written into the file (no spaces, newlines or options).
+   * `INVALID_REQUEST` for a value that does not; `CONFLICT` when either file already defines the alias.
+   */
+  add(host: NewPersonalHost): Promise<PersonalTarget>;
 } {
   const read = options.read ?? readIfPresent;
+  const append = options.append ?? appendPrivate;
+  const qeHosts = join(options.home, '.qe-workspace', 'ssh_hosts');
   const files = [
     { path: join(options.home, '.ssh', 'config'), source: 'ssh-config' as const },
-    { path: join(options.home, '.qe-workspace', 'ssh_hosts'), source: 'qe-hosts' as const },
+    { path: qeHosts, source: 'qe-hosts' as const },
   ];
 
   function expand(
@@ -200,7 +227,54 @@ export function sshConfigTargetSource(options: SshConfigTargetsOptions): TargetS
     };
   }
 
+  /** Every concrete alias either file defines, usable or not, lowercased. */
+  async function definedAliases(): Promise<Set<string>> {
+    const aliases = new Set<string>();
+    for (const file of files) {
+      const text = await read(file.path);
+      if (text === undefined) continue;
+      try {
+        for (const line of SSHConfig.parse(text)) {
+          if (line.type !== LineType.DIRECTIVE || line.param.toLowerCase() !== 'host') continue;
+          for (const alias of values(line).filter(isConcreteAlias)) aliases.add(alias.toLowerCase());
+        }
+      } catch {
+        // An unreadable file defines nothing usable; load() reports it.
+      }
+    }
+    return aliases;
+  }
+
   return {
+    async add(entry) {
+      const port = entry.port ?? 22;
+      const problem = !USABLE_ALIAS.test(entry.alias)
+        ? "Use only letters, digits, '.', '_' and '-' in the name, at most 63."
+        : !HOST_NAME.test(entry.host) && !IPV6.test(entry.host)
+          ? 'The host is not a host name or address.'
+          : entry.user !== undefined && !USER.test(entry.user)
+            ? 'The user is not a user name.'
+            : !Number.isInteger(port) || port < 1 || port > 65535
+              ? 'The port is not a port number.'
+              : undefined;
+      if (problem !== undefined) throw new DomainError('INVALID_REQUEST', problem);
+      if ((await definedAliases()).has(entry.alias.toLowerCase()))
+        throw new DomainError('CONFLICT', `A host named ${entry.alias} already exists.`);
+      const before = (await read(qeHosts)) ?? '';
+      const block = [
+        `Host ${entry.alias}`,
+        `  HostName ${entry.host}`,
+        ...(entry.user === undefined ? [] : [`  User ${entry.user}`]),
+        ...(port === 22 ? [] : [`  Port ${String(port)}`]),
+      ];
+      // A blank line before the new block; the file's last line may lack its newline.
+      const separator = before === '' ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+      await append(qeHosts, `${separator}${block.join('\n')}\n`);
+      const added = (await load()).targets.find((t) => t.alias.toLowerCase() === entry.alias.toLowerCase());
+      if (added === undefined)
+        throw new DomainError('INTERNAL_ERROR', 'the added host could not be read back');
+      return added;
+    },
     async list() {
       return (await load()).targets;
     },

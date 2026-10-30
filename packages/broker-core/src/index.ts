@@ -65,6 +65,7 @@ export type {
 export {
   personalTargetId,
   sshConfigTargetSource,
+  type NewPersonalHost,
   type SshConfigTargetsOptions,
 } from './ssh-config-targets.js';
 export { knownHostsName, knownHostsStore, type KnownHostsOptions } from './known-hosts.js';

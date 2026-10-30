@@ -4,6 +4,7 @@ import { BackendApplicationContribution } from '@theia/core/lib/node/backend-app
 import { ILogger } from '@theia/core/lib/common/logger';
 import { ContainerModule, type interfaces } from '@theia/core/shared/inversify';
 import { ProcessManager } from '@theia/process/lib/node/process-manager';
+import { TerminalProcess } from '@theia/process/lib/node/terminal-process';
 import { IShellTerminalServer } from '@theia/terminal/lib/common/shell-terminal-protocol';
 
 import {
@@ -60,6 +61,10 @@ export function bindQeTerminalPolicy(
         process.onClose(onExit);
       },
       { warn: (message) => void logger.warn(message) },
+      (id) => {
+        const process = processes.get(id);
+        return process instanceof TerminalProcess ? process : undefined;
+      },
     );
   });
 }

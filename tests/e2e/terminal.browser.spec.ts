@@ -78,3 +78,13 @@ test.describe('integrated terminal (Phase 06)', () => {
     await expect.poll(() => read('t-local-token.txt')).toBe('token=none');
   });
 });
+
+test('a fresh session starts no terminal (terminals outlive the page, so each new browser would keep one)', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await waitForShell(page);
+  // Theia used to start one while laying out the shell; give it the time that took.
+  await page.waitForTimeout(2_000);
+  await expect(page.locator('.terminal-container')).toHaveCount(0);
+});

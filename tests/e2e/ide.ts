@@ -40,6 +40,15 @@ export async function acceptTrust(page: Page): Promise<void> {
   await trust.click({ timeout: 5_000 }).catch(() => undefined);
 }
 
+/**
+ * After "Open Remote Folder" in a single-folder workspace: Theia saves an untitled multi-root workspace (its path
+ * becomes the URL fragment), and may then ask for trust again. Waits for both, so nothing is typed into that dialog.
+ */
+export async function waitForMultiRootWorkspace(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/\.theia-workspace/, { timeout: 30_000 });
+  await acceptTrust(page);
+}
+
 export async function openPalette(page: Page, text: string): Promise<void> {
   await page.keyboard.press('F1');
   const input = page.locator('.quick-input-widget input');

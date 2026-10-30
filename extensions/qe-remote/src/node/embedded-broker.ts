@@ -13,6 +13,7 @@ import {
   type AuditSink,
   type ErrorCode,
   type HostKeyStore,
+  type NewPersonalHost,
   type PersonalTarget,
   type RemoteFileSystem,
   type SshConnection,
@@ -22,6 +23,7 @@ import {
 } from '@qe/broker-core';
 import type { FsOp } from '@qe/contracts';
 import { checkPersonalHost, type Resolver } from '@qe/policy';
+import { z } from 'zod';
 
 import type {
   EmbeddedBrokerClient,
@@ -32,7 +34,10 @@ import type {
 } from '../common/embedded-broker-protocol';
 
 export interface EmbeddedBrokerDeps {
-  readonly targets: TargetSource & { problems(): Promise<string[]> };
+  readonly targets: TargetSource & {
+    problems(): Promise<string[]>;
+    add(host: NewPersonalHost): Promise<PersonalTarget>;
+  };
   readonly hostKeys: HostKeyStore;
   readonly audit: AuditSink;
   readonly transport: SshTransport;
@@ -56,6 +61,24 @@ interface PresentedKey {
   readonly algorithm: string;
   readonly fingerprintSha256: string;
 }
+
+const summary = (t: PersonalTarget): PersonalTargetSummary => ({
+  id: t.id,
+  name: t.alias,
+  host: t.host,
+  port: t.port,
+  user: t.user,
+  viaJumpHost: t.proxyJump !== undefined,
+});
+
+const NEW_HOST = z
+  .object({
+    alias: z.string().max(63),
+    host: z.string().max(253),
+    user: z.string().max(64).optional(),
+    port: z.number().int().optional(),
+  })
+  .strict();
 
 const hostKeyName = (t: PersonalTarget) => `${t.host}:${String(t.port)}`;
 
@@ -144,17 +167,35 @@ export class EmbeddedBroker implements EmbeddedBrokerService {
 
   async listTargets(): Promise<{ targets: PersonalTargetSummary[]; problems: string[] }> {
     const [targets, problems] = await Promise.all([this.deps.targets.list(), this.deps.targets.problems()]);
-    return {
-      targets: targets.map((t) => ({
-        id: t.id,
-        name: t.alias,
-        host: t.host,
-        port: t.port,
-        user: t.user,
-        viaJumpHost: t.proxyJump !== undefined,
-      })),
-      problems,
-    };
+    return { targets: targets.map(summary), problems };
+  }
+
+  /**
+   * "Add SSH Host…" (PHASE_10 §10.2): a new `Host` block in `~/.qe-workspace/ssh_hosts`, never in the user's own
+   * `~/.ssh/config`. The request crosses the RPC channel, so it is parsed here; the source accepts only values its
+   * reader accepts. Recorded in the local audit log.
+   */
+  async addHost(request: unknown): Promise<EmbeddedResult<PersonalTargetSummary>> {
+    const parsed = NEW_HOST.safeParse(request);
+    if (!parsed.success) return { ok: false, code: 'INVALID_REQUEST' };
+    try {
+      const { alias, host, user, port } = parsed.data;
+      const target = await this.deps.targets.add({
+        alias,
+        host,
+        ...(user !== undefined && { user }),
+        ...(port !== undefined && { port }),
+      });
+      await this.deps.audit.record({ action: 'PERSONAL_HOST_ADDED', target: target.id, outcome: 'success' });
+      return { ok: true, value: summary(target) };
+    } catch (error) {
+      if (!isDomainError(error)) {
+        this.deps.log?.warn(describeUnexpected('adding a host', error));
+        return { ok: false, code: 'INTERNAL_ERROR' };
+      }
+      // The source's messages are fixed texts naming the field at fault (and, for CONFLICT, the name chosen).
+      return { ok: false, code: error.code, message: error.message };
+    }
   }
 
   /**

@@ -9,6 +9,8 @@ export interface TerminalPolicy {
   readonly allowedShells: ReadonlySet<string> | undefined;
   /** Open terminals per IDE backend (one backend per workspace runtime). */
   readonly maxTerminals: number;
+  /** A terminal no page has been attached to for this long is ended (`endWhenDetached`). */
+  readonly detachedTimeoutMs: number;
   /** Defaults for the terminal environment, applied only where the request does not set them. */
   readonly envDefaults: Readonly<Record<string, string>>;
 }
@@ -23,6 +25,7 @@ export const DEFAULT_SHELLS = [
 ];
 export const DEFAULT_MAX_TERMINALS = 10;
 const DESKTOP_MAX_TERMINALS = 50;
+export const DEFAULT_DETACHED_MINUTES = 30;
 
 /** Environment variables (set on the runtime) can tighten the defaults; invalid values fall back to them. */
 export function terminalPolicyFor(
@@ -30,8 +33,12 @@ export function terminalPolicyFor(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): TerminalPolicy {
   const envDefaults = { TERM: 'xterm-256color', ...(env.LANG === undefined && { LANG: 'C.UTF-8' }) };
+  const minutes = Number(env.QE_TERMINAL_DETACHED_MINUTES);
+  const detachedTimeoutMs =
+    (Number.isInteger(minutes) && minutes >= 1 && minutes <= 1440 ? minutes : DEFAULT_DETACHED_MINUTES) *
+    60_000;
   if (environment.mode === 'desktop') {
-    return { allowedShells: undefined, maxTerminals: DESKTOP_MAX_TERMINALS, envDefaults };
+    return { allowedShells: undefined, maxTerminals: DESKTOP_MAX_TERMINALS, detachedTimeoutMs, envDefaults };
   }
   const shells = (env.QE_TERMINAL_SHELLS ?? '')
     .split(',')
@@ -41,6 +48,7 @@ export function terminalPolicyFor(
   return {
     allowedShells: new Set(shells.length > 0 ? shells : DEFAULT_SHELLS),
     maxTerminals: Number.isInteger(max) && max >= 1 && max <= 100 ? max : DEFAULT_MAX_TERMINALS,
+    detachedTimeoutMs,
     envDefaults,
   };
 }
@@ -86,15 +94,68 @@ export interface PolicyLogger {
   warn(message: string): void;
 }
 
+/** Minimal view of Theia's TerminalProcess: each page attached to it reads its output through its own stream. */
+export interface TerminalProcessLike {
+  createOutputStream(): { once(event: 'close', listener: () => void): unknown };
+  kill(): void;
+}
+
+/**
+ * Ends a terminal once no page has been attached to it for `timeoutMs`, and returns how to stop watching (the
+ * process ended). Terminals outlive page loads so that a reload reattaches, but nothing ended one a page had left for
+ * good: every fresh browser session (Theia's default layout) kept one, until the limit refused all new terminals
+ * (Phase 10 review; 30 minutes by the owner's decision of 2026-10-30). Theia's terminal channel reads the output
+ * through a stream of its own per page and disposes it when the page goes, so those streams count the pages.
+ */
+export function endWhenDetached(
+  terminal: TerminalProcessLike,
+  timeoutMs: number,
+  onEnd: () => void,
+): () => void {
+  let attached = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let watching = true;
+  const disarm = () => {
+    if (timer !== undefined) clearTimeout(timer);
+    timer = undefined;
+  };
+  const arm = () => {
+    disarm();
+    timer = setTimeout(() => {
+      timer = undefined;
+      onEnd();
+      terminal.kill();
+    }, timeoutMs);
+  };
+  const open = terminal.createOutputStream.bind(terminal);
+  terminal.createOutputStream = () => {
+    const stream = open();
+    attached++;
+    disarm();
+    stream.once('close', () => {
+      attached--;
+      if (attached === 0 && watching) arm();
+    });
+    return stream;
+  };
+  arm(); // until the page that asked for it attaches
+  return () => {
+    watching = false;
+    disarm();
+  };
+}
+
 /**
  * Wraps `create` on the (singleton) shell terminal server: refuses a terminal over the limit (Theia treats -1 as
- * "could not create"), applies the shell allowlist and environment defaults, and frees a slot when the process ends.
+ * "could not create"), applies the shell allowlist and environment defaults, ends terminals left without a page
+ * (`endWhenDetached`, for the processes `findTerminal` knows), and frees a slot when the process ends.
  */
 export function enforceTerminalPolicy<S extends TerminalServerLike>(
   server: S,
   policy: TerminalPolicy,
   watchExit: WatchExit,
   logger: PolicyLogger,
+  findTerminal: (terminalId: number) => TerminalProcessLike | undefined = () => undefined,
 ): S {
   const create = server.create.bind(server);
   let open = 0;
@@ -113,8 +174,18 @@ export function enforceTerminalPolicy<S extends TerminalServerLike>(
       if (id < 0) open--;
     }
     if (id >= 0) {
+      const terminal = findTerminal(id);
+      const stopWatching =
+        terminal === undefined
+          ? undefined
+          : endWhenDetached(terminal, policy.detachedTimeoutMs, () => {
+              logger.warn(
+                `QE: terminal ended — no page attached for ${String(policy.detachedTimeoutMs / 60_000)} min`,
+              );
+            });
       let released = false;
       watchExit(id, () => {
+        stopWatching?.();
         if (!released) {
           released = true;
           open--;

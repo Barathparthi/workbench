@@ -8,6 +8,7 @@ import {
   type AuditSink,
   type HostKeyStore,
   type LocalAuditEvent,
+  type NewPersonalHost,
   type PersonalTarget,
   type SshTransport,
 } from '@qe/broker-core';
@@ -126,6 +127,7 @@ function setup(
       list: () => Promise.resolve([t]),
       get: (id) => Promise.resolve(id.toLowerCase() === t.id ? t : undefined),
       problems: () => Promise.resolve(['bad-host: Port is not a port number']),
+      add: () => Promise.reject(new Error('not used here')),
     },
     hostKeys,
     audit,
@@ -528,5 +530,78 @@ describe('embedded broker: unexpected failures', () => {
       /^embedded broker: file read on personal-box failed unexpectedly \(TypeError: a b c x+\)$/,
     );
     expect(line.length).toBeLessThan(400);
+  });
+});
+
+describe('embedded broker: adding a personal host', () => {
+  function adding(add: (host: NewPersonalHost) => Promise<PersonalTarget>) {
+    const t = target(plainServer);
+    const added: NewPersonalHost[] = [];
+    const { broker, rec } = setup(t, plainServer, {
+      targets: {
+        list: () => Promise.resolve([]),
+        get: () => Promise.resolve(undefined),
+        problems: () => Promise.resolve([]),
+        add: (host) => {
+          added.push(host);
+          return add(host);
+        },
+      },
+    });
+    return { broker, rec, added };
+  }
+
+  it('adds the host, returns it without local detail, and records it in the local audit log', async () => {
+    const { broker, rec, added } = adding((h) =>
+      Promise.resolve({
+        ...target(plainServer),
+        id: `personal-${h.alias}`,
+        alias: h.alias,
+        host: h.host,
+        port: 2222,
+      }),
+    );
+    expect(await broker.addHost({ alias: 'lab-c', host: '10.20.1.7', port: 2222 })).toEqual({
+      ok: true,
+      value: {
+        id: 'personal-lab-c',
+        name: 'lab-c',
+        host: '10.20.1.7',
+        port: 2222,
+        user: 'ada',
+        viaJumpHost: false,
+      },
+    });
+    expect(added).toEqual([{ alias: 'lab-c', host: '10.20.1.7', port: 2222 }]);
+    expect(rec.audit).toContainEqual(
+      expect.objectContaining({
+        action: 'PERSONAL_HOST_ADDED',
+        target: 'personal-lab-c',
+        outcome: 'success',
+      }),
+    );
+  });
+
+  it('refuses a malformed request before the source sees it', async () => {
+    const { broker, added } = adding(() => Promise.reject(new Error('not reached')));
+    for (const request of [
+      {},
+      { alias: 'x', host: 'h', identityFile: '/etc/shadow' },
+      { alias: 'x', host: 'h', port: '22' },
+      { alias: 'x'.repeat(64), host: 'h' },
+    ])
+      expect(await broker.addHost(request as never)).toEqual({ ok: false, code: 'INVALID_REQUEST' });
+    expect(added).toEqual([]);
+  });
+
+  it("passes the source's coded refusal and message to the user", async () => {
+    const { broker } = adding(() =>
+      Promise.reject(new DomainError('CONFLICT', 'A host named lab-a already exists.')),
+    );
+    expect(await broker.addHost({ alias: 'lab-a', host: 'h' })).toEqual({
+      ok: false,
+      code: 'CONFLICT',
+      message: 'A host named lab-a already exists.',
+    });
   });
 });
