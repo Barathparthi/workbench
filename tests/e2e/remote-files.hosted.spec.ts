@@ -27,9 +27,9 @@ function onServer(script: string): string {
   return r.stdout;
 }
 const serverFile = () => onServer(`cat ${dir}/notes.txt`);
-/** A change on the server, in a later second than anything before it (SFTP mtimes have whole seconds). */
-async function changeOnServer(content: string): Promise<void> {
-  await new Promise((r) => setTimeout(r, 1_100));
+/** A change on the server; `later`: in a later second than anything before it (SFTP mtimes have whole seconds). */
+async function changeOnServer(content: string, later = true): Promise<void> {
+  if (later) await new Promise((r) => setTimeout(r, 1_100));
   onServer(`printf '%s\\n' '${content}' > ${dir}/notes.txt`);
 }
 
@@ -61,9 +61,14 @@ test.describe('remote files (hosted)', () => {
     onServer(`rm -rf ${dir} && mkdir -p ${dir} && printf 'hello remote\\n' > ${dir}/notes.txt`);
   });
 
-  // Each test opens its own files session (new browser context); end it, or the per-user limit is reached.
-  test.afterEach(async ({ request }) => {
+  // Each test opens its own files session (new browser context); end it, or the per-user limit is reached. Then go
+  // back to the project folder alone: the IDE would otherwise reopen the remote folder's multi-root workspace, which
+  // later suites do not expect (leave the page first: a change of the fragment alone is no reload).
+  test.afterEach(async ({ page, request }) => {
     await closeRemoteSessions(request, url ?? '');
+    await page.goto('about:blank');
+    await page.goto(`${url ?? ''}#/home/qe/project`);
+    await expect(page.locator('#theia-app-shell')).toBeVisible({ timeout: 60_000 });
   });
 
   test.beforeEach(async ({ page }) => {
@@ -111,20 +116,27 @@ test.describe('remote files (hosted)', () => {
     // The polling watcher (5 s) reports it and Theia reloads the unmodified editor.
     await expect(editorText(page)).toContainText('changed on the server', { timeout: 20_000 });
 
+    // A saved edit: the version the next save is checked against.
     await editorText(page).click();
     await page.keyboard.press('Control+End');
     await page.keyboard.type(' mine');
-    // The browser auto-saves after 1 s, so " mine" is usually saved just before this change, often within the same
-    // (whole) SFTP mtime second: the save below must still see the change and ask.
-    await changeOnServer('changed again on the server, meanwhile');
+    await page.keyboard.press('Control+S');
+    await expect(dirtyTab(page)).toHaveCount(0);
+
+    // An unsaved edit, then a change on the server right away — usually within the same (whole) SFTP mtime second as
+    // that save, which Theia's own check does not count (the browser's 1 s auto-save made this a silent overwrite).
+    // Whichever save comes first, Ctrl+S or the auto-save, it must ask; the editor stays modified until answered.
+    await page.keyboard.type(' more');
+    await changeOnServer('changed again on the server, meanwhile', false);
 
     const conflict = page.locator('.dialogOverlay', { hasText: 'has been changed on the file system' });
     await page.keyboard.press('Control+S');
     await conflict.locator('button', { hasText: 'No' }).click();
     expect(serverFile()).toBe('changed again on the server, meanwhile\n');
+    await expect(dirtyTab(page)).toHaveCount(1);
 
     await page.keyboard.press('Control+S');
     await conflict.locator('button', { hasText: 'Yes' }).click();
-    await expect.poll(serverFile).toContain('mine');
+    await expect.poll(serverFile).toContain('mine more');
   });
 });
