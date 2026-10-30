@@ -14,6 +14,7 @@ export const QeCommands = {
   OPEN_WORKSPACE: qeCommand('qe.workspace.open', 'Open Workspace…'),
   CONNECT_TARGET: qeCommand('qe.remote.connect', 'Connect to Remote System…'),
   OPEN_REMOTE_FOLDER: qeCommand('qe.remote.openFolder', 'Open Remote Folder…'),
+  ADD_SSH_HOST: qeCommand('qe.remote.addHost', 'Add SSH Host…'),
   RUN_TESTS: qeCommand('qe.runner.run', 'Run Tests'),
   ABOUT: qeCommand('qe.about', 'About QE Workspace'),
 } as const;

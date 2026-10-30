@@ -1,3 +1,5 @@
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -163,5 +165,89 @@ Host good
     expect(await s.get('personal-box')).toMatchObject({ alias: 'box' });
     expect(await s.get('personal-nope')).toBeUndefined();
     expect(await source({}).list()).toEqual([]);
+  });
+});
+
+describe('hosts added in the IDE', () => {
+  function writable(files: Record<string, string>) {
+    const appended: string[] = [];
+    const s = sshConfigTargetSource({
+      home: HOME,
+      localUser: 'ada',
+      read: (path) => Promise.resolve(files[path]),
+      append: (path, text) => {
+        appended.push(path);
+        files[path] = (files[path] ?? '') + text;
+        return Promise.resolve();
+      },
+    });
+    return { s, files, appended };
+  }
+
+  it("appends a Host block to QE's own file, never to ~/.ssh/config, and returns the target", async () => {
+    const { s, files, appended } = writable({ [CONFIG]: 'Host lab-a\n  HostName 10.20.1.5\n' });
+    const target = await s.add({ alias: 'build', host: 'build.example.corp', user: 'qe', port: 2222 });
+    expect(appended).toEqual([QE_HOSTS]);
+    expect(files[QE_HOSTS]).toBe('Host build\n  HostName build.example.corp\n  User qe\n  Port 2222\n');
+    expect(files[CONFIG]).toBe('Host lab-a\n  HostName 10.20.1.5\n');
+    expect(target).toMatchObject({
+      id: 'personal-build',
+      alias: 'build',
+      host: 'build.example.corp',
+      user: 'qe',
+      port: 2222,
+      source: 'qe-hosts',
+    });
+  });
+
+  it('leaves the defaults to ssh (local user, port 22) and keeps earlier entries apart', async () => {
+    const { s, files } = writable({ [QE_HOSTS]: 'Host one\n  HostName 10.0.0.1' });
+    expect(await s.add({ alias: 'two', host: '2001:db8::7' })).toMatchObject({ user: 'ada', port: 22 });
+    expect(files[QE_HOSTS]).toBe('Host one\n  HostName 10.0.0.1\n\nHost two\n  HostName 2001:db8::7\n');
+    expect((await s.list()).map((t) => t.alias)).toEqual(['one', 'two']);
+  });
+
+  it('refuses a name either file already defines, in any case', async () => {
+    const { s, appended } = writable({
+      [CONFIG]: 'Host Lab-A lab-b\n  HostName 10.20.1.5\n',
+      [QE_HOSTS]: 'Host mine\n  HostName 10.0.0.1\n',
+    });
+    for (const alias of ['lab-a', 'LAB-B', 'Mine'])
+      await expect(s.add({ alias, host: '10.0.0.9' })).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(appended).toEqual([]);
+  });
+
+  it('refuses anything that could add other lines or options to the file', async () => {
+    const { s, appended } = writable({});
+    const bad = [
+      { alias: 'x\n  ProxyCommand sh', host: 'h' },
+      { alias: 'two words', host: 'h' },
+      { alias: 'wild*', host: 'h' },
+      { alias: 'ok', host: 'h\n  ProxyCommand sh' },
+      { alias: 'ok', host: 'h -oProxyCommand=sh' },
+      { alias: 'ok', host: 'h', user: 'root\n  LocalForward 1 x:2' },
+      { alias: 'ok', host: 'h', user: 'a b' },
+      { alias: 'ok', host: 'h', port: 0 },
+      { alias: 'ok', host: 'h', port: 65_536 },
+      { alias: 'ok', host: 'h', port: 22.5 },
+    ];
+    for (const entry of bad) await expect(s.add(entry)).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+    expect(appended).toEqual([]);
+  });
+});
+
+describe('hosts added in the IDE, on disk', () => {
+  it('creates ~/.qe-workspace/ssh_hosts readable by the user only', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'qe-hosts-'));
+    try {
+      const s = sshConfigTargetSource({ home, localUser: 'ada' });
+      await s.add({ alias: 'lab-c', host: '10.20.1.7' });
+      const file = join(home, '.qe-workspace', 'ssh_hosts');
+      expect(readFileSync(file, 'utf8')).toBe('Host lab-c\n  HostName 10.20.1.7\n');
+      if (process.platform !== 'win32') expect(statSync(file).mode & 0o777).toBe(0o600);
+      expect((await s.list()).map((t) => t.id)).toEqual(['personal-lab-c']);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 });

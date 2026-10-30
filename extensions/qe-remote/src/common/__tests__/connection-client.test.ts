@@ -51,6 +51,19 @@ function fakeService(over: Partial<EmbeddedBrokerService> = {}) {
         problems: ['odd: Port is not a port number'],
       }),
     ),
+    addHost: vi.fn<EmbeddedBrokerService['addHost']>((request) =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          id: `personal-${request.alias}`,
+          name: request.alias,
+          host: request.host,
+          port: request.port ?? 22,
+          user: request.user ?? 'ada',
+          viaJumpHost: false,
+        },
+      }),
+    ),
     openTerminal: vi.fn<EmbeddedBrokerService['openTerminal']>((id) =>
       Promise.resolve({ ok: true, value: id }),
     ),
@@ -318,5 +331,32 @@ describe('relayed connection (desktop managed targets through the Electron backe
     await expect(c.call(managed.id, 'stat', { path: '' })).rejects.toMatchObject({
       code: 'SIGN_IN_REQUIRED',
     });
+  });
+});
+
+describe('embedded connection: adding a host', () => {
+  it('returns the new target as the picker shows it', async () => {
+    const conn = new EmbeddedConnection(() => fakeService());
+    expect(await conn.addHost({ alias: 'lab-c', host: '10.20.1.7', port: 2222 })).toEqual({
+      id: 'personal-lab-c',
+      name: 'lab-c',
+      description: 'ada@10.20.1.7:2222',
+      detail: 'from your SSH configuration',
+      kind: 'personal',
+    });
+  });
+
+  it("returns the backend's message, or the code's, when the host was not added", async () => {
+    const refusing = (result: { ok: false; code: string; message?: string }) =>
+      new EmbeddedConnection(() => fakeService({ addHost: () => Promise.resolve(result) }));
+    expect(
+      await refusing({ ok: false, code: 'CONFLICT', message: 'A host named lab-a already exists.' }).addHost({
+        alias: 'lab-a',
+        host: 'h',
+      }),
+    ).toBe('A host named lab-a already exists.');
+    expect(
+      typeof (await refusing({ ok: false, code: 'INTERNAL_ERROR' }).addHost({ alias: 'x', host: 'h' })),
+    ).toBe('string');
   });
 });

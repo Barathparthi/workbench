@@ -23,11 +23,23 @@ export interface PersonalTargetSummary {
 
 /** Results cross the RPC channel as data, so the API error code arrives intact. */
 export type EmbeddedResult<T> =
-  { readonly ok: true; readonly value: T } | { readonly ok: false; readonly code: string };
+  | { readonly ok: true; readonly value: T }
+  /** `message`: a fixed text for the user, where the code alone does not say what to change. */
+  | { readonly ok: false; readonly code: string; readonly message?: string };
+
+/** A host to add to `~/.qe-workspace/ssh_hosts` ("QE: Add SSH Host…"). */
+export interface NewHostRequest {
+  readonly alias: string;
+  readonly host: string;
+  readonly user?: string;
+  readonly port?: number;
+}
 
 export interface EmbeddedBrokerService extends RpcServer<EmbeddedBrokerClient> {
   /** Hosts from `~/.ssh/config` and `~/.qe-workspace/ssh_hosts`, and the entries that could not be used. */
   listTargets(): Promise<{ targets: PersonalTargetSummary[]; problems: string[] }>;
+  /** Adds a host to `~/.qe-workspace/ssh_hosts` (never `~/.ssh/config`); `CONFLICT` if the name exists. */
+  addHost(request: NewHostRequest): Promise<EmbeddedResult<PersonalTargetSummary>>;
   /**
    * Starts a terminal stream under an id the frontend chose (a UUID), so its listener exists before the first frame;
    * frames and the close arrive through the client.

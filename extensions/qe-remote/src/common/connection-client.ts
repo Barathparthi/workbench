@@ -6,9 +6,11 @@ import type {
   EmbeddedResult,
   HostKeyAnswer,
   HostKeyQuestion,
+  NewHostRequest,
+  PersonalTargetSummary,
 } from './embedded-broker-protocol';
 import { SIGN_IN_REQUIRED, type ManagedRelayService, type StreamClient } from './managed-relay-protocol';
-import { RemoteApiError, streamTarget, type RemoteClient } from './remote-client';
+import { describeFailure, RemoteApiError, streamTarget, type RemoteClient } from './remote-client';
 import type { RemoteFileSessions } from './remote-files';
 
 /**
@@ -205,19 +207,27 @@ export class EmbeddedConnection extends StreamedConnection<EmbeddedBrokerService
 
   async listTargets() {
     const { targets, problems } = await this.service().listTargets();
-    return {
-      targets: targets.map((t) => ({
-        id: t.id,
-        name: t.name,
-        description: `${t.user}@${t.host}${t.port === 22 ? '' : `:${String(t.port)}`}`,
-        detail: t.viaJumpHost
-          ? 'from your SSH configuration — via a jump host, not supported yet'
-          : 'from your SSH configuration',
-        kind: 'personal' as const,
-      })),
-      problems,
-    };
+    return { targets: targets.map(personalTarget), problems };
   }
+
+  /** Adds a host to `~/.qe-workspace/ssh_hosts`; a string is what the user should read when it was not added. */
+  async addHost(request: NewHostRequest): Promise<RemoteTarget | string> {
+    const result = await this.service().addHost(request);
+    if (result.ok) return personalTarget(result.value);
+    return result.message ?? describeFailure(new RemoteApiError(0, result.code));
+  }
+}
+
+function personalTarget(t: PersonalTargetSummary): RemoteTarget {
+  return {
+    id: t.id,
+    name: t.name,
+    description: `${t.user}@${t.host}${t.port === 22 ? '' : `:${String(t.port)}`}`,
+    detail: t.viaJumpHost
+      ? 'from your SSH configuration — via a jump host, not supported yet'
+      : 'from your SSH configuration',
+    kind: 'personal',
+  };
 }
 
 /** Shown in the picker while the desktop app is not signed in to its control plane. */

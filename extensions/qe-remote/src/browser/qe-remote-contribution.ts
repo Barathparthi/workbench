@@ -16,6 +16,7 @@ import type { RemoteTarget, TargetListing, TerminalStream } from '../common/conn
 import { describeFailure } from '../common/remote-client';
 import { HostKeyDialog } from './host-key-dialog';
 import { remoteRootUri } from '../common/remote-files';
+import { aliasProblem, parseHostSpec, suggestedAlias } from '../common/ssh-host-spec';
 import { QeRemoteServices, RemoteTargetNames } from './qe-remote-files';
 
 /**
@@ -33,9 +34,14 @@ export class QeRemoteContribution implements CommandContribution {
   @inject(WorkspaceService) protected readonly workspace!: WorkspaceService;
   @inject(QeRemoteServices) protected readonly services!: QeRemoteServices;
   @inject(RemoteTargetNames) protected readonly targetNames!: RemoteTargetNames;
+  /** Personal hosts can be added here: desktop and local web, never hosted (rule 3). */
+  protected personalHosts = false;
 
   @postConstruct()
   protected init(): void {
+    void this.environment.getEnvironment().then((env) => {
+      this.personalHosts = env.mode !== 'hosted' && env.features.personalTargets;
+    });
     // Encrypted key files of personal targets: asked only after the agent and plain keys were rejected.
     this.services.embedded.setPassphraseAsker((targetName, keyFile) =>
       this.quickInput.input({
@@ -54,6 +60,53 @@ export class QeRemoteContribution implements CommandContribution {
   registerCommands(registry: CommandRegistry): void {
     registry.registerCommand(QeCommands.CONNECT_TARGET, { execute: () => this.connect() });
     registry.registerCommand(QeCommands.OPEN_REMOTE_FOLDER, { execute: () => this.openFolder() });
+    registry.registerCommand(QeCommands.ADD_SSH_HOST, {
+      execute: () => this.addHost(),
+      isEnabled: () => this.personalHosts,
+      isVisible: () => this.personalHosts,
+    });
+  }
+
+  /**
+   * "Add SSH Host…" (PHASE_10 §10.2): `user@host:port` and a name, written by the backend to
+   * `~/.qe-workspace/ssh_hosts` — the user's own `~/.ssh/config` is never changed. Returns the new target.
+   */
+  protected async addHost(): Promise<RemoteTarget | undefined> {
+    const spec = await this.quickInput.input({
+      title: 'Add SSH Host (1/2)',
+      prompt:
+        'user@host, or user@host:port. It is saved in ~/.qe-workspace/ssh_hosts; ~/.ssh/config is not changed.',
+      placeHolder: 'qe@lab-machine.example.com',
+      ignoreFocusLost: true,
+      validateInput: (text) => {
+        const parsed = parseHostSpec(text);
+        return Promise.resolve(text.trim() === '' || typeof parsed !== 'string' ? undefined : parsed);
+      },
+    });
+    const parsed = spec === undefined ? undefined : parseHostSpec(spec);
+    if (parsed === undefined || typeof parsed === 'string') return undefined;
+    const alias = await this.quickInput.input({
+      title: 'Add SSH Host (2/2)',
+      prompt: 'A name for the host, as in ssh <name>.',
+      value: suggestedAlias(parsed.host),
+      ignoreFocusLost: true,
+      validateInput: (text) => Promise.resolve(aliasProblem(text)),
+    });
+    if (alias === undefined || aliasProblem(alias) !== undefined) return undefined;
+    let added: RemoteTarget | string;
+    try {
+      added = await this.services.embedded.addHost({ alias, ...parsed });
+    } catch (error) {
+      await this.messages.error(describeFailure(error));
+      return undefined;
+    }
+    if (typeof added === 'string') {
+      await this.messages.error(added);
+      return undefined;
+    }
+    this.targetNames.remember([added]);
+    void this.messages.info(`Added ${added.name} (${added.description}) to ~/.qe-workspace/ssh_hosts.`);
+    return added;
   }
 
   protected async connect(): Promise<void> {
@@ -102,13 +155,11 @@ export class QeRemoteContribution implements CommandContribution {
           (problems.length > 3 ? ` (and ${String(problems.length - 3)} more)` : ''),
       );
     }
-    if (targets.length === 0) {
+    const canAdd = env.mode !== 'hosted' && env.features.personalTargets;
+    if (targets.length === 0 && !canAdd) {
       if (notices.length > 0) return undefined; // the notice already says what to do
-      await this.messages.info(
-        env.mode === 'hosted'
-          ? 'No remote systems are available to you. Ask a lab admin for access.'
-          : 'No remote systems found. Add a Host entry to ~/.ssh/config to see it here.',
-      );
+      // Only hosted gets here: the local modes offer “Add SSH Host…” instead.
+      await this.messages.info('No remote systems are available to you. Ask a lab admin for access.');
       return undefined;
     }
     const items: QuickPickItemOrSeparator[] = [];
@@ -119,7 +170,17 @@ export class QeRemoteContribution implements CommandContribution {
       for (const t of group)
         items.push({ label: t.name, description: t.description, detail: t.detail, id: t.id });
     }
+    if (canAdd) {
+      if (!targets.some((t) => t.kind === 'personal'))
+        items.push({ type: 'separator', label: 'Your SSH hosts' });
+      items.push({
+        label: 'Add SSH Host…',
+        detail: 'user@host:port, saved in ~/.qe-workspace/ssh_hosts',
+        id: ADD_HOST,
+      });
+    }
     const picked = await this.quickInput.showQuickPick(items, { placeholder });
+    if (picked?.id === ADD_HOST) return this.addHost();
     return targets.find((t) => t.id === picked?.id);
   }
 
@@ -188,6 +249,9 @@ export class QeRemoteContribution implements CommandContribution {
     }
   }
 }
+
+/** The picker's "Add SSH Host…" entry: not a target id (those are UUIDs or `personal-<alias>`). */
+const ADD_HOST = 'qe:add-ssh-host';
 
 export function closeReason(code: number): string {
   switch (code) {
