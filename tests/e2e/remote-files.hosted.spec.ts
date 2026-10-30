@@ -12,7 +12,7 @@ import { spawnSync } from 'node:child_process';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { acceptTrust, closeRemoteSessions, runCommand, waitForShell } from './ide.js';
+import { closeRemoteSessions, runCommand, waitForMultiRootWorkspace, waitForShell } from './ide.js';
 
 const url = process.env['QE_E2E_HOSTED_URL'];
 const target = process.env['QE_E2E_TARGET'] ?? 'lab-a-dev';
@@ -42,7 +42,7 @@ async function openRemoteFile(page: Page): Promise<void> {
   await runCommand(page, 'Open Remote Folder');
   await page.locator('.quick-input-widget .monaco-list-row', { hasText: target }).first().click();
   // Adding a root changes the workspace, so Theia may ask for trust again.
-  await acceptTrust(page);
+  await waitForMultiRootWorkspace(page);
   await runCommand(page, 'Focus on Files Explorer');
   const rootNode = explorer(page).getByText(`[${target}]`, { exact: true });
   await expect(rootNode).toBeVisible();

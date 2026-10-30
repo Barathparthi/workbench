@@ -13,7 +13,7 @@ import { join } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { acceptTrust, runCommand, waitForShell, workspace } from './ide.js';
+import { runCommand, waitForMultiRootWorkspace, waitForShell, workspace } from './ide.js';
 
 const alias = process.env['QE_E2E_PERSONAL_HOST'];
 const container = process.env['QE_E2E_LAB_CONTAINER'] ?? 'qews-lab-a';
@@ -132,7 +132,7 @@ test.describe('personal targets (local web, embedded broker)', () => {
 
   test('opens the host’s home as a remote folder and saves an edit', async ({ page }) => {
     await pickPersonalHost(page, 'Open Remote Folder');
-    await acceptTrust(page);
+    await waitForMultiRootWorkspace(page);
     await runCommand(page, 'Focus on Files Explorer');
     const explorer = page.locator('#files');
     const root = explorer.getByText(`[${alias ?? ''}]`, { exact: true });

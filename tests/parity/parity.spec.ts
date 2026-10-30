@@ -8,12 +8,12 @@
 import type { Page } from '@playwright/test';
 
 import {
-  acceptTrust,
   newTerminal,
   openPalette,
   QE_COMMANDS,
   runCommand,
   VISIBLE_TERMINAL_INPUT,
+  waitForMultiRootWorkspace,
   workspace,
 } from '../e2e/ide.js';
 import { expect, HOSTED_PROJECT, test, type RemoteTarget } from './parity.js';
@@ -173,7 +173,7 @@ test.describe('remote system', () => {
     mode,
   }) => {
     await pickTarget(ide, 'Open Remote Folder', remote);
-    await acceptTrust(ide);
+    await waitForMultiRootWorkspace(ide);
     await runCommand(ide, 'Focus on Files Explorer');
     const explorer = ide.locator('#files');
     const root = explorer.getByText(`[${remote.name}]`, { exact: true });
