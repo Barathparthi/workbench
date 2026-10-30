@@ -5,12 +5,14 @@ import { CommandContribution } from '@theia/core/lib/common/command';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences/preference-schema';
 import { ContainerModule, type interfaces } from '@theia/core/shared/inversify';
 import { GettingStartedWidget } from '@theia/getting-started/lib/browser/getting-started-widget';
+import { TerminalFrontendContribution } from '@theia/terminal/lib/browser/terminal-frontend-contribution';
 
 import { QE_ENVIRONMENT_SERVICE_PATH, QeEnvironmentService } from '../common/qe-environment';
 import { qeCorePreferenceSchema } from '../common/qe-preferences';
 import { QeAboutDialog } from './qe-about-dialog';
 import { QeCommandContribution } from './qe-commands';
 import { QeStatusBarContribution } from './qe-status-bar';
+import { QeTerminalFrontendContribution } from './qe-terminal-frontend-contribution';
 import { QeUserStatusContribution } from './qe-user-status';
 import { QeWelcomeWidget } from './qe-welcome-widget';
 
@@ -32,6 +34,8 @@ export function bindQeCoreFrontend(bind: interfaces.Bind, rebind: interfaces.Reb
   // Branding: Theia's About dialog (titled with the application name) and welcome page, with QE content.
   rebind(AboutDialog).to(QeAboutDialog).inSingletonScope();
   rebind(GettingStartedWidget).to(QeWelcomeWidget);
+  // No terminal in a fresh layout: terminals outlive the page, so each new browser would keep one running.
+  rebind(TerminalFrontendContribution).to(QeTerminalFrontendContribution).inSingletonScope();
 }
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
