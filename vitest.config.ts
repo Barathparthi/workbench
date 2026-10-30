@@ -53,6 +53,7 @@ export default defineConfig({
         'packages/rbac/src/**': strictCoverage,
         'packages/policy/src/**': strictCoverage,
         'packages/broker-core/src/**': strictCoverage,
+        'packages/runner/src/**': strictCoverage,
       },
     },
   },
