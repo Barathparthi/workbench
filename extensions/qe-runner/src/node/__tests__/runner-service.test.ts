@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { pytestAdapter, type RunnerAdapter, type TestSelector } from '@qe/runner';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
@@ -43,6 +43,9 @@ switch (mode) {
   case 'hang': process.on('SIGINT', () => { console.log('interrupted'); process.exit(2); }); hang(); break;
   case 'stubborn': process.on('SIGINT', () => console.log('ignoring SIGINT')); hang(); break;
   case 'loud': process.stdout.write('x'.repeat(100000) + '\\n'); hang(); break;
+  case 'junit':
+    require('node:fs').copyFileSync(process.env.JUNIT_SRC, '.qe-runs/' + process.argv[2] + '/junit.xml');
+    process.exit(1);
   case 'orphan': {
     const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
     writeFileSync(process.env.PID_FILE, String(child.pid));
@@ -128,6 +131,40 @@ describe('local test runs', () => {
     await vi.waitFor(() => {
       expect(readFileSync(join(root, outcome.log), 'utf8')).toBe(outputs.get(runId));
     });
+  });
+
+  it('reads the report when the run ends, describes its files and keeps the record for the history', async () => {
+    const { service, start, done } = setup();
+    const runId = await start(
+      'junit',
+      { kind: 'all' },
+      { JUNIT_SRC: resolve('packages/runner/src/__tests__/fixtures/pytest-sample.xml') },
+    );
+    const outcome = await done(runId);
+    expect(outcome).toMatchObject({
+      state: 'FAILED',
+      results: { counts: { total: 5, passed: 3, failed: 1, errors: 0, skipped: 1 }, truncated: false },
+    });
+    // Only the failures travel and are kept; the report has every case.
+    expect(outcome.results?.cases).toEqual([
+      expect.objectContaining({ file: 'tests/test_calculator.py', line: 21 }),
+    ]);
+    expect(outcome.artifacts.map((a) => a.kind)).toEqual(['junit_xml', 'log']);
+    expect(outcome.artifacts[0]?.sha256).toMatch(/^[0-9a-f]{64}$/);
+    const history = await service.history(root, 5);
+    expect(history.ok && history.value[0]).toMatchObject({
+      run: { runId, state: 'FAILED' },
+      outcome: { state: 'FAILED' },
+    });
+    expect(await service.history(join(dir, 'missing'), 5)).toMatchObject({ ok: false, code: 'NOT_FOUND' });
+  });
+
+  it('says when a run wrote no report', async () => {
+    const { start, done } = setup();
+    const outcome = await done(await start('pass'));
+    expect(outcome).toMatchObject({ problem: 'the run wrote no JUnit report' });
+    expect(outcome.results).toBeUndefined();
+    expect(outcome.artifacts.map((a) => a.kind)).toEqual(['log']);
   });
 
   it('maps the exit code through the adapter', async () => {

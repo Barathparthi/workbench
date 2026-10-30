@@ -63,6 +63,18 @@ describe.runIf(hasPytest)('local test runs with pytest', () => {
     expect(junit).toMatch(/tests="5"/);
     expect(junit).toMatch(/failures="1"/);
     expect(junit).toMatch(/skipped="1"/);
+    // Read when the run ended: the counts, the one failure at its line, the files with their hashes, the history.
+    expect(outcome.results?.counts).toEqual({ total: 5, passed: 3, failed: 1, errors: 0, skipped: 1 });
+    expect(outcome.results?.cases).toEqual([
+      expect.objectContaining({
+        name: 'test_add_negative_fails_on_purpose',
+        file: 'tests/test_calculator.py',
+        line: 21,
+      }),
+    ]);
+    expect(outcome.artifacts.map((a) => a.kind)).toEqual(['junit_xml', 'log']);
+    const history = await service.history(root, 5);
+    expect(history.ok && history.value.map((r) => r.run.runId)).toEqual([started.value.runId]);
     // The run's folder and nothing else: no cache, no bytecode.
     expect(existsSync(join(root, '.pytest_cache'))).toBe(false);
     expect(readdirSync(join(root, 'tests')).filter((f) => f === '__pycache__')).toEqual([]);

@@ -21,8 +21,10 @@ import type {
   RunInfo,
   RunnerResult,
   RunOutcome,
+  RunRecord,
   StartRunRequest,
 } from '../common/qe-runner-protocol';
+import { readHistory, readReport, recordedOutcome, runArtifacts, saveRecord } from './run-results';
 
 export interface RunnerServiceOptions {
   /** Runs at the same time in this IDE backend (PHASE_11 §11.3: e.g. 2). */
@@ -126,6 +128,9 @@ export interface RunnerServiceDeps {
 }
 
 interface Run {
+  readonly root: string;
+  /** The files the run may write, relative to the project folder. */
+  readonly files: { readonly junit: string; readonly htmlReport?: string; readonly log: string };
   readonly info: RunInfo;
   readonly child: ChildProcess;
   readonly startedMs: number;
@@ -269,6 +274,8 @@ export class RunnerService implements QeRunnerService {
       child,
       startedMs: Date.now(),
       folder,
+      root,
+      files: { ...adapter.resultFiles({ runId }), log: `${folder}/output.log` },
       logFile: createWriteStream(join(root, folder, 'output.log')),
       output: [],
       outputLength: 0,
@@ -365,14 +372,38 @@ export class RunnerService implements QeRunnerService {
     this.signal(run, 'SIGKILL', true);
     run.state = state;
     this.runs.delete(run.info.runId);
-    run.logFile.end();
+    const durationMs = Date.now() - run.startedMs;
+    this.complete(run, state, exitCode, durationMs).catch((error: unknown) => {
+      const kind = error instanceof Error ? error.name : 'error';
+      this.deps.log?.warn(`QE runner: run ${run.info.runId} could not be recorded (${kind})`);
+    });
+  }
+
+  /** Reads the report, describes the run's files, saves `run.json`, then tells the pages. */
+  protected async complete(
+    run: Run,
+    state: RunState,
+    exitCode: number | undefined,
+    durationMs: number,
+  ): Promise<void> {
+    await new Promise<void>((done) => run.logFile.end(done));
+    const report = await readReport(join(run.root, run.files.junit));
     const outcome: RunOutcome = {
       state,
       ...(exitCode !== undefined && { exitCode }),
-      durationMs: Date.now() - run.startedMs,
+      durationMs,
       folder: run.folder,
-      log: `${run.folder}/output.log`,
+      log: run.files.log,
+      ...report,
+      artifacts: await runArtifacts(run.root, run.files),
     };
-    for (const client of this.clients) client.onFinished(run.info.runId, outcome);
+    const recorded = recordedOutcome(outcome);
+    await saveRecord(run.root, { run: { ...run.info, state }, outcome: recorded });
+    for (const client of this.clients) client.onFinished(run.info.runId, recorded);
+  }
+
+  async history(root: string, limit: number): Promise<RunnerResult<RunRecord[]>> {
+    if (!isAbsolute(root) || !(await isDirectory(root))) return fail('NOT_FOUND', 'root: not a folder');
+    return { ok: true, value: await readHistory(root, Math.min(Math.max(Math.trunc(limit), 1), 100)) };
   }
 }

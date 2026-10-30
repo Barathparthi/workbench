@@ -1,4 +1,4 @@
-import type { Framework, RunState, TestNode, TestSelector } from '@qe/runner';
+import type { Framework, RunResults, RunState, TestNode, TestSelector } from '@qe/runner';
 import type { RpcServer } from '@theia/core/lib/common/messaging/proxy-factory';
 
 /**
@@ -28,6 +28,14 @@ export interface RunInfo {
   readonly startedAt: string;
 }
 
+/** A file the run wrote, for the run's record (PHASE_11 §11.5): size and sha256, path relative to the project. */
+export interface RunArtifact {
+  readonly kind: 'junit_xml' | 'html_report' | 'log';
+  readonly path: string;
+  readonly sizeBytes: number;
+  readonly sha256: string;
+}
+
 export interface RunOutcome {
   readonly state: RunState;
   /** Undefined when the process could not start or was ended by a signal. */
@@ -36,6 +44,17 @@ export interface RunOutcome {
   /** The run's folder and full output log, relative to the project folder. */
   readonly folder: string;
   readonly log: string;
+  /** From the JUnit report; absent when the run wrote none (it could not start, or was cancelled early). */
+  readonly results?: RunResults;
+  /** Why the report could not be read (malformed, too large). */
+  readonly problem?: string;
+  readonly artifacts: readonly RunArtifact[];
+}
+
+/** A finished run as saved in its folder (`.qe-runs/<runId>/run.json`): the history of the local modes. */
+export interface RunRecord {
+  readonly run: RunInfo;
+  readonly outcome: RunOutcome;
 }
 
 export interface Discovery {
@@ -50,6 +69,8 @@ export interface QeRunnerService extends RpcServer<QeRunnerClient> {
   /** Starts a run; its output and its end arrive through the client. `QUOTA_EXCEEDED` when too many are running. */
   start(root: string, request: StartRunRequest): Promise<RunnerResult<RunInfo>>;
   cancel(runId: string): Promise<void>;
+  /** The latest finished runs of the project folder at `root`, newest first, from their `run.json`. */
+  history(root: string, limit: number): Promise<RunnerResult<RunRecord[]>>;
   /** Runs still going, and the output each has kept so far (a reloaded page picks them up again). */
   running(): Promise<{ run: RunInfo; output: string }[]>;
 }
