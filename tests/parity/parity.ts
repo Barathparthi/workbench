@@ -47,6 +47,8 @@ export interface RemoteTarget {
 }
 
 const appDir = resolve(import.meta.dirname, '../../apps/ide-electron');
+/** The project folder in the hosted workspace runtime. */
+export const HOSTED_PROJECT = '/home/qe/project';
 const labContainer = process.env['QE_E2E_LAB_CONTAINER'] ?? 'qews-lab-a';
 
 function docker(args: string[]): string {
@@ -149,7 +151,8 @@ export const test = base.extend<
     }
     const url = mode === 'hosted' ? process.env['QE_E2E_HOSTED_URL'] : '/';
     testInfo.skip(url === undefined, 'hosted mode needs the dev stack: set QE_E2E_HOSTED_URL');
-    await page.goto(url ?? '/');
+    // Hosted: name the project folder, or Theia reopens the workspace used last (another suite's remote folders).
+    await page.goto(mode === 'hosted' ? `${url ?? ''}#${HOSTED_PROJECT}` : '/');
     await waitForShell(page);
     await use(page);
     if (mode === 'hosted' && url !== undefined) await closeRemoteSessions(request, url);
@@ -165,7 +168,7 @@ export const test = base.extend<
       container === undefined,
       'hosted mode needs QE_E2E_HOSTED_CONTAINER (the workspace runtime)',
     );
-    await use(containerFiles(container ?? '', '/home/qe/project'));
+    await use(containerFiles(container ?? '', HOSTED_PROJECT));
   },
 
   remote: async ({ mode }, use, testInfo) => {

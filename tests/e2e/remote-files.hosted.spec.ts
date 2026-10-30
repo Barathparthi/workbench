@@ -61,18 +61,14 @@ test.describe('remote files (hosted)', () => {
     onServer(`rm -rf ${dir} && mkdir -p ${dir} && printf 'hello remote\\n' > ${dir}/notes.txt`);
   });
 
-  // Each test opens its own files session (new browser context); end it, or the per-user limit is reached. Then go
-  // back to the project folder alone: the IDE would otherwise reopen the remote folder's multi-root workspace, which
-  // later suites do not expect (leave the page first: a change of the fragment alone is no reload).
-  test.afterEach(async ({ page, request }) => {
+  // Each test opens its own files session (new browser context); end it, or the per-user limit is reached.
+  test.afterEach(async ({ request }) => {
     await closeRemoteSessions(request, url ?? '');
-    await page.goto('about:blank');
-    await page.goto(`${url ?? ''}#/home/qe/project`);
-    await expect(page.locator('#theia-app-shell')).toBeVisible({ timeout: 60_000 });
   });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto(url ?? '/');
+    // Name the project folder, or Theia reopens the workspace used last (another suite's remote folders).
+    await page.goto(`${url ?? ''}#/home/qe/project`);
     await waitForShell(page);
   });
 
