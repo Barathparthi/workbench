@@ -20,6 +20,7 @@ import { authRoutes, meRoutes, type AuthRouteOptions } from './routes/auth.js';
 import { lifecycleRoutes } from './routes/lifecycle.js';
 import { remoteFileRoutes } from './routes/remote-files.js';
 import { targetRoutes } from './routes/targets.js';
+import { testRunRoutes } from './routes/test-runs.js';
 import type { RemoteFileService } from './remote-file-service.js';
 import type { RemoteSessionService } from './remote-session-service.js';
 import type { TargetService } from './target-service.js';
@@ -31,6 +32,7 @@ import { loggerOptions } from './logger.js';
 import { requestIdFor } from './request-id.js';
 import { healthRoutes, type HealthDeps } from './routes/health.js';
 import { workspaceRoutes } from './routes/workspaces.js';
+import type { TestRunService } from './test-run-service.js';
 import type { WorkspaceService } from './workspace-service.js';
 
 export interface ServerDeps {
@@ -57,6 +59,8 @@ export interface ServerDeps {
         readonly files?: RemoteFileService | undefined;
       }
     | undefined;
+  /** QE runner records (Phase 11). */
+  readonly testRuns?: TestRunService | undefined;
   /** Test hook: sees every registered route (the authz matrix test enumerates them). */
   readonly onRouteRegistered?: (route: RouteOptions) => void;
   /** Test hook: where logs go. */
@@ -123,6 +127,7 @@ export async function buildServer(config: Config, deps: ServerDeps): Promise<Fas
   healthRoutes(app, deps.health);
   meRoutes(app);
   workspaceRoutes(app, deps.workspaces);
+  if (deps.testRuns !== undefined) testRunRoutes(app, deps.testRuns);
   if (deps.remote !== undefined) {
     targetRoutes(app, deps.remote.targets, deps.remote.sessions);
     if (deps.remote.files !== undefined) remoteFileRoutes(app, deps.remote.files);

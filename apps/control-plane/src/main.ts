@@ -25,6 +25,7 @@ import {
 } from '@qe/runtime-providers';
 import { buildServer } from './server.js';
 import { createShutdown } from './shutdown.js';
+import { createTestRunService } from './test-run-service.js';
 import { createWorkspaceService } from './workspace-service.js';
 
 function configOrExit(): Config {
@@ -144,6 +145,7 @@ const remote = {
 
 const app = await buildServer(config, {
   remote,
+  testRuns: createTestRunService(db),
   workspaces: createWorkspaceService(
     db,
     config.RUNTIME_KIND,

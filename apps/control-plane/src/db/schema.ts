@@ -182,6 +182,35 @@ export interface SessionTicketsTable {
   redeemed_at: Date | null;
 }
 
+/** 0001 + 0005: a QE runner run (Phase 11). `selector` is the selector as JSON. */
+export interface TestRunsTable {
+  id: string;
+  workspace_id: string;
+  target_id: string | null;
+  user_id: string;
+  framework: string;
+  selector: string | null;
+  state: 'QUEUED' | 'RUNNING' | 'PASSED' | 'FAILED' | 'ERROR' | 'CANCELLED';
+  exit_code: number | null;
+  counts_json: Json;
+  started_at: Date | null;
+  finished_at: Date | null;
+  created_at: Timestamp;
+  duration_ms: number | null;
+  failures_json: ColumnType<unknown[], string | undefined, string>;
+  truncated: ColumnType<boolean, boolean | undefined, boolean>;
+}
+
+export interface TestArtifactsTable {
+  id: string;
+  test_run_id: string;
+  kind: 'junit_xml' | 'html_report' | 'log' | 'screenshot' | 'other';
+  storage_ref: string;
+  size_bytes: ColumnType<string, number, number>;
+  sha256: string;
+  created_at: Timestamp;
+}
+
 export interface Database {
   connection_policies: ConnectionPoliciesTable;
   credential_refs: CredentialRefsTable;
@@ -197,4 +226,6 @@ export interface Database {
   workspaces: WorkspacesTable;
   workspace_members: WorkspaceMembersTable;
   audit_events: AuditEventsTable;
+  test_runs: TestRunsTable;
+  test_artifacts: TestArtifactsTable;
 }
