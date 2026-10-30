@@ -74,6 +74,18 @@ describe('pytest adapter', () => {
     ).toBe('C:\\Python312\\python.exe');
   });
 
+  it('maps exit codes to run states: 0 passed, 1 failed, anything else an error', () => {
+    expect([0, 1, 2, 3, 4, 5, 137].map((code) => pytestAdapter.stateOf(code))).toEqual([
+      'PASSED',
+      'FAILED',
+      'ERROR',
+      'ERROR',
+      'ERROR',
+      'ERROR',
+      'ERROR',
+    ]);
+  });
+
   it('lists tests with the collect-only command and builds the tree from its output', () => {
     expect(pytestAdapter.discoverCommand({ python: 'python3' })).toEqual({
       file: 'python3',

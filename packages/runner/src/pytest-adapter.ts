@@ -97,6 +97,9 @@ export const pytestAdapter: RunnerAdapter = {
     };
   },
 
+  // pytest: 0 all passed, 1 some failed; 2 interrupted, 3 internal error, 4 usage error, 5 no tests collected.
+  stateOf: (exitCode) => (exitCode === 0 ? 'PASSED' : exitCode === 1 ? 'FAILED' : 'ERROR'),
+
   resultFiles: ({ runId }) => ({
     junit: `${runDir(runId)}/junit.xml`,
     htmlReport: `${runDir(runId)}/report.html`,

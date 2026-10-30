@@ -41,6 +41,9 @@
       "path": "extensions/qe-remote"
     },
     {
+      "path": "extensions/qe-runner"
+    },
+    {
       "path": "apps/control-plane"
     },
     {

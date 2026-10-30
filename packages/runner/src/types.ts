@@ -96,6 +96,8 @@ export interface RunnerAdapter {
   parseDiscovery(stdout: string): TestNode[];
   /** The command that runs the selected tests and writes JUnit XML (and a report) under `.qe-runs/<runId>`. */
   buildCommand(selector: TestSelector, context: RunContext): RunCommand;
+  /** The state a finished run ends in, from its exit code (a cancelled run is CANCELLED whatever its code). */
+  stateOf(exitCode: number): RunState;
   /** The files the run writes, relative to the project folder. */
   resultFiles(context: Pick<RunContext, 'runId'>): { readonly junit: string; readonly htmlReport?: string };
 }
