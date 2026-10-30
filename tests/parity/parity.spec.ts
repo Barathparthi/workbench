@@ -14,6 +14,7 @@ import {
   QE_COMMANDS,
   runCommand,
   VISIBLE_TERMINAL_INPUT,
+  workspace,
 } from '../e2e/ide.js';
 import { expect, test, type RemoteTarget } from './parity.js';
 
@@ -169,6 +170,7 @@ test.describe('remote system', () => {
     ide,
     remote,
     page,
+    mode,
   }) => {
     await pickTarget(ide, 'Open Remote Folder', remote);
     await acceptTrust(ide);
@@ -198,10 +200,15 @@ test.describe('remote system', () => {
     await expect(ide.locator('.lm-TabBar-tab, .p-TabBar-tab', { hasText: 'escape' })).toHaveCount(0);
     await expect(ide.locator('.monaco-editor .view-lines', { hasText: hostname })).toHaveCount(0);
 
-    // Back to the project alone, so later runs find the workspace they expect (a hash change is no reload).
-    if (ide === page) {
+    // Back to the project alone, so later tests and runs find the workspace they expect: open the project folder
+    // explicitly (the IDE would otherwise reopen this multi-root workspace). Leave the page first: a change of the
+    // fragment alone is no reload. The desktop window closes with its worker.
+    if (mode !== 'desktop') {
+      const project =
+        mode === 'hosted' ? `${process.env['QE_E2E_HOSTED_URL'] ?? ''}#/home/qe/project` : `/#${workspace()}`;
       await page.goto('about:blank');
-      await page.goto('/');
+      await page.goto(project);
+      await expect(page.locator('#theia-app-shell')).toBeVisible({ timeout: 60_000 });
     }
   });
 });

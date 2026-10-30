@@ -3,6 +3,8 @@ import { Emitter, Event, type Disposable } from '@theia/core/lib/common';
 import type URI from '@theia/core/lib/common/uri';
 import {
   createFileSystemProviderError,
+  ETAG_DISABLED,
+  etag,
   FilePermission,
   FileSystemProviderErrorCode,
   FileType,
@@ -110,6 +112,25 @@ function listingOf(result: FsListResult): ReadonlyMap<string, string> {
   return new Map(result.entries.map((e) => [e.name, `${e.type}:${String(e.mtimeMs)}:${String(e.size)}`]));
 }
 
+/** Stats this provider made, so the file service can tell a remote file's stat from any other (see QeFileService). */
+const remoteStats = new WeakSet<Stat>();
+
+/**
+ * Whether a remote file changed since the version an editor holds (`options`, from Theia's FileResource): any other
+ * mtime or size. Theia's own check only counts a later mtime, and SFTP mtimes have whole seconds — an auto-save and a
+ * change on the server within the same second would pass it, and the save would silently overwrite that change.
+ * Undefined when `stat` is not a remote file's: the caller keeps Theia's check.
+ */
+export function remoteModifiedSince(
+  stat: Stat,
+  options: { readonly etag?: string; readonly mtime?: number } | undefined,
+): boolean | undefined {
+  if (!remoteStats.has(stat)) return undefined;
+  const expected = options?.etag;
+  if (expected === undefined || expected === ETAG_DISABLED) return false;
+  return etag({ mtime: stat.mtime, size: stat.size }) !== expected;
+}
+
 function toStat(s: FsStat): Stat {
   // A link the server will not follow (it leaves the remote folder) is shown, read-only, as a file.
   const base =
@@ -127,8 +148,9 @@ function toStat(s: FsStat): Stat {
  * `qe-ssh://` in Theia (PHASE_09 §9.4, ADR-006 option B): every call goes from this page to the control plane's file
  * API, which reaches the target through the broker; nothing runs in the workspace runtime (P9). Writes carry the
  * ETag of the `stat` Theia makes just before writing (FileService.validateWriteFile), so a change on the server in
- * between is refused by the server too, not only by Theia's own "modified since" check. Changes made on the server
- * reach the IDE through the polling watcher.
+ * between is refused by the server too. That stat is first checked against the editor's version, strictly
+ * (`remoteModifiedSince`): the ETag only covers the moment between stat and write, since Theia reads the file for its
+ * encoding before each write. Changes made on the server reach the IDE through the polling watcher.
  */
 export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWriteCapability {
   readonly capabilities = CAPABILITIES;
@@ -213,7 +235,9 @@ export class QeSshFileSystemProvider implements FileSystemProviderWithFileReadWr
       );
       this.etags.set(resource.toString(), s.etag);
       if (s.type === 'file') this.watcher.updateFile(resource, s.etag);
-      return toStat(s);
+      const stat = toStat(s);
+      remoteStats.add(stat);
+      return stat;
     } catch (error) {
       this.etags.delete(resource.toString());
       throw error;
