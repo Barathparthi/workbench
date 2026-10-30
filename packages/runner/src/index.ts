@@ -1,6 +1,7 @@
 import { pytestAdapter } from './pytest-adapter.js';
 import type { Framework, RunnerAdapter } from './types.js';
 
+export { DEFAULT_JUNIT_LIMITS, failureLocation, JUnitReader, parseJUnit, type JUnitLimits } from './junit.js';
 export { pytestAdapter } from './pytest-adapter.js';
 export {
   checkRunEnv,

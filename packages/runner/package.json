@@ -19,6 +19,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@qe/domain": "0.0.0"
+    "@qe/domain": "0.0.0",
+    "saxes": "6.0.0"
   }
 }
