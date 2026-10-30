@@ -1,0 +1,28 @@
+{
+  "name": "@qe/theia-qe-runner",
+  "version": "0.0.0",
+  "private": true,
+  "description": "QE Workspace test runner: runs test frameworks in the project folder (structured argv, no shell) and on remote targets through the broker.",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "keywords": [
+    "theia-extension"
+  ],
+  "files": [
+    "lib",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@qe/runner": "0.0.0",
+    "@theia/core": "1.76.0"
+  },
+  "theiaExtensions": [
+    {
+      "backend": "lib/node/qe-runner-backend-module",
+      "backendElectron": "lib/node/qe-runner-backend-module"
+    }
+  ]
+}

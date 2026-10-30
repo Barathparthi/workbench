@@ -106,3 +106,21 @@ export {
   RemoteFileType,
   RemotePath,
 } from './remote-files.js';
+export {
+  CreateTestRunRequest,
+  FinishedRunState,
+  ListTestRunsQuery,
+  TEST_RUN_LIMITS,
+  TestArtifact,
+  TestArtifactKind,
+  TestArtifactRecord,
+  TestFailureRecord,
+  TestFrameworkName,
+  TestRun,
+  TestRunCounts,
+  TestRunIdParams,
+  TestRunList,
+  TestRunResultRequest,
+  TestRunState,
+  TestSelectorRecord,
+} from './test-runs.js';

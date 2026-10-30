@@ -17,6 +17,9 @@
       "path": "packages/policy"
     },
     {
+      "path": "packages/runner"
+    },
+    {
       "path": "packages/secrets"
     },
     {
@@ -36,6 +39,9 @@
     },
     {
       "path": "extensions/qe-remote"
+    },
+    {
+      "path": "extensions/qe-runner"
     },
     {
       "path": "apps/control-plane"

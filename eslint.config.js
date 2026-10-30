@@ -15,6 +15,7 @@ const packages = [
   'contracts',
   'rbac',
   'policy',
+  'runner',
   'broker-core',
   'secrets',
   'runtime-providers',
@@ -29,7 +30,9 @@ const allowedDependencies = {
   contracts: ['domain'],
   rbac: ['domain', 'contracts'],
   policy: ['domain', 'contracts'],
-  'broker-core': ['domain', 'contracts', 'policy', 'secrets', 'telemetry'],
+  // ADR-014: the runner model (adapters build argv, never a shell line) is shared by the IDE backend and the broker.
+  runner: ['domain'],
+  'broker-core': ['domain', 'contracts', 'policy', 'runner', 'secrets', 'telemetry'],
   secrets: ['domain', 'telemetry'],
   'runtime-providers': ['domain', 'telemetry'],
   telemetry: [],
@@ -38,7 +41,7 @@ const allowedDependencies = {
   'test-utils': packages.filter((p) => p !== 'test-utils'),
   // Theia extensions: never secrets, broker-core server parts or runtime-providers.
   // qe-core is allowed because it exposes QeEnvironment to the other extensions (09_LOCAL_AND_WEB_PARITY).
-  extension: ['client-sdk', 'contracts', 'domain', 'extension-qe-core'],
+  extension: ['client-sdk', 'contracts', 'domain', 'runner', 'extension-qe-core'],
   // qe-core is an extension too (04 §1 "extensions/*"); it is a separate element only so others may import it.
   'extension-qe-core': ['client-sdk', 'contracts', 'domain'],
   // ADR-008 exception (+ Phase 10 addendum): qe-remote's backends embed the broker — Electron for desktop, Node for

@@ -37,7 +37,7 @@ FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates curl git less libsecret-1-0 libstdc++6 openssh-client procps \
-      python3 python3-pip python3-venv ripgrep tini vim-tiny \
+      python3 python3-pip python3-pytest python3-venv ripgrep tini vim-tiny \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --create-home --uid 1000 --shell /bin/bash qe \
  && install -d -o qe -g qe /home/qe/project

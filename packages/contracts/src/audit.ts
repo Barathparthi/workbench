@@ -77,6 +77,24 @@ export const AuditMetadata = {
     memberId: z.uuid(),
     role: z.enum(['owner', 'editor', 'viewer', 'removed']),
   }),
+  // Phase 11 — QE runner. The selector's kind only: no paths, test names or command lines.
+  QE_TEST_STARTED: z.strictObject({
+    workspaceId: z.uuid(),
+    targetId: z.uuid().optional(),
+    framework: short,
+    selectorKind: z.enum(['all', 'file', 'node', 'marker']),
+  }),
+  QE_TEST_FINISHED: z.strictObject({
+    state: z.enum(['PASSED', 'FAILED', 'ERROR']),
+    exitCode: z.number().int().optional(),
+    durationMs: z.number().int().min(0),
+    total: z.number().int().min(0),
+    passed: z.number().int().min(0),
+    failed: z.number().int().min(0),
+    errors: z.number().int().min(0),
+    skipped: z.number().int().min(0),
+  }),
+  QE_TEST_CANCELLED: z.strictObject({ durationMs: z.number().int().min(0) }),
 } as const;
 
 export type AuditAction = keyof typeof AuditMetadata;

@@ -58,6 +58,7 @@ export async function generateOpenApi(): Promise<Record<string, unknown>> {
       sessions: {} as RemoteSessionService,
       files: {} as RemoteFileService,
     },
+    testRuns: { create: unused, finish: unused, list: unused, get: unused },
     sessions: {
       auth,
       redirectUrl: 'https://qe-workspace.example/auth/callback',

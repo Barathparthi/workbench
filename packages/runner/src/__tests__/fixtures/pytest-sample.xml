@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="1" tests="5" time="0.035" timestamp="2026-10-30T15:54:02.672137+00:00" hostname="lab-machine"><testcase classname="tests.test_calculator" name="test_add" time="0.001" /><testcase classname="tests.test_calculator" name="test_divide" time="0.000" /><testcase classname="tests.test_calculator" name="test_divide_by_zero" time="0.000" /><testcase classname="tests.test_calculator" name="test_add_negative_fails_on_purpose" time="0.001"><failure message="assert -5 == -6&#10; +  where -5 = add(-2, -3)">def test_add_negative_fails_on_purpose():
+&gt;       assert add(-2, -3) == -6  # line 21: the one failure
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert -5 == -6
+E        +  where -5 = add(-2, -3)
+
+tests/test_calculator.py:21: AssertionError</failure></testcase><testcase classname="tests.test_calculator" name="test_needs_network" time="0.000"><skipped type="pytest.skip" message="needs the lab network">/home/qe/project/tests/test_calculator.py:24: needs the lab network</skipped></testcase></testsuite></testsuites>

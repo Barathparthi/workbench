@@ -22,6 +22,7 @@ qe-workspace/
 │   ├── contracts/                # Zod schemas: REST DTOs, WS protocol, OpenAPI generation
 │   ├── rbac/                     # permission matrix, evaluator
 │   ├── policy/                   # target connection policy evaluation, SSRF rules
+│   ├── runner/                   # QE runner model: run types, framework adapters (argv only), JUnit parsing (ADR-014)
 │   ├── broker-core/              # SshTransport, host-key verifier, path confinement, session registry
 │   ├── secrets/                  # SecretProvider interface + adapters (vault, file-dev)
 │   ├── runtime-providers/        # WorkspaceRuntimeProvider: kubernetes, docker, local
@@ -65,11 +66,12 @@ qe-workspace/
 domain        ← depends on nothing
 contracts     ← domain
 rbac, policy  ← domain, contracts
-broker-core   ← domain, contracts, policy, secrets, telemetry
+runner        ← domain   (ADR-014)
+broker-core   ← domain, contracts, policy, runner, secrets, telemetry
 secrets       ← domain, telemetry
 runtime-providers ← domain, telemetry
 client-sdk    ← contracts
-extensions/*  ← client-sdk, contracts, domain   (NEVER secrets, broker-core server parts, runtime-providers)
+extensions/*  ← client-sdk, contracts, domain, runner   (NEVER secrets, broker-core server parts, runtime-providers)
 apps/control-plane     ← domain, contracts, rbac, policy, secrets, runtime-providers, telemetry
 apps/connection-broker ← broker-core, contracts, policy, secrets, telemetry
 apps/ide-*    ← extensions/*

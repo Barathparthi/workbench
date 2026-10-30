@@ -1,6 +1,7 @@
-# Disposable OpenSSH target (shell and SFTP) for integration tests (Phases 08-09). Development fixture only.
+# Disposable OpenSSH target (shell, SFTP, and pytest for remote test runs) for integration tests (Phases 08-11).
+# Development fixture only.
 FROM alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
-RUN apk add --no-cache openssh-server openssh-sftp-server \
+RUN apk add --no-cache openssh-server openssh-sftp-server python3 py3-pytest \
  && ssh-keygen -A \
  && adduser -D -s /bin/sh qe \
  # adduser -D locks the account ("!"), and sshd refuses locked accounts even for keys: "*" = no password, not locked.

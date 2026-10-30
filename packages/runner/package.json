@@ -1,0 +1,25 @@
+{
+  "name": "@qe/runner",
+  "version": "0.0.0",
+  "private": true,
+  "description": "QE test runner model: run types, framework adapters that build argv (never a shell line), selector validation.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@qe/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@qe/domain": "0.0.0",
+    "saxes": "6.0.0"
+  }
+}

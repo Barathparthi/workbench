@@ -56,7 +56,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxkbfile-dev libsecret-1-dev
+      # python3-pytest: the runner's integration tests run the sample project with the distribution's pytest.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libx11-dev libxkbfile-dev libsecret-1-dev python3-pytest
       - run: npm ci
       # Unit and integration together, so the coverage thresholds see the database code too.
       - run: npx vitest run --coverage
