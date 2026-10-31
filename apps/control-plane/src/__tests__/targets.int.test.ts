@@ -282,12 +282,13 @@ describe('sessions and tickets', () => {
 
   it('denies and audits: no lab role (404), a capability the policy lacks, a foreign Origin', async () => {
     await expect(open(carol)).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    await expect(open(bob, 'exec')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    // Exec is granted per policy (Phase 11): this policy does not list it.
+    await expect(open(bob, 'exec')).rejects.toMatchObject({ code: 'TARGET_NOT_ALLOWED' });
     await expect(open(bob, 'terminal', 'https://evil.example')).rejects.toMatchObject({
       code: 'CSRF_REJECTED',
     });
     await expect(open(bob, 'terminal', null)).rejects.toMatchObject({ code: 'CSRF_REJECTED' });
-    expect(await actions()).toContain('REMOTE_CONNECT_DENIED:missing_permission');
+    expect(await actions()).toContain('REMOTE_CONNECT_DENIED:capability_not_allowed');
   });
 
   it('enforces the per-user session limit, and closing a session frees a slot', async () => {

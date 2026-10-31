@@ -282,6 +282,6 @@ describe('remote test runs', () => {
       payload: { kind: 'exec' },
     });
     expect(res.statusCode).toBe(400);
-    expect(res.json<{ detail: string }>().detail).toMatch(/opened by test runs/);
+    expect(res.json()).toMatchObject({ code: 'INVALID_REQUEST', details: { field: 'kind' } });
   });
 });
