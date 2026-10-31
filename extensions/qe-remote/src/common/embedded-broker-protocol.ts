@@ -27,6 +27,16 @@ export type EmbeddedResult<T> =
   /** `message`: a fixed text for the user, where the code alone does not say what to change. */
   | { readonly ok: false; readonly code: string; readonly message?: string };
 
+/** A test run on a personal host: as for managed targets, data only (`StartRemoteTestRunRequest` without a workspace). */
+export interface RemoteTestRequest {
+  readonly framework: 'pytest';
+  readonly selector:
+    | { readonly kind: 'all' }
+    | { readonly kind: 'file'; readonly path: string }
+    | { readonly kind: 'node'; readonly id: string }
+    | { readonly kind: 'marker'; readonly expr: string };
+}
+
 /** A host to add to `~/.qe-workspace/ssh_hosts` ("QE: Add SSH Host…"). */
 export interface NewHostRequest {
   readonly alias: string;
@@ -49,6 +59,12 @@ export interface EmbeddedBrokerService extends RpcServer<EmbeddedBrokerClient> {
     targetId: string,
     size: { cols: number; rows: number },
   ): Promise<EmbeddedResult<string>>;
+  /**
+   * Runs tests on a personal host (PHASE_11 §11.4), in the user's home there: a framework and a selector, never a
+   * command line. Streams like a terminal under `streamId` (output frames, a `run` result, the close); an interrupt
+   * or `closeTerminal` cancels the run on the host. Returns the run's id.
+   */
+  runTests(streamId: string, targetId: string, request: RemoteTestRequest): Promise<EmbeddedResult<string>>;
   /** A `qews.v1` frame from the terminal: binary input, or a JSON control message (resize, signal). */
   send(streamId: string, frame: string | Uint8Array): Promise<void>;
   closeTerminal(streamId: string): Promise<void>;

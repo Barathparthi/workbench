@@ -67,6 +67,9 @@ function fakeService(over: Partial<EmbeddedBrokerService> = {}) {
     openTerminal: vi.fn<EmbeddedBrokerService['openTerminal']>((id) =>
       Promise.resolve({ ok: true, value: id }),
     ),
+    runTests: vi.fn<EmbeddedBrokerService['runTests']>(() =>
+      Promise.resolve({ ok: true, value: '0192d2a4-7c1e-4d3a-9f4b-2c5e8a1b3d6f' }),
+    ),
     send: vi.fn<EmbeddedBrokerService['send']>(() => Promise.resolve()),
     closeTerminal: vi.fn<EmbeddedBrokerService['closeTerminal']>(() => Promise.resolve()),
     fs: vi.fn<EmbeddedBrokerService['fs']>(() => Promise.resolve({ ok: true, value: { etag: '1-1' } })),

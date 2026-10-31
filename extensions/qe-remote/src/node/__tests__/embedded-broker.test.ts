@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 import {
   DomainError,
@@ -46,12 +47,43 @@ function encryptedKey(): { private: string; public: string } {
   }
 }
 
+/** The host's side of a test run (the test server has no shell): the report it leaves, or a run that waits. */
+const REPORT = readFileSync('packages/runner/src/__tests__/fixtures/pytest-sample.xml', 'utf8');
+type ServerChannel = Parameters<NonNullable<NonNullable<Parameters<typeof startSshServer>[0]>['exec']>>[1];
+let hostFiles = new FakeSftp({ home: '/home/ada' });
+let hostRun: 'report' | 'wait' = 'report';
+let waiting: ServerChannel | undefined;
+function playHost(command: string, channel: ServerChannel): void {
+  if (command.includes('kill -')) {
+    waiting?.write('KeyboardInterrupt' + String.fromCharCode(10));
+    waiting?.exit(2);
+    waiting?.end();
+    waiting = undefined;
+    channel.exit(0);
+    channel.end();
+    return;
+  }
+  const runId = /\.qe-runs\/([0-9a-f-]{36})\//.exec(command)?.[1] ?? 'none';
+  channel.write('collected 5 items' + String.fromCharCode(10));
+  if (hostRun === 'wait') {
+    waiting = channel;
+    return;
+  }
+  hostFiles.mkdirp(`/home/ada/.qe-runs/${runId}`).put(`/home/ada/.qe-runs/${runId}/junit.xml`, REPORT);
+  channel.exit(1);
+  channel.end();
+}
+
 let plainServer: TestSshServer;
 let lockedServer: TestSshServer;
 const lockedKey = encryptedKey();
 
 beforeAll(async () => {
-  plainServer = await startSshServer();
+  plainServer = await startSshServer({
+    exec: (command, channel) => {
+      playHost(command, channel);
+    },
+  });
   lockedServer = await startSshServer({ clientKey: lockedKey });
 });
 /** Every broker a test made is disposed afterwards, pass or fail, so no connection keeps the servers open. */
@@ -608,5 +640,99 @@ describe('embedded broker: adding a personal host', () => {
       code: 'CONFLICT',
       message: 'A host named lab-a already exists.',
     });
+  });
+});
+
+describe('embedded broker: test runs on personal targets (PHASE_11 §11.4)', () => {
+  function withHostFiles(): SshTransport {
+    return {
+      connect: async (endpoint, credential, verifier) => {
+        const connection = await ssh2Transport.connect(endpoint, credential, verifier);
+        const sftp = wrapSftp(hostFiles as unknown as Parameters<typeof wrapSftp>[0]);
+        return { ...connection, sftp: () => Promise.resolve(sftp) };
+      },
+    };
+  }
+  afterEach(() => {
+    hostFiles = new FakeSftp({ home: '/home/ada' });
+    hostRun = 'report';
+    waiting = undefined;
+  });
+  const request = {
+    framework: 'pytest',
+    selector: { kind: 'file', path: 'tests/test_calculator.py' },
+  } as const;
+  const runControl = (controls: Record<string, unknown>[]) => controls.find((c) => c.t === 'run');
+
+  it('runs the tests in the user’s home on the host, streams them and ends with the result', async () => {
+    const t = target(plainServer);
+    const { broker, rec, controls, output } = setup(t, plainServer, { transport: withHostFiles() });
+    const started = await broker.runTests(randomUUID(), t.id, request);
+    expect(started).toMatchObject({ ok: true, value: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown });
+    const runId = started.ok ? started.value : '';
+    await eventually(() => {
+      expect(rec.closed).toHaveLength(1);
+    });
+    const command =
+      plainServer.events.find((e) => e.includes(`.qe-runs/${runId}`) && !e.includes('kill -')) ?? '';
+    expect(command).toContain("cd -- '/home/ada'");
+    expect(command).toContain("'tests/test_calculator.py'");
+    expect(output()).toContain('collected 5 items');
+    expect(runControl(controls())).toMatchObject({
+      result: { state: 'FAILED', counts: { total: 5, passed: 3, failed: 1, errors: 0, skipped: 1 } },
+    });
+    expect(rec.audit.map((a) => a.action)).toEqual(['QE_TEST_STARTED', 'QE_TEST_FINISHED']);
+    expect(rec.audit[1]).toMatchObject({ outcome: 'success', detail: { runId, state: 'FAILED', failed: 1 } });
+  });
+
+  it.each([
+    [
+      'an interrupt',
+      (b: EmbeddedBroker, id: string) => b.send(id, JSON.stringify({ t: 'signal', signal: 'SIGINT' })),
+    ],
+    ['closing the stream', (b: EmbeddedBroker, id: string) => b.closeTerminal(id)],
+  ])('cancels the run on the host on %s', async (_label, stop) => {
+    hostRun = 'wait';
+    const t = target(plainServer);
+    const { broker, rec, controls, output } = setup(t, plainServer, { transport: withHostFiles() });
+    const streamId = randomUUID();
+    await broker.runTests(streamId, t.id, request);
+    await eventually(() => {
+      expect(output()).toContain('collected 5 items');
+    });
+    await stop(broker, streamId);
+    await eventually(() => {
+      expect(rec.audit.map((a) => a.action)).toContain('QE_TEST_FINISHED');
+    });
+    expect(rec.audit.at(-1)).toMatchObject({ detail: { state: 'CANCELLED' } });
+    // Interrupted while still streaming: the IDE hears the result before the close.
+    if (_label === 'an interrupt')
+      expect(runControl(controls())).toMatchObject({ result: { state: 'CANCELLED' } });
+  });
+
+  it('refuses a malformed request, an unknown host and a selector the adapter refuses, running nothing', async () => {
+    const t = target(plainServer);
+    const { broker, rec, controls } = setup(t, plainServer, { transport: withHostFiles() });
+    const before = plainServer.events.filter((e) => e.startsWith('exec:')).length;
+    for (const bad of [{}, { framework: 'make', selector: { kind: 'all' } }, { ...request, extra: 1 }])
+      expect(await broker.runTests(randomUUID(), t.id, bad)).toEqual({ ok: false, code: 'INVALID_REQUEST' });
+    expect(await broker.runTests('not-a-uuid', t.id, request)).toEqual({
+      ok: false,
+      code: 'INVALID_REQUEST',
+    });
+    expect(await broker.runTests(randomUUID(), 'personal-nope', request)).toEqual({
+      ok: false,
+      code: 'NOT_FOUND',
+    });
+    // Well-formed, but a path out of the project: the adapter refuses it before any command is built.
+    await broker.runTests(randomUUID(), t.id, {
+      framework: 'pytest',
+      selector: { kind: 'file', path: '../../etc/passwd' },
+    });
+    await eventually(() => {
+      expect(rec.closed).toHaveLength(1);
+    });
+    expect(controls().find((c) => c.t === 'error')).toMatchObject({ code: 'INVALID_REQUEST' });
+    expect(plainServer.events.filter((e) => e.startsWith('exec:')).length).toBe(before);
   });
 });

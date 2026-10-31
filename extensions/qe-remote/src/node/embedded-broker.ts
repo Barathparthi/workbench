@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
 
 import {
@@ -9,6 +10,7 @@ import {
   mapSshError,
   messageFor,
   personalCredentials,
+  runRemoteTests,
   TerminalBridge,
   type AuditSink,
   type ErrorCode,
@@ -21,7 +23,7 @@ import {
   type SshTransport,
   type TargetSource,
 } from '@qe/broker-core';
-import type { FsOp } from '@qe/contracts';
+import { TestFrameworkName, TestSelectorRecord, type FsOp } from '@qe/contracts';
 import { checkPersonalHost, type Resolver } from '@qe/policy';
 import { z } from 'zod';
 
@@ -70,6 +72,8 @@ const summary = (t: PersonalTarget): PersonalTargetSummary => ({
   user: t.user,
   viaJumpHost: t.proxyJump !== undefined,
 });
+
+const RUN_REQUEST = z.object({ framework: TestFrameworkName, selector: TestSelectorRecord }).strict();
 
 const NEW_HOST = z
   .object({
@@ -376,6 +380,87 @@ export class EmbeddedBroker implements EmbeddedBrokerService {
       }
     })();
     return { ok: true, value: streamId };
+  }
+
+  async runTests(streamId: string, targetId: string, request: unknown): Promise<EmbeddedResult<string>> {
+    if (!STREAM_ID.test(streamId) || this.streams.has(streamId))
+      return { ok: false, code: 'INVALID_REQUEST' };
+    // It crosses the RPC channel: parsed here; the adapter checks the selector again before building anything.
+    const parsed = RUN_REQUEST.safeParse(request);
+    if (!parsed.success) return { ok: false, code: 'INVALID_REQUEST' };
+    const target = await this.deps.targets.get(targetId);
+    if (target === undefined) return { ok: false, code: 'NOT_FOUND' };
+    const runId = randomUUID();
+    const spec = { runId, framework: parsed.data.framework, selector: parsed.data.selector };
+
+    const bridge = new TerminalBridge(
+      {
+        send: (data) => {
+          this.client?.onFrame(streamId, data);
+        },
+        close: (code, reason) => {
+          this.client?.onClosed(streamId, code, reason ?? '');
+        },
+        bufferedAmount: 0,
+      },
+      { idleMs: TERMINAL_IDLE_MS, expiresAt: new Date(Date.now() + TERMINAL_MAX_MS) },
+    );
+    this.streams.set(streamId, bridge);
+    bridge.onClosed(() => this.streams.delete(streamId));
+    bridge.sendControl({ t: 'status', state: 'CONNECTING' });
+
+    void (async () => {
+      let run: Promise<unknown> = Promise.resolve();
+      try {
+        const { connection, hostKey } = await this.connect(target);
+        // The cancel runs on this connection: close it once the run has ended.
+        bridge.onClosed(() => {
+          void run
+            .catch(() => undefined)
+            .then(() => {
+              connection.close();
+            });
+        });
+        if (bridge.isClosed) return;
+        bridge.sendControl({ t: 'hostkey', ...hostKey, verified: true });
+        const sftp = await connection.sftp();
+        const root = await sftp.realpath('.');
+        await this.deps.audit.record({
+          action: 'QE_TEST_STARTED',
+          target: target.id,
+          outcome: 'success',
+          detail: { runId },
+        });
+        run = runRemoteTests({
+          connection,
+          sftp,
+          root,
+          spec,
+          bridge,
+          record: (outcome) =>
+            this.deps.audit.record({
+              action: 'QE_TEST_FINISHED',
+              target: target.id,
+              outcome: outcome.result.state === 'ERROR' ? 'failure' : 'success',
+              detail: { runId, state: outcome.result.state, ...outcome.result.counts },
+            }),
+        });
+        bridge.sendControl({ t: 'status', state: 'ACTIVE' });
+        await run;
+      } catch (error) {
+        const code = failure(error);
+        if (!isDomainError(error)) this.deps.log?.warn(describeUnexpected(`test run on ${target.id}`, error));
+        await this.deps.audit.record({
+          action: 'SSH_CONNECT_FAILED',
+          target: target.id,
+          outcome: 'failure',
+          detail: { code },
+        });
+        bridge.sendControl({ t: 'error', code, message: personalMessage(error) });
+        bridge.close('connect_failed', code);
+      }
+    })();
+    return { ok: true, value: runId };
   }
 
   send(streamId: string, frame: string | Uint8Array): Promise<void> {
