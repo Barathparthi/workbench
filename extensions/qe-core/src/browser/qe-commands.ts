@@ -23,10 +23,11 @@ export const QeCommands = {
 export const THEIA_ABOUT_COMMAND_ID = 'core.about';
 
 /**
- * Commands implemented by later phases (workspace picker, runner: 11). CONNECT_TARGET (it appears in the welcome page)
- * and OPEN_REMOTE_FOLDER are defined here and implemented by the qe-remote extension (Phases 08–09).
+ * Commands implemented by later phases (the workspace picker). CONNECT_TARGET (it appears in the welcome page) and
+ * OPEN_REMOTE_FOLDER are defined here and implemented by the qe-remote extension (Phases 08–09), RUN_TESTS by the
+ * qe-runner extension (Phase 11).
  */
-const PLACEHOLDERS: readonly Command[] = [QeCommands.OPEN_WORKSPACE, QeCommands.RUN_TESTS];
+const PLACEHOLDERS: readonly Command[] = [QeCommands.OPEN_WORKSPACE];
 
 @injectable()
 export class QeCommandContribution implements CommandContribution {

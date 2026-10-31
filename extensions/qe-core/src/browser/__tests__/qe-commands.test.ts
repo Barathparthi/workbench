@@ -24,10 +24,15 @@ describe('QeCommandContribution', () => {
   });
 
   it('registers its QE commands in the QE category', () => {
-    for (const command of [QeCommands.ABOUT, QeCommands.OPEN_WORKSPACE, QeCommands.RUN_TESTS]) {
+    for (const command of [QeCommands.ABOUT, QeCommands.OPEN_WORKSPACE]) {
       expect(registry.getCommand(command.id)).toMatchObject({ category: 'QE', label: command.label });
     }
     expect(registry.getCommand(QeCommands.ABOUT.id)?.label).toBe('About QE Workspace');
+  });
+
+  it('leaves Run Tests to the qe-runner extension (defined here, implemented there)', () => {
+    expect(QeCommands.RUN_TESTS).toMatchObject({ id: 'qe.runner.run', label: 'Run Tests' });
+    expect(registry.getCommand(QeCommands.RUN_TESTS.id)).toBeUndefined();
   });
 
   it('leaves Connect to the qe-remote extension (defined here, implemented there)', () => {
@@ -44,7 +49,7 @@ describe('QeCommandContribution', () => {
     expect(info).not.toHaveBeenCalled();
   });
 
-  it.each([QeCommands.OPEN_WORKSPACE, QeCommands.RUN_TESTS])(
+  it.each([QeCommands.OPEN_WORKSPACE])(
     'keeps $id as a placeholder that only reports it is not available yet',
     async (command) => {
       await registry.executeCommand(command.id);

@@ -18,6 +18,11 @@ export interface StartRunRequest {
   readonly framework: Framework;
   readonly selector: TestSelector;
   readonly env?: Readonly<Record<string, string>>;
+  /**
+   * The run's id, when the caller recorded it first (hosted: the control plane's record, whose artifacts must be in
+   * `.qe-runs/<id>/`). A lowercase UUID whose folder does not exist yet; otherwise the backend picks one.
+   */
+  readonly runId?: string;
 }
 
 export interface RunInfo {

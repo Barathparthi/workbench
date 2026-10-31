@@ -7,6 +7,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import {
   adapterFor as defaultAdapterFor,
   checkRunEnv,
+  checkRunId,
   checkSelector,
   Frameworks,
   type Framework,
@@ -243,7 +244,17 @@ export class RunnerService implements QeRunnerService {
       return fail('QUOTA_EXCEEDED', `at most ${String(this.options.maxConcurrent)} runs at a time`);
     }
     const adapter = this.adapterFor(request.framework);
-    const runId = randomUUID();
+    let runId: string = randomUUID();
+    if (request.runId !== undefined) {
+      try {
+        runId = checkRunId(request.runId);
+      } catch {
+        return fail('INVALID_REQUEST', 'runId: not a UUID');
+      }
+      if (this.runs.has(runId) || (await isDirectory(join(root, '.qe-runs', runId)))) {
+        return fail('CONFLICT', 'runId: already used');
+      }
+    }
     const python = await pythonFor(root, this.platform);
     const htmlReport = (await this.deps.hasHtmlReport?.(python, root)) ?? false;
     const command = adapter.buildCommand(selector, { runId, python, htmlReport });

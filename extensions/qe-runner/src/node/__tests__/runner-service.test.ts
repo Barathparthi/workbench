@@ -377,3 +377,31 @@ describe('runner settings', () => {
     );
   });
 });
+
+describe('a run id chosen by the caller (hosted: the control plane record’s)', () => {
+  it('uses it for the run and its folder, once', async () => {
+    const { service, done } = setup();
+    const runId = '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d99';
+    const started = await service.start(root, {
+      framework: 'pytest',
+      selector: { kind: 'all' },
+      env: { MODE: 'pass' },
+      runId,
+    });
+    expect(started).toMatchObject({ ok: true, value: { runId } });
+    expect(await done(runId)).toMatchObject({ folder: `.qe-runs/${runId}` });
+    expect(
+      await service.start(root, { framework: 'pytest', selector: { kind: 'all' }, runId }),
+    ).toMatchObject({
+      ok: false,
+      code: 'CONFLICT',
+    });
+    for (const bad of ['../x', 'ABCDEF', ''])
+      expect(
+        await service.start(root, { framework: 'pytest', selector: { kind: 'all' }, runId: bad }),
+      ).toMatchObject({
+        ok: false,
+        code: 'INVALID_REQUEST',
+      });
+  });
+});

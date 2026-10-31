@@ -16,11 +16,16 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@qe/client-sdk": "0.0.0",
+    "@qe/contracts": "0.0.0",
     "@qe/runner": "0.0.0",
-    "@theia/core": "1.76.0"
+    "@qe/theia-qe-core": "0.0.0",
+    "@theia/core": "1.76.0",
+    "@theia/workspace": "1.76.0"
   },
   "theiaExtensions": [
     {
+      "frontend": "lib/browser/qe-runner-frontend-module",
       "backend": "lib/node/qe-runner-backend-module",
       "backendElectron": "lib/node/qe-runner-backend-module"
     }
