@@ -12,7 +12,9 @@ export const KIND_REQUIREMENTS: Readonly<
 > = {
   terminal: { permission: 'remote:connect', capability: 'terminal' },
   files: { permission: 'remote:file_read', capability: 'file_read' },
-  exec: { permission: 'remote:execute', capability: 'exec' },
+  // "Per policy" for lab users (07_SECURITY §4.2; owner's decision for Phase 11, as file_write in Phase 09): the
+  // lab role's remote:connect, and the policy's `exec` capability. Exec sessions carry QE test runs only.
+  exec: { permission: 'remote:connect', capability: 'exec' },
 };
 
 export interface PolicyView {

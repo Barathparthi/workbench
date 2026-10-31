@@ -196,6 +196,16 @@ describe('evaluateConnection', () => {
     });
   });
 
+  it('allows a lab user exec (test runs) where the policy lists the exec capability', () => {
+    const withExec = { ...policy, capabilities: [...policy.capabilities, 'exec'] };
+    expect(evaluateConnection(labUser, active, withExec, 'exec', 0)).toMatchObject({
+      allowed: true,
+      policyVersion: 3,
+    });
+    // The capability is the grant: the same user, the same target, a policy without it — refused.
+    expect(evaluateConnection(labUser, active, policy, 'exec', 0)).toMatchObject({ allowed: false });
+  });
+
   it.each([
     [
       'an inactive target',
@@ -233,16 +243,16 @@ describe('evaluateConnection', () => {
       'TARGET_NOT_ALLOWED',
       'role_not_allowed',
     ],
-    ['exec without remote:execute', labUser, active, 'exec', 0, 'FORBIDDEN', 'missing_permission'],
     [
-      'exec not in the policy',
-      { roles: ['lab.a.user'], permissions: new Set(['remote:execute']) },
-      active,
+      'exec without remote:connect',
+      { roles: ['lab.a.user'], permissions: new Set(['target:list']) },
+      { status: 'active' },
       'exec',
       0,
-      'TARGET_NOT_ALLOWED',
-      'capability_not_allowed',
+      'FORBIDDEN',
+      'missing_permission',
     ],
+    ['exec not in the policy', labUser, active, 'exec', 0, 'TARGET_NOT_ALLOWED', 'capability_not_allowed'],
     ['the session limit', labUser, active, 'files', 2, 'QUOTA_EXCEEDED', 'session_limit'],
   ] as const)('refuses %s', (_label, caller, target, kind, count, code, reason) => {
     expect(evaluateConnection(caller, target, policy, kind, count)).toEqual({ allowed: false, code, reason });
