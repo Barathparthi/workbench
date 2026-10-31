@@ -3,8 +3,11 @@
  * unchanged in hosted, local web and desktop mode (playwright.config.ts: projects parity-*). Every result is checked
  * from outside the IDE — on disk, in the workspace container, or on the lab machine — never by reading the screen.
  *
- * Not yet: "run the pytest sample, view results" arrives with the QE runner (Phase 11).
+ * The QE runner's scenario (PHASE_11 §Exit criteria, Milestone M3): the pytest sample run from the QE Tests panel in
+ * the project folder, its result shown and recorded.
  */
+import { readFileSync } from 'node:fs';
+
 import type { Page } from '@playwright/test';
 
 import {
@@ -139,6 +142,34 @@ test('renders a webview: the Markdown preview of the README', async ({ ide, mode
   // Webviews live on their own origin (local web: <id>.webview.localhost); the preview is a frame inside it.
   const preview = ide.frameLocator('iframe.webview').frameLocator('iframe#active-frame');
   await expect(preview.locator('h1')).toHaveText('Sample QE project', { timeout: 30_000 });
+});
+
+/** The runner's sample project (tests/fixtures/sample-pytest-repo), written into the project folder. */
+const SAMPLE = 'tests/fixtures/sample-pytest-repo';
+const SAMPLE_FILES = ['calculator.py', 'pytest.ini', 'tests/conftest.py', 'tests/test_calculator.py'];
+
+test('runs the pytest sample from the QE Tests panel and records the result', async ({ ide, files }) => {
+  for (const file of SAMPLE_FILES) files.write(file, readFileSync(`${SAMPLE}/${file}`, 'utf8'));
+  await runCommand(ide, 'QE: Show Tests');
+  const panel = ide.locator('#qe-tests');
+  const node = panel.locator('.qe-tests-tree-node', { hasText: 'tests/test_calculator.py' });
+  await expect(async () => {
+    await panel.locator('.qe-tests-refresh').click();
+    await expect(node).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 60_000 });
+  await node.locator('.qe-tests-run-node').click();
+  await expect(panel.locator('.qe-tests-summary')).toHaveText('3 passed · 1 failed · 1 skipped', {
+    timeout: 90_000,
+  });
+  // Checked outside the IDE: the record the backend saved with the run.
+  await expect
+    .poll(() => {
+      const record = files.latestRun();
+      return record === ''
+        ? undefined
+        : (JSON.parse(record) as { outcome: { results?: { counts: unknown } } }).outcome.results?.counts;
+    })
+    .toEqual({ total: 5, passed: 3, failed: 1, errors: 0, skipped: 1 });
 });
 
 test.describe('remote system', () => {

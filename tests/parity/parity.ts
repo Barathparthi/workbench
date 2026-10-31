@@ -11,7 +11,7 @@
  * (QE_E2E_HOME); both run on the lab machine QE_E2E_LAB_CONTAINER (default qews-lab-a) as its user qe.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
@@ -36,6 +36,8 @@ export interface ProjectFiles {
   read(name: string): string;
   write(name: string, content: string): void;
   remove(name: string): void;
+  /** The newest test run's record (`.qe-runs/<id>/run.json`), as the IDE backend saved it; '' when there is none. */
+  latestRun(): string;
 }
 
 /** The SSH target the scenarios use, and a side channel to its machine. */
@@ -73,6 +75,15 @@ function localFiles(dir: string): ProjectFiles {
     remove: (name) => {
       rmSync(join(dir, name), { force: true });
     },
+    latestRun: () => {
+      const runs = join(dir, '.qe-runs');
+      if (!existsSync(runs)) return '';
+      const records = readdirSync(runs)
+        .map((id) => join(runs, id, 'run.json'))
+        .filter((path) => existsSync(path))
+        .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+      return records[0] === undefined ? '' : readFileSync(records[0], 'utf8');
+    },
   };
 }
 
@@ -91,6 +102,8 @@ function containerFiles(container: string, dir: string): ProjectFiles {
       if (r.status !== 0) throw new Error('writing into the workspace failed');
     },
     remove: (name) => sh(`rm -f '${name}'`),
+    latestRun: () =>
+      sh('f=$(ls -t .qe-runs/*/run.json 2>/dev/null | head -n 1); [ -n "$f" ] && cat "$f" || true').trim(),
   };
 }
 
