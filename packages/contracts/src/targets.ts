@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { TestFrameworkName, TestSelectorRecord } from './test-runs.js';
+
 /**
  * Remote targets, connection policies, host keys, credential references and remote sessions
  * (05_API_CONTRACTS §2.3–2.4, 06_DATA_MODEL, 08_REMOTE_CONNECTIVITY_DESIGN). Nothing here ever carries secret
@@ -261,6 +263,10 @@ export const RedeemTicketRequest = z.strictObject({
 export const RedeemTicketResponse = z.object({
   sessionId: z.uuid(),
   kind: SessionKind,
+  /** An exec session's test run: the broker builds the command from this, never from a client's text. */
+  testRun: z
+    .object({ runId: z.uuid(), framework: TestFrameworkName, selector: TestSelectorRecord })
+    .nullable(),
   expiresAt: z.string(),
   terminal: z.object({ cols: z.number(), rows: z.number() }).nullable(),
   user: z.object({ id: z.uuid(), username: z.string() }),

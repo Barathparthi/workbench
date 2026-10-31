@@ -145,7 +145,7 @@ const remote = {
 
 const app = await buildServer(config, {
   remote,
-  testRuns: createTestRunService(db),
+  testRuns: createTestRunService(db, remote.sessions),
   workspaces: createWorkspaceService(
     db,
     config.RUNTIME_KIND,

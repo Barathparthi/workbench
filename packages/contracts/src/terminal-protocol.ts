@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { TestRunResultRequest } from './test-runs.js';
+
 /**
  * `qews.v1` remote terminal protocol (05_API_CONTRACTS §4). Control messages are JSON text frames; terminal data
  * is binary with a one-byte type prefix: 0x00 input (client → server), 0x01 output (server → client).
@@ -52,7 +54,9 @@ export type ServerControl =
   | { t: 'status'; state: 'CONNECTING' | 'ACTIVE' | 'CLOSING' | 'CLOSED'; reason?: string }
   | { t: 'hostkey'; algorithm: string; fingerprintSha256: string; verified: true }
   | { t: 'exit'; code: number | null; signal: string | null }
-  | { t: 'error'; code: string; message: string };
+  | { t: 'error'; code: string; message: string }
+  /** An exec session's test run ended: its result as recorded (PHASE_11 §11.4); `problem` when no report was read. */
+  | { t: 'run'; result: TestRunResultRequest; problem?: string };
 
 export type ClientFrame = { kind: 'input'; data: Uint8Array } | { kind: 'control'; message: ClientControl };
 

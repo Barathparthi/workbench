@@ -24,6 +24,7 @@ import {
   UpdatePolicyRequest,
   UpdateTargetRequest,
 } from '@qe/contracts';
+import { DomainError } from '@qe/domain';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -166,11 +167,18 @@ export function targetRoutes(
     },
     // The kind's own permission (remote:connect / file_read / execute) is checked by the policy decision.
     config: { permission: 'target:list', audit: true, rateLimit: sessionOpens },
-    handler: async (request, reply) =>
-      reply
+    handler: async (request, reply) => {
+      // Exec sessions only carry test runs (POST /targets/{id}/test-runs): nothing runs a client's command.
+      if (request.body.kind === 'exec') {
+        throw new DomainError('INVALID_REQUEST', 'exec sessions are opened by test runs', {
+          details: { field: 'kind' },
+        });
+      }
+      return reply
         .code(201)
         .header('cache-control', 'no-store')
-        .send(await sessions.open(ctx(request), request.params.id, request.body, ticketBinding(request))),
+        .send(await sessions.open(ctx(request), request.params.id, request.body, ticketBinding(request)));
+    },
   });
   r.get('/api/v1/sessions', {
     schema: { tags: ['sessions'], response: { 200: RemoteSessionList, ...errors } },

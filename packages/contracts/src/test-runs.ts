@@ -78,7 +78,8 @@ export const TestArtifact = TestArtifactRecord.extend({ id: z.uuid() });
 
 export const TestRun = z.strictObject({
   id: z.uuid(),
-  workspaceId: z.uuid(),
+  /** Null for a remote run started outside a hosted workspace (the desktop app); then only its user sees it. */
+  workspaceId: z.uuid().nullable(),
   targetId: z.uuid().nullable(),
   userId: z.uuid(),
   framework: TestFrameworkName,
@@ -96,8 +97,9 @@ export const TestRun = z.strictObject({
 
 export const TestRunList = z.strictObject({ items: z.array(TestRun) });
 export const TestRunIdParams = z.strictObject({ id: z.uuid() });
+/** A workspace's runs; without `workspaceId`, the caller's own runs that belong to no workspace. */
 export const ListTestRunsQuery = z.strictObject({
-  workspaceId: z.uuid(),
+  workspaceId: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
@@ -107,3 +109,34 @@ export type TestRun = z.infer<typeof TestRun>;
 export type TestSelectorRecord = z.infer<typeof TestSelectorRecord>;
 export type TestFailureRecord = z.infer<typeof TestFailureRecord>;
 export type TestArtifactRecord = z.infer<typeof TestArtifactRecord>;
+
+/**
+ * `POST /api/v1/targets/{id}/test-runs` (PHASE_11 §11.4): run tests in the target's folder. A structured request
+ * only — the broker builds the command with the framework's adapter. Extra environment is not accepted for remote
+ * runs: it would be stored with the run.
+ */
+export const StartRemoteTestRunRequest = z.strictObject({
+  framework: TestFrameworkName,
+  selector: TestSelectorRecord,
+  /** The hosted workspace the run belongs to, if any (its members then see it). */
+  workspaceId: z.uuid().optional(),
+});
+
+/** The run, and the exec session that carries it: connect to `streamUrl` with the ticket, as for a terminal. */
+export const RemoteTestRunResponse = z.strictObject({
+  run: TestRun,
+  session: z.strictObject({
+    sessionId: z.uuid(),
+    streamUrl: z.string(),
+    /** Single use, short-lived; the `ticket.<value>` WebSocket subprotocol, never in a URL. */
+    ticket: z.string(),
+    expiresAt: z.string(),
+  }),
+});
+
+/** What the broker hands the control plane when a remote run ends (internal, service token). */
+export const BrokerTestRunResult = TestRunResultRequest.extend({ sessionId: z.uuid() });
+
+export type StartRemoteTestRunRequest = z.infer<typeof StartRemoteTestRunRequest>;
+export type RemoteTestRunResponse = z.infer<typeof RemoteTestRunResponse>;
+export type BrokerTestRunResult = z.infer<typeof BrokerTestRunResult>;

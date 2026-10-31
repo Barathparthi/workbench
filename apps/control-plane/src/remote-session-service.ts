@@ -2,13 +2,15 @@ import { randomBytes } from 'node:crypto';
 
 import {
   DESKTOP_TICKET_ORIGIN,
+  TestFrameworkName,
+  TestSelectorRecord,
   type OpenSessionRequest,
   type RedeemTicketResponse,
   type SessionStateReport,
 } from '@qe/contracts';
 import { DomainError, type SessionState } from '@qe/domain';
 import { evaluateConnection, type PolicyView } from '@qe/policy';
-import { sql, type Kysely, type Selectable } from 'kysely';
+import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 
 import { sha256 } from './auth.js';
@@ -93,9 +95,27 @@ export async function snapshotFor(
           .selectAll()
           .where('id', '=', target.credential_ref_id)
           .executeTakeFirst();
+  // An exec session exists only to carry a test run (P11.4): the broker builds the command from the run, never
+  // from anything a client sent as text.
+  let testRun: RedeemTicketResponse['testRun'] = null;
+  if (s.kind === 'exec') {
+    const run = await tx
+      .selectFrom('test_runs')
+      .select(['id', 'framework', 'selector'])
+      .where('session_id', '=', s.id)
+      .executeTakeFirst();
+    const selector =
+      run === undefined ? undefined : TestSelectorRecord.safeParse(JSON.parse(run.selector ?? 'null'));
+    const framework = TestFrameworkName.safeParse(run?.framework);
+    if (run === undefined || selector?.success !== true || !framework.success) {
+      throw new DomainError('TARGET_NOT_ALLOWED', 'an exec session without a test run');
+    }
+    testRun = { runId: run.id, framework: framework.data, selector: selector.data };
+  }
   return {
     sessionId: s.id,
     kind: s.kind,
+    testRun,
     expiresAt: s.expires_at.toISOString(),
     terminal:
       s.terminal_cols === null || s.terminal_rows === null
@@ -134,6 +154,50 @@ export async function snapshotFor(
   };
 }
 
+/**
+ * An exec session that ends while its test run is still RUNNING — the connection failed, or the session closed before
+ * the broker reported the run — ends the run too, so no run stays RUNNING forever. A run the broker reported is no
+ * longer RUNNING and is left alone.
+ */
+async function endRunOf(
+  tx: Transaction<Database>,
+  s: Selectable<SessionsTable>,
+  state: 'ERROR' | 'CANCELLED',
+  at: Date,
+): Promise<void> {
+  const run = await tx
+    .updateTable('test_runs')
+    .set({ state, finished_at: at, counts_json: JSON.stringify(NO_COUNTS) })
+    .where('session_id', '=', s.id)
+    .where('state', '=', 'RUNNING')
+    .returning(['id', 'started_at'])
+    .executeTakeFirst();
+  if (run === undefined) return;
+  const durationMs = Math.max(0, at.getTime() - (run.started_at ?? new Date(s.created_at)).getTime());
+  await tx.updateTable('test_runs').set({ duration_ms: durationMs }).where('id', '=', run.id).execute();
+  const base = {
+    actorType: 'service' as const,
+    actorUserId: s.user_id,
+    resourceType: 'test_run',
+    resourceId: run.id,
+  };
+  await (state === 'CANCELLED'
+    ? writeAuditEvent(tx, {
+        ...base,
+        action: 'QE_TEST_CANCELLED',
+        result: 'success',
+        metadata: { durationMs },
+      })
+    : writeAuditEvent(tx, {
+        ...base,
+        action: 'QE_TEST_FINISHED',
+        result: 'failure',
+        metadata: { state: 'ERROR', durationMs, ...NO_COUNTS },
+      }));
+}
+
+const NO_COUNTS = { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0 };
+
 export type RemoteSessionService = ReturnType<typeof createRemoteSessionService>;
 
 /** Remote sessions and their single-use tickets (Phase 07 §7.5): the last step before the broker connects. */
@@ -165,7 +229,17 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
      * Authorizes a session and mints its ticket. Order matters: visibility (404), then the policy decision
      * (audited allow or deny), and only then a ticket — nothing touches the network here.
      */
-    async open(ctx: RequestContext, targetId: string, input: OpenSessionRequest, origin: string | undefined) {
+    /**
+     * Authorizes a session and issues its ticket. `within` runs in the same transaction once the session exists: a
+     * test run records itself there, so an exec session never exists without its run (P11.4).
+     */
+    async open(
+      ctx: RequestContext,
+      targetId: string,
+      input: OpenSessionRequest,
+      origin: string | undefined,
+      within?: (tx: Transaction<Database>, sessionId: string) => Promise<void>,
+    ) {
       // The route passes DESKTOP_TICKET_ORIGIN only for the desktop app's bearer token (ticketBinding).
       if (origin === undefined || !(origin === DESKTOP_TICKET_ORIGIN || origins.has(origin))) {
         throw new DomainError('CSRF_REJECTED', 'sessions are opened from the IDE');
@@ -274,6 +348,7 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
           requestId: ctx.requestId,
           metadata: { targetId, kind: input.kind, policyVersion: decision.policyVersion },
         });
+        await within?.(tx, sessionId);
       });
       return {
         sessionId,
@@ -432,6 +507,7 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
               key.outcome,
             );
           }
+          if (s.kind === 'exec') await endRunOf(tx, s, 'ERROR', at);
           if (report.reason === 'TARGET_ADDRESS_FORBIDDEN') {
             await audit(
               'SSRF_BLOCKED',
@@ -460,6 +536,10 @@ export function createRemoteSessionService(db: Kysely<Database>, settings: Remot
             bytesOut: report.bytesOut ?? 0,
             durationSec: Math.max(0, Math.round((at.getTime() - started.getTime()) / 1000)),
           });
+          // Closed by the user or an administrator (a cancel), or ended some other way before the broker said how.
+          if (s.kind === 'exec') {
+            await endRunOf(tx, s, s.state === 'ACTIVE' ? 'ERROR' : 'CANCELLED', at);
+          }
           return { state: 'CLOSED' as const };
         }
         return { state: s.state };

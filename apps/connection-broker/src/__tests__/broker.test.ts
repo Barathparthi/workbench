@@ -73,6 +73,7 @@ const state = { shuttingDown: false, starting: false };
 const freshSnapshot = (): RedeemTicketResponse => ({
   sessionId: SESSION,
   kind: 'terminal',
+  testRun: null,
   expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
   terminal: null,
   user: { id: '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d71', username: 'bob' },

@@ -182,10 +182,11 @@ export interface SessionTicketsTable {
   redeemed_at: Date | null;
 }
 
-/** 0001 + 0005: a QE runner run (Phase 11). `selector` is the selector as JSON. */
+/** 0001 + 0005 + 0006: a QE runner run (Phase 11). `selector` is the selector as JSON. */
 export interface TestRunsTable {
   id: string;
-  workspace_id: string;
+  /** 0006: null for a remote run that belongs to no hosted workspace. */
+  workspace_id: string | null;
   target_id: string | null;
   user_id: string;
   framework: string;
@@ -199,6 +200,8 @@ export interface TestRunsTable {
   duration_ms: number | null;
   failures_json: ColumnType<unknown[], string | undefined, string>;
   truncated: ColumnType<boolean, boolean | undefined, boolean>;
+  /** 0006: the exec session that carries a remote run. */
+  session_id: ColumnType<string | null, string | null | undefined, string | null>;
 }
 
 export interface TestArtifactsTable {

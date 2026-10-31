@@ -107,9 +107,12 @@ export {
   RemotePath,
 } from './remote-files.js';
 export {
+  BrokerTestRunResult,
   CreateTestRunRequest,
   FinishedRunState,
   ListTestRunsQuery,
+  RemoteTestRunResponse,
+  StartRemoteTestRunRequest,
   TEST_RUN_LIMITS,
   TestArtifact,
   TestArtifactKind,

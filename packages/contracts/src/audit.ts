@@ -79,7 +79,8 @@ export const AuditMetadata = {
   }),
   // Phase 11 — QE runner. The selector's kind only: no paths, test names or command lines.
   QE_TEST_STARTED: z.strictObject({
-    workspaceId: z.uuid(),
+    // Absent for a remote run started outside a hosted workspace (the desktop app).
+    workspaceId: z.uuid().optional(),
     targetId: z.uuid().optional(),
     framework: short,
     selectorKind: z.enum(['all', 'file', 'node', 'marker']),
