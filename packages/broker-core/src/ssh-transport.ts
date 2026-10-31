@@ -42,6 +42,9 @@ export interface PtyChannel {
 /** A command run without a PTY (`remoteRunCommand`): its output as it comes, then its exit status. */
 export interface ExecChannel {
   onData(listener: (data: Buffer) => void): void;
+  /** Backpressure: stop and restart reading output (the browser cannot keep up). */
+  pause(): void;
+  resume(): void;
   /** The exit code, or the signal that ended it; both null when the channel closed without either. */
   onClose(listener: (code: number | null, signal: string | null) => void): void;
   close(): void;
@@ -212,6 +215,8 @@ function wrap(client: ssh2.Client): SshConnection {
                 listener(typeof code === 'number' ? code : null, signal ?? null);
               });
             },
+            pause: () => stream.pause(),
+            resume: () => stream.resume(),
             close: () => {
               stream.close();
             },

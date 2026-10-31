@@ -8,13 +8,16 @@ import { join, relative } from 'node:path';
 
 import { pytestAdapter, parseJUnit } from '@qe/runner';
 import { startOpenSsh, type OpenSshFixture } from '@qe/test-utils/openssh';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   createHostKeyVerifier,
   remoteCancelCommand,
   remoteRunCommand,
+  runRemoteTests,
   ssh2Transport,
+  TerminalBridge,
+  type RemoteRunOutcome,
   type ExecChannel,
   type SftpChannel,
   type SshConnection,
@@ -25,6 +28,8 @@ const SAMPLE = 'tests/fixtures/sample-pytest-repo';
 const RUN = '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d6f';
 const CANCEL_RUN = '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d70';
 const ROOT = '/home/qe/project';
+const BRIDGE_RUN = '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d71';
+const BRIDGE_CANCEL = '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d72';
 
 let server: OpenSshFixture;
 let connection: SshConnection;
@@ -143,5 +148,93 @@ describe('remote test runs over SSH exec', () => {
     expect(result.code).toBe(0);
     expect(result.output).toMatch(/1 passed/);
     expect(await server.run('find /home/qe -name pwned | wc -l')).toMatch(/^\s*0/);
+  });
+});
+
+describe('remote test runs through the bridge (runRemoteTests)', () => {
+  /** The IDE's end of the stream: output frames, control messages, the close. */
+  function ide() {
+    const controls: Record<string, unknown>[] = [];
+    let output = '';
+    let closedWith: number | undefined;
+    const bridge = new TerminalBridge(
+      {
+        send: (data) => {
+          if (typeof data === 'string') controls.push(JSON.parse(data) as Record<string, unknown>);
+          else output += Buffer.from(data.subarray(1)).toString('utf8');
+        },
+        close: (code) => {
+          closedWith = code;
+        },
+        bufferedAmount: 0,
+      },
+      { idleMs: 60_000, expiresAt: new Date(Date.now() + 600_000) },
+    );
+    return { bridge, controls, output: () => output, closed: () => closedWith };
+  }
+
+  it('streams the run, records its result, then tells the IDE and closes', async () => {
+    const { bridge, controls, output, closed } = ide();
+    const recorded: RemoteRunOutcome[] = [];
+    const outcome = await runRemoteTests({
+      connection,
+      sftp,
+      root: ROOT,
+      spec: {
+        runId: BRIDGE_RUN,
+        framework: 'pytest',
+        selector: { kind: 'file', path: 'tests/test_calculator.py' },
+      },
+      bridge,
+      record: (o) => {
+        recorded.push(o);
+        return Promise.resolve();
+      },
+    });
+    expect(outcome.result).toMatchObject({
+      state: 'FAILED',
+      exitCode: 1,
+      counts: { total: 5, passed: 3, failed: 1, errors: 0, skipped: 1 },
+      failures: [{ file: 'tests/test_calculator.py', line: 21 }],
+      artifacts: [{ kind: 'junit_xml', path: `.qe-runs/${BRIDGE_RUN}/junit.xml` }],
+    });
+    expect(outcome.result.artifacts[0]?.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(recorded).toEqual([outcome]);
+    expect(output()).toMatch(/1 failed, 3 passed, 1 skipped/);
+    expect(controls.at(-2)).toMatchObject({ t: 'run', result: { state: 'FAILED' } });
+    expect(controls.at(-1)).toEqual({ t: 'exit', code: 1, signal: null });
+    expect(closed()).toBe(1000);
+  });
+
+  it('cancels on the IDE’s interrupt: the run is stopped on the target and recorded CANCELLED with what it wrote', async () => {
+    const { bridge, controls, output } = ide();
+    const running = runRemoteTests({
+      connection,
+      sftp,
+      root: ROOT,
+      spec: {
+        runId: BRIDGE_CANCEL,
+        framework: 'pytest',
+        selector: { kind: 'file', path: 'tests/test_waits.py' },
+      },
+      bridge,
+      record: () => Promise.resolve(),
+    });
+    await vi.waitFor(
+      () => {
+        expect(output()).toMatch(/collected 1 item/);
+      },
+      { timeout: 15_000 },
+    );
+    bridge.handleMessage(JSON.stringify({ t: 'signal', signal: 'SIGINT' }), false);
+    const outcome = await running;
+    expect(outcome.result.state).toBe('CANCELLED');
+    expect(outcome.result.exitCode).toBe(2);
+    expect(controls).toContainEqual(
+      expect.objectContaining({
+        t: 'run',
+        result: expect.objectContaining({ state: 'CANCELLED' }) as unknown,
+      }),
+    );
   });
 });

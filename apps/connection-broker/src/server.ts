@@ -18,7 +18,7 @@ import { z } from 'zod';
 
 import type { FilesSessions } from './files-sessions.js';
 import type { RunnerDeps } from './session-runner.js';
-import { runTerminalSession } from './session-runner.js';
+import { runExecSession, runTerminalSession } from './session-runner.js';
 
 export interface BrokerDeps extends RunnerDeps {
   readonly registry: SessionRegistry;
@@ -176,14 +176,14 @@ export async function buildBroker(deps: BrokerDeps): Promise<FastifyInstance> {
         );
         return;
       }
-      // The ticket must belong to the session in the path, and be for a terminal.
-      if (snapshot.sessionId !== match[1] || snapshot.kind !== 'terminal') {
+      // The ticket must belong to the session in the path, and be for a terminal or a test run (exec).
+      if (snapshot.sessionId !== match[1] || (snapshot.kind !== 'terminal' && snapshot.kind !== 'exec')) {
         refuse(socket, 401, 'Unauthorized');
         return;
       }
 
       wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
-        const bridge = runTerminalSession(
+        const bridge = (snapshot.kind === 'exec' ? runExecSession : runTerminalSession)(
           {
             send: (data) => {
               if (ws.readyState === ws.OPEN) ws.send(data);

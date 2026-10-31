@@ -85,3 +85,11 @@ export {
   shellQuote,
   type RemoteRun,
 } from './remote-exec.js';
+export {
+  MAX_REMOTE_REPORT_BYTES,
+  readRemoteRun,
+  runRemoteTests,
+  type RemoteRunOptions,
+  type RemoteRunOutcome,
+  type RemoteRunSpec,
+} from './remote-run.js';

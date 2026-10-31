@@ -3,6 +3,7 @@
  * table). The control plane is faked; the SSRF guard sees lab addresses, and the test transport then dials the
  * loopback test server (loopback itself is — correctly — never allowed by the guard).
  */
+import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 
 import {
@@ -13,7 +14,7 @@ import {
   wrapSftp,
   type SshTransport,
 } from '@qe/broker-core';
-import { DESKTOP_TICKET_ORIGIN, type RedeemTicketResponse } from '@qe/contracts';
+import { DESKTOP_TICKET_ORIGIN, type BrokerTestRunResult, type RedeemTicketResponse } from '@qe/contracts';
 import { FakeSftp, startSshServer, type TestSshServer } from '@qe/test-utils';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -37,6 +38,9 @@ let redeemError: Error | undefined;
 let ticketOrigin = ORIGIN;
 let resolved: string[] = ['10.20.1.5'];
 const reports: [string, StateReport][] = [];
+/** Remote test run results reported to the control plane, and the order of every report (runs before sessions). */
+const runReports: [string, BrokerTestRunResult][] = [];
+const reportOrder: string[] = [];
 const dialled: string[] = [];
 
 /** The remote file system behind files-sessions (the in-process SSH server has no SFTP subsystem). */
@@ -63,6 +67,12 @@ const controlPlane: ControlPlaneClient = {
         : Promise.reject(new Error('bad ticket')),
   report: (id, r) => {
     reports.push([id, r]);
+    reportOrder.push(`session:${r.state}`);
+    return Promise.resolve();
+  },
+  reportRun: (id, r) => {
+    runReports.push([id, r]);
+    reportOrder.push(`run:${r.state}`);
     return Promise.resolve();
   },
   started: () => Promise.resolve({ closed: 0 }),
@@ -102,8 +112,55 @@ const freshSnapshot = (): RedeemTicketResponse => ({
 
 let files: FilesSessions;
 
+/** The target's side of a test run (the in-process server has no shell): what the run does, and a cancel. */
+type ServerChannel = Parameters<NonNullable<NonNullable<Parameters<typeof startSshServer>[0]>['exec']>>[1];
+const RUN = '0192d2a4-7c1e-7d3a-9f4b-2c5e8a1b3d80';
+const REPORT = readFileSync('packages/runner/src/__tests__/fixtures/pytest-sample.xml', 'utf8');
+let targetRun: 'report' | 'wait' = 'report';
+let waiting: ServerChannel | undefined;
+function playTarget(command: string, channel: ServerChannel): void {
+  if (command.includes('kill -')) {
+    // The cancel: the waiting run ends as pytest does on SIGINT (interrupted, exit 2).
+    waiting?.write('KeyboardInterrupt\n');
+    waiting?.exit(2);
+    waiting?.end();
+    waiting = undefined;
+    channel.exit(0);
+    channel.end();
+    return;
+  }
+  channel.write('collected 5 items\n');
+  if (targetRun === 'wait') {
+    waiting = channel;
+    return;
+  }
+  remoteFiles.mkdirp(`/home/bob/.qe-runs/${RUN}`).put(`/home/bob/.qe-runs/${RUN}/junit.xml`, REPORT);
+  channel.write('1 failed, 3 passed, 1 skipped\n');
+  channel.exit(1);
+  channel.end();
+}
+
+const execSnapshot = (over: Partial<RedeemTicketResponse> = {}): RedeemTicketResponse => {
+  const base = freshSnapshot();
+  return {
+    ...base,
+    kind: 'exec',
+    testRun: {
+      runId: RUN,
+      framework: 'pytest',
+      selector: { kind: 'file', path: 'tests/test_calculator.py' },
+    },
+    policy: { ...base.policy, capabilities: ['terminal', 'exec'] },
+    ...over,
+  };
+};
+
 beforeAll(async () => {
-  ssh = await startSshServer();
+  ssh = await startSshServer({
+    exec: (command, channel) => {
+      playTarget(command, channel);
+    },
+  });
   const runner = {
     controlPlane,
     transport,
@@ -134,6 +191,10 @@ afterEach(() => {
   ticketOrigin = ORIGIN;
   resolved = ['10.20.1.5'];
   reports.length = 0;
+  runReports.length = 0;
+  reportOrder.length = 0;
+  targetRun = 'report';
+  waiting = undefined;
   dialled.length = 0;
   registry.closeAll('shutdown');
   remoteFiles = new FakeSftp();
@@ -535,5 +596,88 @@ describe('files-sessions (internal fs route)', () => {
     expect(files.size).toBe(1);
     remoteFiles.releaseHung();
     expect((await slow).status).toBe(409);
+  });
+});
+
+describe('remote test runs through the broker', () => {
+  it('runs the session’s test run, streams it, and records the result before the session ends', async () => {
+    snapshot = execSnapshot();
+    const c = asClient(await connect());
+    expect(await c.closed).toBe(1000);
+    const command = ssh.events.find((e) => e.startsWith('exec:') && !e.includes('kill -')) ?? '';
+    // Built by the broker from the run, every value quoted: never a client's text.
+    expect(command).toContain(`cd -- '/home/bob' && mkdir -p -- '.qe-runs/${RUN}'`);
+    expect(command).toContain("'python3' '-m' 'pytest'");
+    expect(command).toContain("'tests/test_calculator.py'");
+    expect(c.output()).toContain('1 failed, 3 passed, 1 skipped');
+    expect(c.controls).toContainEqual(
+      expect.objectContaining({
+        t: 'run',
+        result: expect.objectContaining({
+          state: 'FAILED',
+          exitCode: 1,
+          counts: { total: 5, passed: 3, failed: 1, errors: 0, skipped: 1 },
+        }) as unknown,
+      }),
+    );
+    await vi.waitFor(() => {
+      expect(reportOrder).toEqual(['session:ACTIVE', 'run:FAILED', 'session:CLOSED']);
+    });
+    expect(runReports[0]?.[1]).toMatchObject({
+      sessionId: SESSION,
+      failures: [{ file: 'tests/test_calculator.py', line: 21 }],
+      artifacts: [{ kind: 'junit_xml', path: `.qe-runs/${RUN}/junit.xml` }],
+    });
+  });
+
+  it.each([
+    [
+      'the IDE’s Cancel',
+      (c: Client) => {
+        c.ws.send(JSON.stringify({ t: 'signal', signal: 'SIGINT' }));
+      },
+    ],
+    [
+      'the page going away',
+      (c: Client) => {
+        c.ws.close();
+      },
+    ],
+  ])('stops the run on the target on %s, and records it CANCELLED', async (_label, stop) => {
+    targetRun = 'wait';
+    snapshot = execSnapshot();
+    const c = asClient(await connect());
+    await vi.waitFor(() => {
+      expect(c.output()).toContain('collected 5 items');
+    });
+    stop(c);
+    await vi.waitFor(() => {
+      expect(ssh.events.some((e) => e.startsWith('exec:') && e.includes(`kill -INT`))).toBe(true);
+    });
+    await vi.waitFor(() => {
+      expect(reportOrder).toEqual(['session:ACTIVE', 'run:CANCELLED', 'session:CLOSED']);
+    });
+    expect(runReports[0]?.[1]).toMatchObject({ state: 'CANCELLED', exitCode: 2 });
+  });
+
+  it.each([
+    ['without a test run', (): Partial<RedeemTicketResponse> => ({ testRun: null })],
+    [
+      'under a policy without exec',
+      (): Partial<RedeemTicketResponse> => ({
+        policy: { ...freshSnapshot().policy, capabilities: ['terminal'] },
+      }),
+    ],
+  ])('refuses an exec session %s, before any command runs', async (_label, over) => {
+    const before = ssh.events.filter((e) => e.startsWith('exec:')).length;
+    snapshot = execSnapshot(over());
+    const c = asClient(await connect());
+    await c.closed;
+    expect(c.controls).toContainEqual(expect.objectContaining({ t: 'error', code: 'TARGET_NOT_ALLOWED' }));
+    expect(ssh.events.filter((e) => e.startsWith('exec:')).length).toBe(before);
+    expect(dialled).toEqual([]);
+    await vi.waitFor(() => {
+      expect(reports.map(([, r]) => r.state)).toEqual(['FAILED']);
+    });
   });
 });

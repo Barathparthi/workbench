@@ -1,7 +1,7 @@
 /**
  * An in-process SSH server (ssh2's own server) for unit tests: real handshakes, host keys, public-key auth, PTY
  * requests and window changes — no Docker needed. The "shell" echoes input, answers Ctrl+C with "^C" and exits
- * on "exit\r".
+ * on "exit\r". Exec requests go to `options.exec` (recorded as `exec:<command>` events); without it they exit 127.
  */
 import type { AddressInfo } from 'node:net';
 import { timingSafeEqual } from 'node:crypto';
@@ -20,7 +20,11 @@ export interface TestSshServer {
 
 /** `clientKey`: the key pair the server accepts (default: a fresh one; pass an encrypted one to test passphrases). */
 export async function startSshServer(
-  options: { clientKey?: { private: string; public: string } } = {},
+  options: {
+    clientKey?: { private: string; public: string };
+    /** Plays the target's side of an exec request: write output, then `channel.exit(code)` and `channel.end()`. */
+    exec?: (command: string, channel: ssh2.ServerChannel) => void;
+  } = {},
 ): Promise<TestSshServer> {
   const host = ed25519KeyPair();
   const client = options.clientKey ?? ed25519KeyPair();
@@ -55,6 +59,16 @@ export async function startSshServer(
           // Typed as always present, but ssh2 passes undefined when the client wants no reply.
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           acceptWc?.();
+        });
+        session.on('exec', (acceptExec, _reject, info) => {
+          events.push(`exec:${info.command}`);
+          const channel = acceptExec();
+          if (options.exec !== undefined) {
+            options.exec(info.command, channel);
+            return;
+          }
+          channel.exit(127);
+          channel.end();
         });
         session.on('shell', (acceptShell) => {
           const stream = acceptShell();

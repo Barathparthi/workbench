@@ -4,6 +4,7 @@ import {
   DomainError,
   isDomainError,
   mapSshError,
+  runRemoteTests,
   messageFor,
   type CredentialSource,
   type ErrorCode,
@@ -13,6 +14,7 @@ import {
   type SshTransport,
   type StreamSocket,
   TerminalBridge,
+  type RemoteRunOutcome,
 } from '@qe/broker-core';
 import { checkTargetHost, type Resolver } from '@qe/policy';
 
@@ -135,6 +137,112 @@ export function runTerminalSession(
     } catch (error) {
       failure = failureCode(error);
       deps.log.warn({ sessionId: snapshot.sessionId, code: failure }, 'remote session failed to open');
+      bridge.sendControl({ t: 'error', code: failure, message: messageFor(failure) });
+      bridge.close('connect_failed', failure);
+    }
+  })();
+  return bridge;
+}
+
+/** How long a session's closing report waits for its run to be recorded (a target that never answers). */
+const RUN_RECORD_WAIT_MS = 30_000;
+
+/**
+ * One accepted exec stream (PHASE_11 §11.4): the session's test run, on the target. The same checks as a terminal
+ * run again first — and the broker itself refuses a session without a run, or under a policy without `exec`. The
+ * command comes from the run's framework and selector (`runRemoteTests`), never from the client; the stream carries
+ * its output, and the IDE's Cancel or any early end stops it on the target. The run's result is reported to the
+ * control plane before the session's end, so the run is recorded with its counts rather than as cancelled blind.
+ */
+export function runExecSession(
+  socket: StreamSocket,
+  snapshot: RedeemTicketResponse,
+  deps: RunnerDeps,
+): TerminalBridge {
+  const bridge = new TerminalBridge(socket, {
+    idleMs: snapshot.policy.idleTimeoutSec * 1000,
+    expiresAt: new Date(snapshot.expiresAt),
+  });
+  deps.registry.add({
+    sessionId: snapshot.sessionId,
+    userId: snapshot.user.id,
+    targetId: snapshot.target.id,
+    bridge,
+  });
+  bridge.sendControl({ t: 'status', state: 'CONNECTING' });
+
+  const verifier = createHostKeyVerifier(snapshot.hostKeys);
+  let opened = false;
+  let failure: ErrorCode | undefined;
+  let run: Promise<RemoteRunOutcome | undefined> = Promise.resolve(undefined);
+  const recorded = () =>
+    Promise.race([run.catch(() => undefined), new Promise((done) => setTimeout(done, RUN_RECORD_WAIT_MS))]);
+  bridge.onClosed((result) => {
+    void recorded()
+      .then(() =>
+        deps.controlPlane.report(snapshot.sessionId, {
+          state: opened ? 'CLOSED' : 'FAILED',
+          reason: failure ?? result.reason,
+          brokerInstance: deps.instanceId,
+          hostKey: presented(verifier),
+          bytesIn: result.bytesIn,
+          bytesOut: result.bytesOut,
+        }),
+      )
+      .catch((error: unknown) => {
+        deps.log.warn({ err: error, sessionId: snapshot.sessionId }, 'could not report the session end');
+      });
+  });
+
+  void (async () => {
+    try {
+      const spec = snapshot.testRun;
+      if (spec === null || !snapshot.policy.capabilities.includes('exec')) {
+        throw new DomainError('TARGET_NOT_ALLOWED', 'not a test run, or the policy does not allow exec');
+      }
+      const connection = await connectToTarget(snapshot, deps, verifier);
+      // The cancel runs on this connection: close it only once the run has ended and been recorded.
+      bridge.onClosed(() => {
+        void recorded().then(() => {
+          connection.close();
+        });
+      });
+      if (bridge.isClosed) return;
+      if (verifier.presented !== undefined) {
+        bridge.sendControl({ t: 'hostkey', ...verifier.presented, verified: true });
+      }
+      const sftp = await connection.sftp();
+      run = runRemoteTests({
+        connection,
+        sftp,
+        root: snapshot.target.remoteRoot,
+        spec,
+        bridge,
+        record: async (outcome) => {
+          try {
+            await deps.controlPlane.reportRun(spec.runId, {
+              ...outcome.result,
+              sessionId: snapshot.sessionId,
+            });
+          } catch (error) {
+            deps.log.warn({ err: error, runId: spec.runId }, 'could not report the test run');
+          }
+        },
+      });
+      // Handled below; a failure while the ACTIVE report is on its way must not be an unhandled rejection.
+      run.catch(() => undefined);
+      opened = true;
+      bridge.sendControl({ t: 'status', state: 'ACTIVE' });
+      await deps.controlPlane.report(snapshot.sessionId, {
+        state: 'ACTIVE',
+        reason: 'opened',
+        brokerInstance: deps.instanceId,
+        hostKey: presented(verifier),
+      });
+      await run;
+    } catch (error) {
+      failure = failureCode(error);
+      deps.log.warn({ sessionId: snapshot.sessionId, code: failure }, 'test run session failed to open');
       bridge.sendControl({ t: 'error', code: failure, message: messageFor(failure) });
       bridge.close('connect_failed', failure);
     }

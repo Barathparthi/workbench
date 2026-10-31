@@ -1,4 +1,4 @@
-import { RedeemTicketResponse } from '@qe/contracts';
+import { RedeemTicketResponse, type BrokerTestRunResult } from '@qe/contracts';
 import { DomainError } from '@qe/broker-core';
 
 /** What the broker reports about a session (control plane: `POST /internal/v1/sessions/{id}/state`). */
@@ -18,6 +18,8 @@ export interface ControlPlaneClient {
   report(sessionId: string, report: StateReport): Promise<void>;
   /** At startup: this instance holds no sessions, so the control plane closes the ones recorded on it. */
   started(brokerInstance: string): Promise<{ closed: number }>;
+  /** How a remote test run ended (PHASE_11 §11.4), from the exec session that carried it. */
+  reportRun(runId: string, result: BrokerTestRunResult): Promise<void>;
 }
 
 const TIMEOUT_MS = 5_000;
@@ -45,6 +47,10 @@ export function httpControlPlane(baseUrl: string, token: string): ControlPlaneCl
     },
     async report(sessionId, report) {
       await post(`/internal/v1/sessions/${encodeURIComponent(sessionId)}/state`, report);
+    },
+    async reportRun(runId, result) {
+      const res = await post(`/internal/v1/test-runs/${encodeURIComponent(runId)}/result`, result);
+      if (!res.ok) throw new DomainError('INTERNAL_ERROR', `control plane answered ${String(res.status)}`);
     },
     async started(brokerInstance) {
       const res = await post(`/internal/v1/brokers/${encodeURIComponent(brokerInstance)}/started`, {});
