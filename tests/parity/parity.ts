@@ -105,6 +105,39 @@ async function shellWindow(app: ElectronApplication): Promise<Page> {
   throw new Error('no Theia shell window within 90 s');
 }
 
+/**
+ * Quits the desktop app after the worker's scenarios. On a CI runner the quit once hung past the 90 s fixture limit
+ * after every scenario had passed (not reproducible in WSL). If the app has not quit within 20 s, this says what it
+ * was showing — a dialog asking before quitting, or nothing — and ends the process, so the cause shows in the log
+ * instead of a timeout.
+ */
+async function closeDesktop(app: ElectronApplication): Promise<void> {
+  const quit = await Promise.race([
+    app.close().then(
+      () => true,
+      () => true,
+    ),
+    new Promise<false>((done) => {
+      setTimeout(() => {
+        done(false);
+      }, 20_000);
+    }),
+  ]);
+  if (quit) return;
+  const dialogs = await Promise.all(
+    app.windows().map((w) =>
+      w
+        .locator('.dialogOverlay')
+        .allInnerTexts()
+        .catch(() => []),
+    ),
+  );
+  console.warn(
+    `QE parity: the desktop app did not quit within 20 s (dialogs: ${JSON.stringify(dialogs.flat())}); ending it`,
+  );
+  app.process().kill('SIGKILL');
+}
+
 export const test = base.extend<
   { ide: Page; files: ProjectFiles; remote: RemoteTarget },
   ParityOptions & { desktop: ElectronApplication | undefined }
@@ -135,7 +168,7 @@ export const test = base.extend<
         env: { ...process.env, ...(home !== undefined && { HOME: home, USERPROFILE: home }) },
       });
       await use(app);
-      await app.close();
+      await closeDesktop(app);
       rmSync(userData, { recursive: true, force: true });
     },
     { scope: 'worker' },
