@@ -17,7 +17,7 @@ export interface RemoteTestSystem {
 }
 
 export interface RemoteTestRequest {
-  readonly framework: 'pytest';
+  readonly framework: 'pytest' | 'maven';
   readonly selector: TestSelectorRecord;
 }
 

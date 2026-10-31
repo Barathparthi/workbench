@@ -1,16 +1,16 @@
 import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream, type WriteStream } from 'node:fs';
-import { mkdir, stat } from 'node:fs/promises';
+import { mkdir, readdir, stat } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 
 import {
   adapterFor as defaultAdapterFor,
   checkRunEnv,
   checkRunId,
-  checkSelector,
   Frameworks,
   type Framework,
+  type RunFiles,
   type RunnerAdapter,
   type RunState,
 } from '@qe/runner';
@@ -25,7 +25,7 @@ import type {
   RunRecord,
   StartRunRequest,
 } from '../common/qe-runner-protocol';
-import { readHistory, readReport, recordedOutcome, runArtifacts, saveRecord } from './run-results';
+import { readHistory, readRunResults, recordedOutcome, runArtifacts, saveRecord } from './run-results';
 
 export interface RunnerServiceOptions {
   /** Runs at the same time in this IDE backend (PHASE_11 §11.3: e.g. 2). */
@@ -131,7 +131,7 @@ export interface RunnerServiceDeps {
 interface Run {
   readonly root: string;
   /** The files the run may write, relative to the project folder. */
-  readonly files: { readonly junit: string; readonly htmlReport?: string; readonly log: string };
+  readonly files: RunFiles & { readonly log: string };
   readonly info: RunInfo;
   readonly child: ChildProcess;
   readonly startedMs: number;
@@ -149,6 +149,30 @@ const fail = <T>(code: string, message?: string): RunnerResult<T> => ({
   code,
   ...(message !== undefined && { message }),
 });
+
+async function isFile(path: string): Promise<boolean> {
+  return stat(path).then(
+    (s) => s.isFile(),
+    () => false,
+  );
+}
+
+/** Files under `folder` (relative to the project) whose names match: project-relative paths, bounded. */
+async function listFiles(root: string, folder: string, pattern: RegExp): Promise<string[]> {
+  const found: string[] = [];
+  const walk = async (relative: string, depth: number): Promise<void> => {
+    if (depth > 32 || found.length >= 10_000) return;
+    const entries = await readdir(join(root, relative), { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      const path = `${relative}/${entry.name}`;
+      // Links are not followed: the tree is the project's own files.
+      if (entry.isDirectory()) await walk(path, depth + 1);
+      else if (entry.isFile() && pattern.test(entry.name)) found.push(path);
+    }
+  };
+  await walk(folder, 0);
+  return found;
+}
 
 async function isDirectory(path: string): Promise<boolean> {
   return stat(path).then(
@@ -196,6 +220,12 @@ export class RunnerService implements QeRunnerService {
     if (!Frameworks.includes(framework)) return fail('INVALID_REQUEST', 'framework: not supported');
     if (!isAbsolute(root) || !(await isDirectory(root))) return fail('NOT_FOUND', 'root: not a folder');
     const adapter = this.adapterFor(framework);
+    if (adapter.discoverFiles !== undefined) {
+      // Frameworks that cannot list tests without building (Maven): the test files, by name.
+      const listing = await listFiles(root, adapter.discoverFiles.folder, adapter.discoverFiles.pattern);
+      return { ok: true, value: { nodes: adapter.parseDiscovery(listing.join('\n')) } };
+    }
+    if (adapter.discoverCommand === undefined) return { ok: true, value: { nodes: [] } };
     const command = adapter.discoverCommand({ python: await pythonFor(root, this.platform) });
     return new Promise((done) => {
       let stdout = '';
@@ -231,13 +261,20 @@ export class RunnerService implements QeRunnerService {
 
   async start(root: string, request: StartRunRequest): Promise<RunnerResult<RunInfo>> {
     if (!Frameworks.includes(request.framework)) return fail('INVALID_REQUEST', 'framework: not supported');
-    let selector;
+    // The selector is the adapter's to check (each framework names its tests its own way): see buildCommand below.
+    const selector = request.selector;
     let env;
     try {
-      selector = checkSelector(request.selector);
       env = runEnvironment(this.deps.env ?? process.env, request.env);
     } catch (error) {
       return fail('INVALID_REQUEST', error instanceof Error ? error.message : undefined);
+    }
+    if (request.framework === 'maven' && this.platform === 'win32') {
+      // mvn on Windows is a .cmd file, which only a shell runs (CLAUDE.md rule 6: no shell).
+      return fail(
+        'INVALID_REQUEST',
+        'Maven runs need Linux or macOS: on Windows, Maven starts only through a shell',
+      );
     }
     if (!isAbsolute(root) || !(await isDirectory(root))) return fail('NOT_FOUND', 'root: not a folder');
     if (this.runs.size >= this.options.maxConcurrent) {
@@ -256,9 +293,17 @@ export class RunnerService implements QeRunnerService {
       }
     }
     const python = await pythonFor(root, this.platform);
-    const htmlReport = (await this.deps.hasHtmlReport?.(python, root)) ?? false;
-    const command = adapter.buildCommand(selector, { runId, python, htmlReport });
-    const folder = adapter.resultFiles({ runId }).junit.replace(/\/[^/]+$/, '');
+    const htmlReport =
+      request.framework === 'pytest' ? ((await this.deps.hasHtmlReport?.(python, root)) ?? false) : false;
+    // The project's Maven wrapper when it has one.
+    const tool = (await isFile(join(root, 'mvnw'))) ? './mvnw' : 'mvn';
+    let command;
+    try {
+      command = adapter.buildCommand(selector, { runId, python, htmlReport, tool });
+    } catch (error) {
+      return fail('INVALID_REQUEST', error instanceof Error ? error.message : undefined);
+    }
+    const { folder } = adapter.resultFiles({ runId });
     // Re-checked after the awaits: two pages may have started runs meanwhile.
     if (this.runs.size >= this.options.maxConcurrent) {
       return fail('QUOTA_EXCEEDED', `at most ${String(this.options.maxConcurrent)} runs at a time`);
@@ -398,19 +443,32 @@ export class RunnerService implements QeRunnerService {
     durationMs: number,
   ): Promise<void> {
     await new Promise<void>((done) => run.logFile.end(done));
-    const report = await readReport(join(run.root, run.files.junit));
+    const { reports, ...read } = await readRunResults(run.root, run.files, run.startedMs);
+    // A failed exit without a report is the run's own failure (it did not build, or could not start), not a
+    // failing test.
+    const ended: RunState = state === 'FAILED' && read.results === undefined ? 'ERROR' : state;
     const outcome: RunOutcome = {
-      state,
+      state: ended,
       ...(exitCode !== undefined && { exitCode }),
       durationMs,
       folder: run.folder,
       log: run.files.log,
-      ...report,
-      artifacts: await runArtifacts(run.root, run.files),
+      ...read,
+      artifacts: await runArtifacts(run.root, {
+        reports: read.results === undefined ? [] : reports,
+        ...(run.files.htmlReport !== undefined && { htmlReport: run.files.htmlReport }),
+        log: run.files.log,
+      }),
     };
     const recorded = recordedOutcome(outcome);
-    await saveRecord(run.root, { run: { ...run.info, state }, outcome: recorded });
+    await saveRecord(run.root, { run: { ...run.info, state: ended }, outcome: recorded });
     for (const client of this.clients) client.onFinished(run.info.runId, recorded);
+  }
+
+  /** The project's framework: Maven where it has a pom.xml, else pytest. */
+  async framework(root: string): Promise<RunnerResult<Framework>> {
+    if (!isAbsolute(root) || !(await isDirectory(root))) return fail('NOT_FOUND', 'root: not a folder');
+    return { ok: true, value: (await isFile(join(root, 'pom.xml'))) ? 'maven' : 'pytest' };
   }
 
   async history(root: string, limit: number): Promise<RunnerResult<RunRecord[]>> {

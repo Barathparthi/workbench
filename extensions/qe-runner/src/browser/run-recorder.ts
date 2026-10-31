@@ -42,7 +42,7 @@ export function resultOf(outcome: RunOutcome): TestRunResultRequest {
  */
 export interface RunRecorder {
   /** The record's id, or undefined when runs are not recorded here. */
-  start(framework: 'pytest', selector: TestSelectorRecord): Promise<string | undefined>;
+  start(framework: 'pytest' | 'maven', selector: TestSelectorRecord): Promise<string | undefined>;
   finish(recordId: string, outcome: RunOutcome): Promise<void>;
 }
 

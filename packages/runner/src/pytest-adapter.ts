@@ -101,6 +101,7 @@ export const pytestAdapter: RunnerAdapter = {
   stateOf: (exitCode) => (exitCode === 0 ? 'PASSED' : exitCode === 1 ? 'FAILED' : 'ERROR'),
 
   resultFiles: ({ runId }) => ({
+    folder: runDir(runId),
     junit: `${runDir(runId)}/junit.xml`,
     htmlReport: `${runDir(runId)}/report.html`,
   }),

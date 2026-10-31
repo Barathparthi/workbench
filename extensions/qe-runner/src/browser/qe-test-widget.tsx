@@ -7,7 +7,7 @@ import * as React from '@theia/core/shared/react';
 import type { TestCaseResult, TestNode, TestSelector } from '@qe/runner';
 
 import { QeTestRuns } from './qe-test-runs';
-import { describeSelector, failuresOf, summaryOf, type RunView } from './test-runs-model';
+import { describeSelector, failuresOf, sourcePathOf, summaryOf, type RunView } from './test-runs-model';
 
 const muted: React.CSSProperties = { color: 'var(--theia-descriptionForeground)' };
 const section: React.CSSProperties = { padding: '6px 8px', borderTop: '1px solid var(--theia-panel-border)' };
@@ -321,8 +321,9 @@ export class QeTestWidget extends ReactWidget {
   }
 
   protected openFailure(failure: TestCaseResult, run: RunView): void {
-    if (failure.file === undefined) return;
-    const uri = this.runFileUri(failure.file, run);
+    const path = sourcePathOf(failure);
+    if (path === undefined) return;
+    const uri = this.runFileUri(path, run);
     if (uri === undefined) return;
     const line = Math.max(0, (failure.line ?? 1) - 1);
     void open(this.openers, uri, {

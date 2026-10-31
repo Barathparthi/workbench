@@ -15,8 +15,8 @@ const BASE = [
 ];
 
 describe('pytest adapter', () => {
-  it('is the adapter of the only framework so far', () => {
-    expect(Frameworks).toEqual(['pytest']);
+  it('is the pytest framework’s adapter', () => {
+    expect(Frameworks).toEqual(['pytest', 'maven']);
     expect(adapterFor('pytest')).toBe(pytestAdapter);
   });
 
@@ -44,6 +44,7 @@ describe('pytest adapter', () => {
       '--self-contained-html',
     ]);
     expect(pytestAdapter.resultFiles({ runId: RUN })).toEqual({
+      folder: `.qe-runs/${RUN}`,
       junit: `.qe-runs/${RUN}/junit.xml`,
       htmlReport: `.qe-runs/${RUN}/report.html`,
     });
@@ -87,7 +88,7 @@ describe('pytest adapter', () => {
   });
 
   it('lists tests with the collect-only command and builds the tree from its output', () => {
-    expect(pytestAdapter.discoverCommand({ python: 'python3' })).toEqual({
+    expect(pytestAdapter.discoverCommand?.({ python: 'python3' })).toEqual({
       file: 'python3',
       args: ['-m', 'pytest', '--collect-only', '-q', '-p', 'no:cacheprovider'],
       cwd: '.',

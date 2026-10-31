@@ -213,3 +213,31 @@ export function parseJUnit(xml: string, limits?: Partial<JUnitLimits>): RunResul
   reader.write(xml);
   return reader.end();
 }
+
+/**
+ * Several reports as one result (Surefire writes one per test class): counts and durations added up, cases kept in
+ * report order up to `maxCases`, truncated when any report was or cases were left out.
+ */
+export function mergeResults(
+  results: readonly RunResults[],
+  maxCases = DEFAULT_JUNIT_LIMITS.maxCases,
+): RunResults {
+  const counts = { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0 };
+  const cases: TestCaseResult[] = [];
+  let durationMs = 0;
+  let truncated = false;
+  for (const r of results) {
+    counts.total += r.counts.total;
+    counts.passed += r.counts.passed;
+    counts.failed += r.counts.failed;
+    counts.errors += r.counts.errors;
+    counts.skipped += r.counts.skipped;
+    durationMs += r.durationMs;
+    truncated ||= r.truncated;
+    for (const c of r.cases) {
+      if (cases.length < maxCases) cases.push(c);
+      else truncated = true;
+    }
+  }
+  return { counts, durationMs, cases, truncated };
+}

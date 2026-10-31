@@ -1,7 +1,16 @@
 import { createHash } from 'node:crypto';
 
 import type { TestRunResultRequest, TestSelectorRecord } from '@qe/contracts';
-import { adapterFor, parseJUnit, type Framework, type RunnerAdapter, type RunState } from '@qe/runner';
+import {
+  adapterFor,
+  mergeResults,
+  parseJUnit,
+  type Framework,
+  type RunFiles,
+  type RunnerAdapter,
+  type RunResults,
+  type RunState,
+} from '@qe/runner';
 
 import { isDomainError } from '@qe/domain';
 import { remoteCancelCommand, remoteRunCommand } from './remote-exec.js';
@@ -47,9 +56,79 @@ async function readRunFile(
   }
 }
 
+/** Report files read for one remote run (Surefire writes one per test class). */
+const MAX_REMOTE_REPORTS = 2_000;
+
 /**
- * How a remote run ended, from its exit and the files it left in `<root>/.qe-runs/<runId>/` (PHASE_11 §11.4–11.5):
- * the JUnit report read over SFTP and parsed, its sha256 and the HTML report's if there is one.
+ * The run's reports on the target, read over SFTP: its one JUnit report (pytest, kept as an artifact with its sha256),
+ * or the Surefire reports in `target/surefire-reports` written during the run — those modified since the run's
+ * `pid` file, by the target's own clock — merged. Those stay where Maven wrote them: counts and failures only.
+ */
+async function readReports(
+  sftp: SftpChannel,
+  root: string,
+  files: RunFiles,
+): Promise<{ results?: RunResults; problem?: string; artifacts: TestRunResultRequest['artifacts'] }> {
+  if (files.junit !== undefined) {
+    const report = await readRunFile(sftp, `${root}/${files.junit}`);
+    if (!('data' in report)) {
+      return {
+        problem: 'problem' in report ? report.problem : 'the run wrote no JUnit report',
+        artifacts: [],
+      };
+    }
+    const artifacts: TestRunResultRequest['artifacts'] = [
+      { kind: 'junit_xml', path: files.junit, sizeBytes: report.data.length, sha256: sha256(report.data) },
+    ];
+    try {
+      return { results: parseJUnit(report.data.toString('utf8')), artifacts };
+    } catch {
+      return { problem: 'the JUnit report is not well-formed XML', artifacts };
+    }
+  }
+  if (files.reports === undefined) return { problem: 'the run wrote no JUnit report', artifacts: [] };
+  const since = await sftp.stat(`${root}/${files.folder}/pid`).then(
+    (s) => s.mtimeMs,
+    () => undefined,
+  );
+  const folder = `${root}/${files.reports.folder}`;
+  const listed = await sftp.readdir(folder, MAX_REMOTE_REPORTS).catch(() => ({ entries: [] }));
+  const fresh = listed.entries
+    .filter(
+      (e) =>
+        e.stats.kind === 'file' &&
+        files.reports?.pattern.test(e.name) === true &&
+        // A second of slack: SFTP modification times have whole seconds.
+        since !== undefined &&
+        e.stats.mtimeMs >= since - 1_000,
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (fresh.length === 0) return { problem: 'the run wrote no test reports', artifacts: [] };
+  if (fresh.reduce((sum, e) => sum + e.stats.size, 0) > MAX_REMOTE_REPORT_BYTES) {
+    return { problem: 'the reports are larger than 50 MB and were not read', artifacts: [] };
+  }
+  const parsed: RunResults[] = [];
+  let unreadable = 0;
+  for (const entry of fresh) {
+    const read = await readRunFile(sftp, `${folder}/${entry.name}`);
+    try {
+      if (!('data' in read)) throw new Error('unread');
+      parsed.push(parseJUnit(read.data.toString('utf8')));
+    } catch {
+      unreadable++;
+    }
+  }
+  return {
+    ...(parsed.length > 0 && { results: mergeResults(parsed) }),
+    ...(unreadable > 0 && { problem: `${String(unreadable)} of the reports could not be read` }),
+    artifacts: [],
+  };
+}
+
+/**
+ * How a remote run ended, from its exit and the reports it left (PHASE_11 §11.4–11.5): read over SFTP and parsed,
+ * with the sha256 of the files kept in `<root>/.qe-runs/<runId>/`. A failed exit without a report is the run's own
+ * failure (it did not build, or could not start), not failing tests: ERROR.
  */
 export async function readRemoteRun(
   sftp: SftpChannel,
@@ -58,28 +137,16 @@ export async function readRemoteRun(
   exit: { readonly code: number | null; readonly cancelled: boolean; readonly durationMs: number },
   adapter: RunnerAdapter = adapterFor(spec.framework),
 ): Promise<RemoteRunOutcome> {
-  const state: RunState = exit.cancelled
+  const files = adapter.resultFiles({ runId: spec.runId });
+  const read = await readReports(sftp, root, files);
+  const exited: RunState = exit.cancelled
     ? 'CANCELLED'
     : exit.code === null
       ? 'ERROR'
       : adapter.stateOf(exit.code);
-  const files = adapter.resultFiles({ runId: spec.runId });
-  const base = {
-    state: state as TestRunResultRequest['state'],
-    ...(exit.code !== null && { exitCode: exit.code }),
-    durationMs: Math.max(0, Math.round(exit.durationMs)),
-  };
-  const report = await readRunFile(sftp, `${root}/${files.junit}`);
-  if (!('data' in report)) {
-    return {
-      result: { ...base, counts: NO_COUNTS, failures: [], truncated: false, artifacts: [] },
-      problem: 'problem' in report ? report.problem : 'the run wrote no JUnit report',
-    };
-  }
-  const artifacts: TestRunResultRequest['artifacts'] = [
-    { kind: 'junit_xml', path: files.junit, sizeBytes: report.data.length, sha256: sha256(report.data) },
-  ];
-  if (files.htmlReport !== undefined) {
+  const state = exited === 'FAILED' && read.results === undefined ? 'ERROR' : exited;
+  const artifacts = [...read.artifacts];
+  if (read.results !== undefined && files.htmlReport !== undefined) {
     const html = await readRunFile(sftp, `${root}/${files.htmlReport}`);
     if ('data' in html) {
       artifacts.push({
@@ -90,15 +157,16 @@ export async function readRemoteRun(
       });
     }
   }
-  let parsed;
-  try {
-    parsed = parseJUnit(report.data.toString('utf8'));
-  } catch {
-    return {
-      result: { ...base, counts: NO_COUNTS, failures: [], truncated: false, artifacts },
-      problem: 'the JUnit report is not well-formed XML',
-    };
+  const base = {
+    state: state as TestRunResultRequest['state'],
+    ...(exit.code !== null && { exitCode: exit.code }),
+    durationMs: Math.max(0, Math.round(exit.durationMs)),
+  };
+  const problem = read.problem === undefined ? {} : { problem: read.problem };
+  if (read.results === undefined) {
+    return { result: { ...base, counts: NO_COUNTS, failures: [], truncated: false, artifacts }, ...problem };
   }
+  const parsed = read.results;
   const failed = parsed.cases.filter((c) => c.status === 'failed' || c.status === 'error');
   return {
     result: {
@@ -117,6 +185,7 @@ export async function readRemoteRun(
       truncated: parsed.truncated || failed.length > MAX_FAILURES,
       artifacts,
     },
+    ...problem,
   };
 }
 
@@ -170,6 +239,13 @@ export async function runRemoteTests(options: RemoteRunOptions): Promise<RemoteR
   const command = adapter.buildCommand(spec.selector, {
     runId: spec.runId,
     python: venv ? '.venv/bin/python' : 'python3',
+    // The project's Maven wrapper when it has one.
+    tool: (await sftp.stat(`${root}/mvnw`).then(
+      (st) => st.kind === 'file',
+      () => false,
+    ))
+      ? './mvnw'
+      : 'mvn',
     htmlReport: false,
   });
   const exec: ExecChannel = await connection.exec(remoteRunCommand({ root, runId: spec.runId, command }));

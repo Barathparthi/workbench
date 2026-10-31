@@ -7,7 +7,7 @@ import { z } from 'zod';
  * workspace's `.qe-runs/<runId>/`; object storage and signed downloads wait on an org decision (D18).
  */
 
-export const TestFrameworkName = z.enum(['pytest']);
+export const TestFrameworkName = z.enum(['pytest', 'maven']);
 export const TestRunState = z.enum(['QUEUED', 'RUNNING', 'PASSED', 'FAILED', 'ERROR', 'CANCELLED']);
 export const FinishedRunState = z.enum(['PASSED', 'FAILED', 'ERROR', 'CANCELLED']);
 

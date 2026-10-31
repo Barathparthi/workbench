@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,6 +11,7 @@ import {
   MAX_RECORDED_FAILURES,
   readHistory,
   readReport,
+  readRunResults,
   recordedOutcome,
   runArtifacts,
   saveRecord,
@@ -58,7 +59,7 @@ describe('a run’s results', () => {
     writeFileSync(join(root, '.qe-runs', id(1), 'output.log'), 'log');
     writeFileSync(join(root, '.qe-runs', id(1), 'junit.xml'), PYTEST_REPORT);
     const artifacts = await runArtifacts(root, {
-      junit: `.qe-runs/${id(1)}/junit.xml`,
+      reports: [`.qe-runs/${id(1)}/junit.xml`],
       htmlReport: `.qe-runs/${id(1)}/report.html`,
       log: `.qe-runs/${id(1)}/output.log`,
     });
@@ -143,5 +144,50 @@ describe('a run’s results', () => {
     expect((await readHistory(root, 10)).map((r) => r.run.runId)).toEqual([id(2), id(3), id(1)]);
     expect((await readHistory(root, 1)).map((r) => r.run.runId)).toEqual([id(2)]);
     expect(await readHistory(join(dir, 'no-runs'), 10)).toEqual([]);
+  });
+});
+
+describe('reports in a folder the framework owns (Surefire)', () => {
+  const SUREFIRE = readFileSync('packages/runner/src/__tests__/fixtures/surefire-sample.xml', 'utf8');
+  const files = (n: number) => ({
+    folder: `.qe-runs/${id(n)}`,
+    reports: { folder: 'target/surefire-reports', pattern: /^TEST-[\w.$-]+\.xml$/ },
+  });
+
+  it('reads only the reports written during the run, merges them and keeps copies with the run', async () => {
+    const root = join(dir, 'maven');
+    const reports = join(root, 'target', 'surefire-reports');
+    mkdirSync(reports, { recursive: true });
+    mkdirSync(join(root, '.qe-runs', id(10)), { recursive: true });
+    // An earlier build's report: older than the run.
+    writeFileSync(join(reports, 'TEST-com.example.OldTest.xml'), SUREFIRE);
+    utimesSync(join(reports, 'TEST-com.example.OldTest.xml'), new Date(2020, 0, 1), new Date(2020, 0, 1));
+    const since = Date.now();
+    writeFileSync(join(reports, 'TEST-com.example.ATest.xml'), SUREFIRE);
+    writeFileSync(join(reports, 'TEST-com.example.BTest.xml'), SUREFIRE);
+    writeFileSync(join(reports, 'com.example.ATest.txt'), 'not a report');
+    const read = await readRunResults(root, files(10), since);
+    expect(read.results?.counts).toEqual({ total: 8, passed: 2, failed: 2, errors: 2, skipped: 2 });
+    expect(read.reports).toEqual([
+      `.qe-runs/${id(10)}/TEST-com.example.ATest.xml`,
+      `.qe-runs/${id(10)}/TEST-com.example.BTest.xml`,
+    ]);
+    expect(readFileSync(join(root, '.qe-runs', id(10), 'TEST-com.example.ATest.xml'), 'utf8')).toBe(SUREFIRE);
+  });
+
+  it('says when the run wrote no reports, or some could not be read', async () => {
+    const root = join(dir, 'maven-empty');
+    mkdirSync(join(root, '.qe-runs', id(11)), { recursive: true });
+    expect(await readRunResults(root, files(11), Date.now())).toEqual({
+      problem: 'the run wrote no test reports',
+      reports: [],
+    });
+    const reports = join(root, 'target', 'surefire-reports');
+    mkdirSync(reports, { recursive: true });
+    writeFileSync(join(reports, 'TEST-a.xml'), SUREFIRE);
+    writeFileSync(join(reports, 'TEST-b.xml'), '<testsuite><testcase>');
+    const read = await readRunResults(root, files(11), Date.now() - 5_000);
+    expect(read.results?.counts.total).toBe(4);
+    expect(read.problem).toBe('1 of the reports could not be read');
   });
 });

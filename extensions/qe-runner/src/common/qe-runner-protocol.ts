@@ -69,6 +69,8 @@ export interface Discovery {
 }
 
 export interface QeRunnerService extends RpcServer<QeRunnerClient> {
+  /** The project's framework: Maven where it has a pom.xml, else pytest. */
+  framework(root: string): Promise<RunnerResult<Framework>>;
   /** The tests of the project folder at `root` (an absolute path of a workspace folder). */
   discover(root: string, framework: Framework): Promise<RunnerResult<Discovery>>;
   /** Starts a run; its output and its end arrive through the client. `QUOTA_EXCEEDED` when too many are running. */

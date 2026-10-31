@@ -1,5 +1,6 @@
 import { ControlPlaneClient } from '@qe/client-sdk';
-import type { TestSelector } from '@qe/runner';
+import type { Framework, TestSelector } from '@qe/runner';
+import { PreferenceService } from '@theia/core/lib/common/preferences/preference-service';
 import { QeEnvironmentService } from '@qe/theia-qe-core/lib/common/qe-environment';
 import { QeRemoteTestRunner, type RemoteTestSystem } from '@qe/theia-qe-core/lib/common/qe-remote-tests';
 import {
@@ -21,8 +22,6 @@ import {
 import { hostedRecorder, noRecorder, type RunRecorder } from './run-recorder';
 import { describeSelector, outcomeOfRemote, TestRunsModel } from './test-runs-model';
 
-const FRAMEWORK = 'pytest' as const;
-
 /**
  * The panel's link to the test runner (PHASE_11 §11.6): the IDE backend runs tests in the project folder — the
  * workspace runtime, the local-web container or the user's machine — and this page only asks for runs as data and
@@ -34,6 +33,10 @@ export class QeTestRuns {
   @inject(QeEnvironmentService) protected readonly environment!: QeEnvironmentService;
   @inject(WorkspaceService) protected readonly workspace!: WorkspaceService;
   @inject(MessageService) protected readonly messages!: MessageService;
+  @inject(PreferenceService) protected readonly preferences!: PreferenceService;
+
+  /** The project's framework: `qe.runner.framework`, or detected (a pom.xml is Maven) when it is `auto`. */
+  framework: Framework = 'pytest';
   @inject(RemoteConnectionProvider) protected readonly connections!: ServiceConnectionProvider;
   /** Bound by qe-remote where remote systems exist: the panel then offers "Run on". */
   @inject(QeRemoteTestRunner) @optional() protected readonly remote: QeRemoteTestRunner | undefined;
@@ -105,6 +108,16 @@ export class QeTestRuns {
     return root === undefined ? undefined : FileUri.fsPath(root);
   }
 
+  /** Decides the framework for the project folder at `root`: the setting, or what the project looks like. */
+  protected async detectFramework(root: string): Promise<Framework> {
+    const chosen = this.preferences.get<string>('qe.runner.framework', 'auto');
+    if (chosen === 'pytest' || chosen === 'maven') return chosen;
+    const detected = await this.service()
+      .framework(root)
+      .catch(() => undefined);
+    return detected?.ok === true ? detected.value : 'pytest';
+  }
+
   async refreshTests(): Promise<void> {
     const root = this.rootPath();
     if (root === undefined) {
@@ -112,11 +125,17 @@ export class QeTestRuns {
       return;
     }
     this.model.setDiscovering();
+    this.framework = await this.detectFramework(root);
     const result = await this.service()
-      .discover(root, FRAMEWORK)
+      .discover(root, this.framework)
       .catch(() => undefined);
     if (result === undefined || !result.ok) {
-      this.model.setTree([], 'The tests could not be listed: is pytest installed for this project?');
+      this.model.setTree(
+        [],
+        this.framework === 'maven'
+          ? 'The test classes could not be listed.'
+          : 'The tests could not be listed: is pytest installed for this project?',
+      );
       return;
     }
     this.model.setTree(result.value.nodes, result.value.problem);
@@ -140,13 +159,17 @@ export class QeTestRuns {
     }
     let recordId: string | undefined;
     try {
-      recordId = await (await this.recorderFor()).start(FRAMEWORK, selector);
+      recordId = await (await this.recorderFor()).start(this.framework, selector);
     } catch {
       await this.messages.error('The run could not be recorded for this workspace, so it was not started.');
       return;
     }
     const started = await this.service()
-      .start(root, { framework: FRAMEWORK, selector, ...(recordId !== undefined && { runId: recordId }) })
+      .start(root, {
+        framework: this.framework,
+        selector,
+        ...(recordId !== undefined && { runId: recordId }),
+      })
       .catch(() => undefined);
     if (started === undefined || !started.ok) {
       const why =
@@ -204,7 +227,7 @@ export class QeTestRuns {
     try {
       const run = await this.remote.run(
         system.id,
-        { framework: FRAMEWORK, selector },
+        { framework: this.framework, selector },
         {
           output: (text) => {
             if (runId === undefined) early.push(text);

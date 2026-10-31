@@ -1,8 +1,10 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { PassThrough } from 'node:stream';
 
-import { pytestAdapter, type RunnerAdapter, type TestSelector } from '@qe/runner';
+import { checkSelector, pytestAdapter, type RunnerAdapter, type TestSelector } from '@qe/runner';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { QeRunnerClient, RunOutcome } from '../../common/qe-runner-protocol';
@@ -12,6 +14,7 @@ import {
   RunnerService,
   runEnvironment,
   runnerOptionsFrom,
+  type RunnerServiceDeps,
   type RunnerServiceOptions,
 } from '../runner-service';
 
@@ -59,9 +62,10 @@ switch (mode) {
 const adapter = (file = process.execPath): RunnerAdapter => ({
   ...pytestAdapter,
   discoverCommand: () => ({ file, args: [SCRIPT, 'discover'], cwd: '.' }),
+  // As the real adapters do: the selector is checked (and normalized) where the command is built.
   buildCommand: (selector: TestSelector, context) => ({
     file,
-    args: [SCRIPT, context.runId, JSON.stringify(selector)],
+    args: [SCRIPT, context.runId, JSON.stringify(checkSelector(selector))],
     cwd: '.',
   }),
 });
@@ -167,9 +171,22 @@ describe('local test runs', () => {
     expect(outcome.artifacts.map((a) => a.kind)).toEqual(['log']);
   });
 
-  it('maps the exit code through the adapter', async () => {
+  it('maps the exit code through the adapter; a failed exit without a report is an error, not failing tests', async () => {
     const { start, done } = setup();
-    expect(await done(await start('fail'))).toMatchObject({ state: 'FAILED', exitCode: 1 });
+    expect(
+      await done(
+        await start(
+          'junit',
+          { kind: 'all' },
+          { JUNIT_SRC: resolve('packages/runner/src/__tests__/fixtures/pytest-sample.xml') },
+        ),
+      ),
+    ).toMatchObject({ state: 'FAILED', exitCode: 1 });
+    expect(await done(await start('fail'))).toMatchObject({
+      state: 'ERROR',
+      exitCode: 1,
+      problem: 'the run wrote no JUnit report',
+    });
   });
 
   it('gives the test only allowlisted variables of the backend, the run’s own, and its fixed Python settings', async () => {
@@ -403,5 +420,159 @@ describe('a run id chosen by the caller (hosted: the control plane record’s)',
         ok: false,
         code: 'INVALID_REQUEST',
       });
+  });
+});
+
+describe('Maven projects (Surefire)', () => {
+  const SUREFIRE = readFileSync('packages/runner/src/__tests__/fixtures/surefire-sample.xml', 'utf8');
+
+  /** A project with a pom.xml, a test class, and maybe the Maven wrapper. */
+  function mavenProject(name: string, wrapper: boolean): string {
+    const project = join(dir, name);
+    mkdirSync(join(project, 'src', 'test', 'java', 'com', 'example'), { recursive: true });
+    writeFileSync(join(project, 'pom.xml'), '<project/>');
+    writeFileSync(
+      join(project, 'src', 'test', 'java', 'com', 'example', 'CalculatorTest.java'),
+      'class CalculatorTest {}',
+    );
+    writeFileSync(
+      join(project, 'src', 'test', 'java', 'com', 'example', 'Fixtures.java'),
+      'class Fixtures {}',
+    );
+    if (wrapper) writeFileSync(join(project, 'mvnw'), '#!/bin/sh\n');
+    return project;
+  }
+
+  /**
+   * Maven played by the test: it writes Surefire's reports (or none) and exits. The fake process has no pid, so the
+   * runner's process-group clean-up never signals anything real.
+   */
+  function fakeMaven(reports: boolean, calls: { file: string; args: readonly string[] }[]) {
+    return ((file: string, args: readonly string[], options: { cwd: string }) => {
+      calls.push({ file, args });
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+        pid: undefined,
+        exitCode: null as number | null,
+        signalCode: null,
+        kill: () => true,
+      });
+      setTimeout(() => {
+        if (reports) {
+          const folder = join(options.cwd, 'target', 'surefire-reports');
+          mkdirSync(folder, { recursive: true });
+          writeFileSync(join(folder, 'TEST-com.example.CalculatorTest.xml'), SUREFIRE);
+        }
+        child.stdout.end('[INFO] Tests run: 4, Failures: 1, Errors: 1, Skipped: 1\n');
+        child.stderr.end();
+        child.exitCode = 1;
+        child.emit('close', 1, null);
+      }, 20);
+      return child;
+    }) as unknown as RunnerServiceDeps['spawn'];
+  }
+
+  function service(spawn: RunnerServiceDeps['spawn'], platform: NodeJS.Platform = 'linux') {
+    const finished = new Map<string, RunOutcome>();
+    const s = new RunnerService({ options: fast, ...(spawn !== undefined && { spawn }), platform });
+    s.setClient({ onOutput: () => undefined, onFinished: (id, o) => finished.set(id, o) });
+    services.push(s);
+    const done = async (runId: string) => {
+      await vi.waitFor(() => {
+        expect(finished.get(runId)).toBeDefined();
+      });
+      return finished.get(runId) as RunOutcome;
+    };
+    return { s, done };
+  }
+
+  it('tells a Maven project by its pom.xml, and lists its test classes by Surefire’s naming', async () => {
+    const project = mavenProject('mvn-discover', false);
+    const { s } = service(undefined);
+    expect(await s.framework(project)).toEqual({ ok: true, value: 'maven' });
+    expect(await s.framework(root)).toEqual({ ok: true, value: 'pytest' });
+    expect(await s.discover(project, 'maven')).toEqual({
+      ok: true,
+      value: {
+        nodes: [
+          {
+            id: 'com.example.CalculatorTest',
+            label: 'com.example.CalculatorTest',
+            kind: 'file',
+            file: 'src/test/java/com/example/CalculatorTest.java',
+            children: [],
+          },
+        ],
+      },
+    });
+  });
+
+  it('runs mvn test through the project’s wrapper, reads the run’s reports and keeps them with the run', async () => {
+    const project = mavenProject('mvn-run', true);
+    const calls: { file: string; args: readonly string[] }[] = [];
+    const { s, done } = service(fakeMaven(true, calls));
+    const started = await s.start(project, {
+      framework: 'maven',
+      selector: { kind: 'node', id: 'com.example.CalculatorTest#adds' },
+    });
+    if (!started.ok) throw new Error(started.code);
+    const outcome = await done(started.value.runId);
+    expect(calls[0]).toEqual({
+      file: './mvnw',
+      args: [
+        '-B',
+        'test',
+        '-DtrimStackTrace=false',
+        '-Dsurefire.failIfNoSpecifiedTests=false',
+        '-Dtest=com.example.CalculatorTest#adds',
+      ],
+    });
+    expect(outcome).toMatchObject({
+      state: 'FAILED',
+      results: { counts: { total: 4, passed: 1, failed: 1, errors: 1, skipped: 1 } },
+    });
+    expect(outcome.artifacts.map((a) => a.path)).toEqual([
+      `.qe-runs/${started.value.runId}/TEST-com.example.CalculatorTest.xml`,
+      `.qe-runs/${started.value.runId}/output.log`,
+    ]);
+  });
+
+  it('records a build that failed (no reports) as an error, not as failing tests', async () => {
+    const project = mavenProject('mvn-broken', false);
+    const calls: { file: string; args: readonly string[] }[] = [];
+    const { s, done } = service(fakeMaven(false, calls));
+    const started = await s.start(project, { framework: 'maven', selector: { kind: 'all' } });
+    if (!started.ok) throw new Error(started.code);
+    expect(calls[0]?.file).toBe('mvn');
+    expect(await done(started.value.runId)).toMatchObject({
+      state: 'ERROR',
+      problem: 'the run wrote no test reports',
+    });
+  });
+
+  it('refuses Maven on Windows (mvn.cmd starts only through a shell) and selections Maven would not take', async () => {
+    const project = mavenProject('mvn-refuse', false);
+    const calls: { file: string; args: readonly string[] }[] = [];
+    expect(
+      await service(fakeMaven(true, calls), 'win32').s.start(project, {
+        framework: 'maven',
+        selector: { kind: 'all' },
+      }),
+    ).toMatchObject({
+      ok: false,
+      code: 'INVALID_REQUEST',
+      message: expect.stringContaining('Linux or macOS') as unknown,
+    });
+    const { s } = service(fakeMaven(true, calls));
+    for (const selector of [
+      { kind: 'node', id: 'com.example.Foo; id' },
+      { kind: 'file', path: 'src/main/java/com/example/Calculator.java' },
+    ] as const)
+      expect(await s.start(project, { framework: 'maven', selector })).toMatchObject({
+        ok: false,
+        code: 'INVALID_REQUEST',
+      });
+    expect(calls).toEqual([]);
   });
 });

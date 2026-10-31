@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { copyFile, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { checkRunId, JUnitReader, type RunResults } from '@qe/runner';
+import { checkRunId, JUnitReader, mergeResults, type RunFiles, type RunResults } from '@qe/runner';
 
 import type { RunArtifact, RunOutcome, RunRecord } from '../common/qe-runner-protocol';
 
@@ -12,6 +12,10 @@ export const MAX_REPORT_BYTES = 200 * 1024 * 1024;
 /** Failed cases kept in `run.json` and on the control plane's record; the report has them all. */
 export const MAX_RECORDED_FAILURES = 200;
 const MAX_RECORD_BYTES = 1024 * 1024;
+/** Report files kept with a run (the control plane records at most 20 files; one is the log). */
+export const MAX_KEPT_REPORTS = 19;
+/** Report files read for one run (a few thousand test classes). */
+const MAX_READ_REPORTS = 5_000;
 
 /** Size and sha256 of a file, read as a stream; undefined when it does not exist. */
 export async function describeFile(path: string): Promise<{ sizeBytes: number; sha256: string } | undefined> {
@@ -37,13 +41,61 @@ export async function readReport(path: string): Promise<{ results?: RunResults; 
   }
 }
 
+/**
+ * A run's results, from wherever its framework writes them: its one JUnit report (pytest), or the reports Surefire
+ * wrote during the run into its own folder (`target/surefire-reports`, which keeps reports of earlier builds — only
+ * those modified since `sinceMs` count). Those are copied into the run's folder (at most 19) so they stay with it,
+ * and parsed and merged. `reports` are the report files kept with the run, relative to the project folder.
+ */
+export async function readRunResults(
+  root: string,
+  files: RunFiles,
+  sinceMs: number,
+): Promise<{ results?: RunResults; problem?: string; reports: string[] }> {
+  if (files.junit !== undefined) {
+    const read = await readReport(join(root, files.junit));
+    return { ...read, reports: [files.junit] };
+  }
+  if (files.reports === undefined) return { problem: 'the run wrote no JUnit report', reports: [] };
+  const folder = join(root, files.reports.folder);
+  const names = (await readdir(folder).catch(() => []))
+    .filter((name) => files.reports?.pattern.test(name) === true)
+    .sort()
+    .slice(0, MAX_READ_REPORTS);
+  const fresh: string[] = [];
+  let bytes = 0;
+  for (const name of names) {
+    const info = await stat(join(folder, name)).catch(() => undefined);
+    // A second of slack: some file systems keep whole-second modification times.
+    if (info?.isFile() !== true || info.mtimeMs < sinceMs - 1_000) continue;
+    bytes += info.size;
+    if (bytes > MAX_REPORT_BYTES)
+      return { problem: 'the reports are larger than 200 MB and were not read', reports: [] };
+    fresh.push(name);
+  }
+  if (fresh.length === 0) return { problem: 'the run wrote no test reports', reports: [] };
+  const read = await Promise.all(fresh.map((name) => readReport(join(folder, name))));
+  const parsed = read.flatMap((r) => (r.results === undefined ? [] : [r.results]));
+  const reports: string[] = [];
+  for (const name of fresh.slice(0, MAX_KEPT_REPORTS)) {
+    await copyFile(join(folder, name), join(root, files.folder, name));
+    reports.push(`${files.folder}/${name}`);
+  }
+  const malformed = read.length - parsed.length;
+  return {
+    ...(parsed.length > 0 && { results: mergeResults(parsed) }),
+    ...(malformed > 0 && { problem: `${String(malformed)} of the reports could not be read` }),
+    reports,
+  };
+}
+
 /** The files a run may have written, in the order a page lists them. */
 export async function runArtifacts(
   root: string,
-  files: { readonly junit: string; readonly htmlReport?: string; readonly log: string },
+  files: { readonly reports: readonly string[]; readonly htmlReport?: string; readonly log: string },
 ): Promise<RunArtifact[]> {
   const candidates: [RunArtifact['kind'], string | undefined][] = [
-    ['junit_xml', files.junit],
+    ...files.reports.map((path): [RunArtifact['kind'], string] => ['junit_xml', path]),
     ['html_report', files.htmlReport],
     ['log', files.log],
   ];

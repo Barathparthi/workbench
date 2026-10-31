@@ -6,6 +6,7 @@ import {
   describeSelector,
   failuresOf,
   outcomeOfRemote,
+  sourcePathOf,
   PANEL_OUTPUT_CHARS,
   summaryOf,
   TestRunsModel,
@@ -198,5 +199,20 @@ describe('remote runs in the panel', () => {
       state: 'ERROR',
       problem: 'You are not allowed to connect to this system.',
     });
+  });
+});
+
+describe('opening a failure', () => {
+  it('opens pytest’s file as named, and a Java test by its class under src/test/java', () => {
+    const base = { id: 'x', name: 'x', status: 'failed' as const, durationMs: 0 };
+    expect(sourcePathOf({ ...base, file: 'tests/test_a.py', line: 3 })).toBe('tests/test_a.py');
+    expect(
+      sourcePathOf({ ...base, file: 'CalculatorTest.java', className: 'com.example.CalculatorTest' }),
+    ).toBe('src/test/java/com/example/CalculatorTest.java');
+    expect(
+      sourcePathOf({ ...base, file: 'CalculatorTest.java', className: 'com.example.CalculatorTest$Nested' }),
+    ).toBe('src/test/java/com/example/CalculatorTest.java');
+    expect(sourcePathOf({ ...base, file: 'CalculatorTest.java' })).toBe('CalculatorTest.java');
+    expect(sourcePathOf(base)).toBeUndefined();
   });
 });

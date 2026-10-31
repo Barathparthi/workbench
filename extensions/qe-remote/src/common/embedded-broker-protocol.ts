@@ -29,7 +29,7 @@ export type EmbeddedResult<T> =
 
 /** A test run on a personal host: as for managed targets, data only (`StartRemoteTestRunRequest` without a workspace). */
 export interface RemoteTestRequest {
-  readonly framework: 'pytest';
+  readonly framework: 'pytest' | 'maven';
   readonly selector:
     | { readonly kind: 'all' }
     | { readonly kind: 'file'; readonly path: string }

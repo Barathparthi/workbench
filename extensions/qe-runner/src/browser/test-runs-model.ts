@@ -205,3 +205,18 @@ export class TestRunsModel {
     return this.runs.find((r) => r.runId === runId);
   }
 }
+
+/**
+ * Where a failure's test is, relative to the project: pytest names the file (`tests/test_a.py`); a JVM stack frame
+ * names only `FooTest.java`, so a Java test's path comes from its class (`com.example.FooTest`, nested classes
+ * without their `$Inner` part) under Maven's `src/test/java`.
+ */
+export function sourcePathOf(failure: TestCaseResult): string | undefined {
+  const file = failure.file;
+  if (file === undefined) return undefined;
+  if (file.includes('/') || !/\.(java|kt|groovy|scala)$/.test(file) || failure.className === undefined)
+    return file;
+  const outer = failure.className.split('$')[0] ?? failure.className;
+  const extension = file.slice(file.lastIndexOf('.'));
+  return `src/test/java/${outer.replaceAll('.', '/')}${extension}`;
+}

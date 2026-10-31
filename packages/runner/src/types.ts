@@ -4,8 +4,8 @@
  * and on a remote target.
  */
 
-/** The frameworks with an adapter (Maven Surefire arrives with P11.6). */
-export const Frameworks = ['pytest'] as const;
+/** The frameworks with an adapter. */
+export const Frameworks = ['pytest', 'maven'] as const;
 export type Framework = (typeof Frameworks)[number];
 
 export const RunStates = ['QUEUED', 'RUNNING', 'PASSED', 'FAILED', 'ERROR', 'CANCELLED'] as const;
@@ -44,6 +44,21 @@ export interface RunContext {
   readonly python: string;
   /** pytest-html is installed: also write a self-contained HTML report. */
   readonly htmlReport: boolean;
+  /** The program for a framework that is not Python (Maven: the project's `./mvnw`, else `mvn`). */
+  readonly tool?: string;
+}
+
+export interface RunFiles {
+  /** `.qe-runs/<runId>`: the run's own folder. */
+  readonly folder: string;
+  /** The one JUnit report the run writes (pytest). */
+  readonly junit?: string;
+  /**
+   * Or reports in a folder the framework owns (Surefire: `target/surefire-reports/TEST-*.xml`, one per test class).
+   * The folder may hold reports of earlier builds: only those written during this run count.
+   */
+  readonly reports?: { readonly folder: string; readonly pattern: RegExp };
+  readonly htmlReport?: string;
 }
 
 /** A node of the test tree shown before a run: a file, or a test in it. */
@@ -90,14 +105,22 @@ export interface RunResults {
 /** One framework (PHASE_11 §11.1): builds commands and reads their output; it never starts anything itself. */
 export interface RunnerAdapter {
   readonly framework: Framework;
-  /** The command that lists the tests of the project folder. */
-  discoverCommand(context: Pick<RunContext, 'python'>): RunCommand;
-  /** The test tree from the discovery command's standard output. */
+  /** The command that lists the tests of the project folder, for frameworks that have one. */
+  discoverCommand?(context: Pick<RunContext, 'python'>): RunCommand;
+  /**
+   * For frameworks that cannot list tests without building (Maven): the files to list instead, under `folder`, whose
+   * project-relative paths are given to `parseDiscovery`, one per line.
+   */
+  readonly discoverFiles?: { readonly folder: string; readonly pattern: RegExp };
+  /** The test tree from the discovery command's standard output (or the listed files). */
   parseDiscovery(stdout: string): TestNode[];
   /** The command that runs the selected tests and writes JUnit XML (and a report) under `.qe-runs/<runId>`. */
   buildCommand(selector: TestSelector, context: RunContext): RunCommand;
   /** The state a finished run ends in, from its exit code (a cancelled run is CANCELLED whatever its code). */
   stateOf(exitCode: number): RunState;
-  /** The files the run writes, relative to the project folder. */
-  resultFiles(context: Pick<RunContext, 'runId'>): { readonly junit: string; readonly htmlReport?: string };
+  /**
+   * Where the run writes its results, relative to the project folder: its folder, and there one JUnit report
+   * (`junit`) or several (`reportPattern`: Surefire writes one per test class).
+   */
+  resultFiles(context: Pick<RunContext, 'runId'>): RunFiles;
 }
