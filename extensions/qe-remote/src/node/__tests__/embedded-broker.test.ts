@@ -29,6 +29,11 @@ import {
 } from '../embedded-broker';
 
 const PASSPHRASE = 'correct horse';
+/**
+ * Waits for a state of a real SSH exchange with the test server. vi.waitFor gives up after 1 s by default, which a
+ * sign-in with an encrypted key (bcrypt key derivation, a second connection) can exceed on a busy CI runner.
+ */
+const eventually = (check: () => void) => vi.waitFor(check, { timeout: 15_000, interval: 25 });
 /** An encrypted key pair ssh2 can open with the passphrase. */
 function encryptedKey(): { private: string; public: string } {
   for (;;) {
@@ -189,17 +194,17 @@ describe('embedded broker: terminals to personal targets', () => {
       ok: true,
       value: id,
     });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(controls().map((c) => c.state ?? c.t)).toEqual(['CONNECTING', 'hostkey', 'ACTIVE']);
     });
     expect(controls()[1]).toMatchObject({ algorithm: 'ssh-ed25519', verified: true });
     expect(plainServer.events).toContain('pty:100x30:xterm-256color');
     await broker.send(id, Uint8Array.of(0x00, ...Buffer.from('hello\r')));
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(output()).toContain('echo:hello');
     });
     await broker.closeTerminal(id);
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(rec.closed).toHaveLength(1);
     });
     expect(rec.audit.map((a) => a.action)).toEqual(['SSH_SESSION_OPENED', 'SSH_SESSION_CLOSED']);
@@ -209,7 +214,7 @@ describe('embedded broker: terminals to personal targets', () => {
     const t = target(lockedServer, { identityFiles: ['/keys/plain', '/keys/locked'] });
     const { broker, rec, controls } = setup(t, lockedServer, { answer: PASSPHRASE });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(controls().map((c) => c.state ?? c.t)).toContain('ACTIVE');
     });
     expect(rec.asked).toEqual(['box:locked']);
@@ -238,7 +243,7 @@ describe('embedded broker: terminals to personal targets', () => {
         ...('deniedCidrs' in c && { deniedCidrs: [...c.deniedCidrs] }),
       });
       await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-      await vi.waitFor(() => {
+      await eventually(() => {
         expect(rec.closed).toHaveLength(1);
       });
       expect(controls().find((m) => m.t === 'error')).toMatchObject({
@@ -273,11 +278,11 @@ describe('embedded broker: terminals to personal targets', () => {
   it('ends every terminal when the window goes away', async () => {
     const { broker, rec, controls } = setup(target(plainServer), plainServer);
     await broker.openTerminal(randomUUID(), 'personal-box', { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(controls().map((c) => c.state ?? c.t)).toContain('ACTIVE');
     });
     broker.dispose();
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(rec.closed).toHaveLength(1);
     });
   });
@@ -327,7 +332,7 @@ describe('embedded broker: files on personal targets', () => {
       { action: 'REMOTE_FILE_CHANGE', target: 'personal-box', outcome: 'success', detail: { op: 'write' } },
     ]);
     broker.dispose();
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(fake.calls).toContain('end');
     });
   });
@@ -339,7 +344,7 @@ describe('embedded broker: files on personal targets', () => {
       filesIdleMs: 50,
     });
     await broker.fs('personal-box', 'stat', { path: '' });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(fake.calls).toContain('end');
     });
   });
@@ -356,7 +361,7 @@ describe('embedded broker: host keys of personal targets (trust on first use)', 
       hostKeyAnswer: () => Promise.resolve('once'),
     });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(states(controls)).toContain('ACTIVE');
     });
     expect(rec.questions).toEqual([
@@ -370,7 +375,7 @@ describe('embedded broker: host keys of personal targets (trust on first use)', 
     ]);
     expect(rec.saved).toEqual([]);
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(states(controls).filter((s) => s === 'ACTIVE')).toHaveLength(2);
     });
     expect(rec.questions).toHaveLength(1);
@@ -389,7 +394,7 @@ describe('embedded broker: host keys of personal targets (trust on first use)', 
       hostKeyAnswer: () => Promise.resolve('save'),
     });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(states(controls)).toContain('ACTIVE');
     });
     expect(rec.saved.map((k) => sha256Fingerprint(k))).toEqual([fingerprint()]);
@@ -399,7 +404,7 @@ describe('embedded broker: host keys of personal targets (trust on first use)', 
     const t = target(lockedServer, { identityFiles: ['/keys/locked'] });
     const { broker, rec, controls } = setup(t, lockedServer, { trusted: false, answer: PASSPHRASE });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(rec.closed).toHaveLength(1);
     });
     expect(controls().find((c) => c.t === 'error')).toMatchObject({ code: 'HOST_KEY_UNKNOWN' });
@@ -415,7 +420,7 @@ describe('embedded broker: host keys of personal targets (trust on first use)', 
       hostKeyAnswer: () => Promise.resolve('once'),
     });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(states(controls)).toContain('ACTIVE');
     });
     expect(rec.questions).toHaveLength(1);
@@ -430,7 +435,7 @@ describe('embedded broker: host keys of personal targets (trust on first use)', 
       hostKeyAnswer: () => Promise.resolve('save'),
     });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(rec.closed).toHaveLength(1);
     });
     expect(rec.questions).toEqual([]);
@@ -444,7 +449,7 @@ describe('embedded broker: host keys of personal targets (trust on first use)', 
       hostKeyAnswer: () => Promise.resolve('save'),
     });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(rec.closed).toHaveLength(1);
     });
     expect(rec.questions).toEqual([]);
@@ -463,11 +468,11 @@ describe('embedded broker: host keys of personal targets (trust on first use)', 
     });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(rec.questions).toHaveLength(1);
     });
     answer('once');
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(states(controls).filter((s) => s === 'ACTIVE')).toHaveLength(2);
     });
     expect(rec.questions).toHaveLength(1);
@@ -498,7 +503,7 @@ describe('embedded broker: unexpected failures', () => {
       log: { warn: (message) => warnings.push(message) },
     });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(rec.closed).toHaveLength(1);
     });
     expect(controls().find((c) => c.t === 'error')).toMatchObject({ code: 'INTERNAL_ERROR' });
@@ -515,7 +520,7 @@ describe('embedded broker: unexpected failures', () => {
       log: { warn: (message) => warnings.push(message) },
     });
     await broker.openTerminal(randomUUID(), t.id, { cols: 80, rows: 24 });
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(rec.closed).toHaveLength(1);
     });
     expect(warnings).toEqual([]);
