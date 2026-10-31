@@ -1,3 +1,4 @@
+import type { TestRunResultRequest } from '@qe/contracts';
 import type { RunState, TestCaseResult, TestNode, TestSelector } from '@qe/runner';
 import { Emitter, type Event } from '@theia/core/lib/common/event';
 
@@ -12,6 +13,10 @@ export interface RunView {
   readonly runId: string;
   /** Where it ran: the project folder, or a remote system's name. */
   readonly where: string;
+  /** A remote system's id when it ran there (its files open in the system's folder). */
+  readonly systemId?: string;
+  /** Stops a remote run (local runs are cancelled through the backend). */
+  cancel?: () => void;
   readonly selector: TestSelector;
   readonly startedAt: string;
   state: RunState;
@@ -19,6 +24,52 @@ export interface RunView {
   outcome?: RunOutcome;
   /** Why it could not start or be recorded, for the user. */
   problem?: string;
+}
+
+/** A remote run's result (as the broker recorded it) in the panel's terms; no result: it never ran. */
+export function outcomeOfRemote(
+  runId: string,
+  result: TestRunResultRequest | undefined,
+  problem: string | undefined,
+): RunOutcome {
+  const folder = `.qe-runs/${runId}`;
+  if (result === undefined) {
+    return {
+      state: 'ERROR',
+      durationMs: 0,
+      folder,
+      log: '',
+      artifacts: [],
+      ...(problem !== undefined && { problem }),
+    };
+  }
+  return {
+    state: result.state,
+    ...(result.exitCode !== undefined && { exitCode: result.exitCode }),
+    durationMs: result.durationMs,
+    folder,
+    log: '',
+    artifacts: result.artifacts.flatMap((a) =>
+      a.kind === 'junit_xml' || a.kind === 'html_report' || a.kind === 'log'
+        ? [{ kind: a.kind, path: a.path, sizeBytes: a.sizeBytes, sha256: a.sha256 }]
+        : [],
+    ),
+    results: {
+      counts: result.counts,
+      durationMs: result.durationMs,
+      truncated: result.truncated,
+      cases: result.failures.map((f) => ({
+        id: f.id,
+        name: f.name,
+        status: f.status,
+        durationMs: 0,
+        ...(f.file !== undefined && { file: f.file }),
+        ...(f.line !== undefined && { line: f.line }),
+        ...(f.message !== undefined && { message: f.message }),
+      })),
+    },
+    ...(problem !== undefined && { problem }),
+  };
 }
 
 /** How a selector reads in the panel. */
@@ -74,6 +125,11 @@ export class TestRunsModel {
     this.tree = nodes;
     this.discoveryProblem = problem;
     this.discovering = false;
+    this.changed.fire();
+  }
+
+  /** Something the panel shows besides runs changed (the systems, where runs go). */
+  touch(): void {
     this.changed.fire();
   }
 

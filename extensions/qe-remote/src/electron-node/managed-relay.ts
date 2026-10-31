@@ -1,4 +1,5 @@
 import { MAX_MESSAGE_BYTES, type FsOp } from '@qe/contracts';
+import type { RemoteTestRequest } from '@qe/theia-qe-core/lib/common/qe-remote-tests';
 import { WebSocket as NodeWebSocket } from 'ws';
 
 import {
@@ -125,6 +126,30 @@ export class ManagedRelay implements ManagedRelayService {
       );
       this.streams.set(streamId, stream);
       return streamId;
+    });
+  }
+
+  runTests(streamId: string, targetId: string, request: RemoteTestRequest): Promise<EmbeddedResult<string>> {
+    return result(async () => {
+      if (!STREAM_ID.test(streamId) || this.streams.has(streamId) || isPersonalTarget(targetId)) {
+        throw new RemoteApiError(400, 'INVALID_REQUEST');
+      }
+      if (this.streams.size >= MAX_STREAMS) throw new RemoteApiError(429, 'QUOTA_EXCEEDED');
+      const started = await this.hosted.runTests(
+        { id: targetId, name: '', description: '', detail: '', kind: 'managed' },
+        request,
+        {
+          frame: (frame) => {
+            this.client?.onFrame(streamId, frame);
+          },
+          closed: (code) => {
+            this.streams.delete(streamId);
+            this.client?.onClosed(streamId, code, '');
+          },
+        },
+      );
+      this.streams.set(streamId, started.stream);
+      return started.runId;
     });
   }
 

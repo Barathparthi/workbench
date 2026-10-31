@@ -157,6 +157,8 @@ describe('composite connection client (managed + personal)', () => {
   const part = (kind: 'managed' | 'personal', over: Partial<ConnectionClient> = {}): ConnectionClient => ({
     listTargets: () => Promise.resolve({ targets: [kind === 'managed' ? managed : personal], problems: [] }),
     openTerminal: () => Promise.resolve({ send: () => undefined, close: () => undefined }),
+    runTests: () =>
+      Promise.resolve({ runId: kind, stream: { send: () => undefined, close: () => undefined } }),
     call: <T>() => Promise.resolve(kind as T),
     ...over,
   });
@@ -309,6 +311,7 @@ describe('relayed connection (desktop managed targets through the Electron backe
     const personalPart: ConnectionClient = {
       listTargets: () => Promise.resolve({ targets: [personal], problems: [] }),
       openTerminal: () => Promise.reject(new Error('unused')),
+      runTests: () => Promise.reject(new Error('unused')),
       call: () => Promise.reject(new Error('unused')),
     };
     expect(await compositeConnectionClient({ managed: c, personal: personalPart }).listTargets()).toEqual({

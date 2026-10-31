@@ -48,7 +48,7 @@ test.describe('QE Tests panel (local web)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForShell(page);
-    await runCommand(page, 'Show QE Tests');
+    await runCommand(page, 'QE: Show Tests');
     await expect(fileNode(page, 'tests/test_calculator.py')).toBeVisible({ timeout: 30_000 });
   });
 

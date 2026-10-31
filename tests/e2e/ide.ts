@@ -25,6 +25,7 @@ export const QE_COMMANDS = [
   'QE: Open Remote Folder…',
   'QE: Open Workspace…',
   'QE: Run Tests',
+  'QE: Show Tests',
 ];
 
 /** Waits for the shell and accepts Workspace Trust for the sample repository. */

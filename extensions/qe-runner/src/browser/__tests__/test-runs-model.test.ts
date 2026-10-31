@@ -5,6 +5,7 @@ import { hostedRecorder, noRecorder, resultOf } from '../run-recorder';
 import {
   describeSelector,
   failuresOf,
+  outcomeOfRemote,
   PANEL_OUTPUT_CHARS,
   summaryOf,
   TestRunsModel,
@@ -157,5 +158,45 @@ describe('recording runs (hosted)', () => {
       `POST /api/v1/test-runs/${RUN}/result`,
     ]);
     expect(await noRecorder.start('pytest', { kind: 'all' })).toBeUndefined();
+  });
+});
+
+describe('remote runs in the panel', () => {
+  it('shows a remote result as an outcome, and a run that never ran as an error with its reason', () => {
+    const remote = outcomeOfRemote(
+      RUN,
+      {
+        state: 'FAILED',
+        exitCode: 1,
+        durationMs: 900,
+        counts: { total: 5, passed: 3, failed: 1, errors: 0, skipped: 1 },
+        failures: [
+          { id: 'a::t', name: 't', status: 'failed', file: 'tests/a.py', line: 21, message: 'boom' },
+        ],
+        truncated: false,
+        artifacts: [
+          { kind: 'junit_xml', path: `.qe-runs/${RUN}/junit.xml`, sizeBytes: 9, sha256: 'b'.repeat(64) },
+          { kind: 'screenshot', path: `.qe-runs/${RUN}/s.png`, sizeBytes: 1, sha256: 'c'.repeat(64) },
+        ],
+      },
+      undefined,
+    );
+    expect(summaryOf(remote)).toBe('3 passed · 1 failed · 1 skipped');
+    expect(failuresOf(remote)).toEqual([
+      {
+        id: 'a::t',
+        name: 't',
+        status: 'failed',
+        durationMs: 0,
+        file: 'tests/a.py',
+        line: 21,
+        message: 'boom',
+      },
+    ]);
+    expect(remote.artifacts.map((a) => a.kind)).toEqual(['junit_xml']);
+    expect(outcomeOfRemote(RUN, undefined, 'You are not allowed to connect to this system.')).toMatchObject({
+      state: 'ERROR',
+      problem: 'You are not allowed to connect to this system.',
+    });
   });
 });

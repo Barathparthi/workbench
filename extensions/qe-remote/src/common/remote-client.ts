@@ -1,4 +1,5 @@
 import { QEWS_PROTOCOL, TICKET_PROTOCOL_PREFIX, type FsOp } from '@qe/contracts';
+import type { RemoteTestRequest } from '@qe/theia-qe-core/lib/common/qe-remote-tests';
 
 /**
  * Browser-side client for the remote-session API (05_API_CONTRACTS §2.3–2.4). The IDE runs on the control plane's
@@ -108,6 +109,23 @@ export function remoteClient(deps: RemoteClientDeps) {
         },
         10_000,
       )) as OpenedSession;
+    },
+
+    /**
+     * A test run on a target (PHASE_11 §11.4): a framework and a selector, never a command line. Returns the run's id
+     * and the exec session that carries it, opened like a terminal's.
+     */
+    async startTestRun(
+      targetId: string,
+      request: RemoteTestRequest,
+      workspaceId?: string,
+    ): Promise<{ runId: string; session: OpenedSession }> {
+      const started = (await post(
+        `/api/v1/targets/${encodeURIComponent(targetId)}/test-runs`,
+        { ...request, ...(workspaceId !== undefined && { workspaceId }) },
+        10_000,
+      )) as { run: { id: string }; session: OpenedSession };
+      return { runId: started.run.id, session: started.session };
     },
 
     /** The user's own sessions, newest first. */

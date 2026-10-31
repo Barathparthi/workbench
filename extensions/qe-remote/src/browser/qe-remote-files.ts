@@ -71,6 +71,7 @@ export class QeRemoteServices {
   readonly connections: ConnectionClient = {
     listTargets: async () => (await this.resolve()).listTargets(),
     openTerminal: async (target, size, sink) => (await this.resolve()).openTerminal(target, size, sink),
+    runTests: async (target, request, sink) => (await this.resolve()).runTests(target, request, sink),
     call: async (targetId, op, body) => (await this.resolve()).call(targetId, op, body),
   };
 
@@ -91,6 +92,8 @@ export class QeRemoteServices {
                 files: new RemoteFileSessions(this.client, tabSessionStore()),
                 origin: window.location.origin,
                 createSocket: (url, protocols) => new WebSocket(url, protocols),
+                // Test runs belong to this workspace: its members see them.
+                ...(env.workspaceId !== undefined && { workspaceId: env.workspaceId }),
               })
             : env.mode === 'desktop' && env.features.managedTargets && this.connectRelay !== undefined
               ? this.relayed

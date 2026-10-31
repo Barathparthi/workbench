@@ -58,11 +58,13 @@ export class QeTestWidget extends ReactWidget {
     );
     void this.runs.refreshTests();
     void this.runs.loadHistory();
+    void this.runs.loadSystems();
     this.update();
   }
 
+  /** Runs where "Run on" says: the project folder, or a remote system's folder. */
   protected run(selector: TestSelector): void {
-    void this.runs.run(selector);
+    void this.runs.runSelected(selector);
   }
 
   protected render(): React.ReactNode {
@@ -100,11 +102,31 @@ export class QeTestWidget extends ReactWidget {
         )}
         <button
           className="theia-button secondary qe-tests-refresh"
-          title="List the tests again"
-          onClick={() => void this.runs.refreshTests()}
+          title="List the tests and remote systems again"
+          onClick={() => {
+            void this.runs.refreshTests();
+            void this.runs.loadSystems();
+          }}
         >
           <i className={codicon('refresh')} />
         </button>
+        {this.runs.systems.length > 0 && (
+          <select
+            className="theia-select qe-tests-run-on"
+            title="Where the tests run"
+            value={this.runs.runOn ?? ''}
+            onChange={(e) => {
+              this.runs.setRunOn(e.target.value === '' ? undefined : e.target.value);
+            }}
+          >
+            <option value="">This project</option>
+            {this.runs.systems.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} — {s.description}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
     );
   }
@@ -181,7 +203,7 @@ export class QeTestWidget extends ReactWidget {
           {run.state === 'RUNNING' ? 'Running…' : summaryOf(run.outcome)}
         </div>
         {run.problem !== undefined && <div className="qe-tests-problem">{run.problem}</div>}
-        {failures.map((f) => this.renderFailure(f))}
+        {failures.map((f) => this.renderFailure(f, run))}
         {run.outcome !== undefined && run.outcome.artifacts.length > 0 && (
           <div style={{ margin: '4px 0' }}>
             {run.outcome.artifacts.map((a) => (
@@ -190,7 +212,7 @@ export class QeTestWidget extends ReactWidget {
                 className="qe-tests-artifact"
                 style={{ marginRight: 10, cursor: 'pointer' }}
                 onClick={() => {
-                  this.openProjectFile(a.path);
+                  this.openRunFile(a.path, run);
                 }}
               >
                 {a.kind === 'junit_xml'
@@ -221,7 +243,7 @@ export class QeTestWidget extends ReactWidget {
     );
   }
 
-  protected renderFailure(failure: TestCaseResult): React.ReactNode {
+  protected renderFailure(failure: TestCaseResult, run: RunView): React.ReactNode {
     const where =
       failure.file === undefined
         ? ''
@@ -233,7 +255,7 @@ export class QeTestWidget extends ReactWidget {
         style={{ ...row, alignItems: 'flex-start' }}
         title={where === '' ? failure.name : `Open ${where}`}
         onClick={() => {
-          this.openFailure(failure);
+          this.openFailure(failure, run);
         }}
       >
         <i className={codicon(failure.status === 'error' ? 'warning' : 'error')} />
@@ -282,14 +304,25 @@ export class QeTestWidget extends ReactWidget {
     return root.resolve(path);
   }
 
-  protected openProjectFile(path: string): void {
-    const uri = this.projectUri(path);
+  /**
+   * A file of where the run happened: the project folder, or — for a remote run — the system's folder, through the
+   * remote folder's provider (`qe-ssh://`), where the files really are.
+   */
+  protected runFileUri(path: string, run: RunView): URI | undefined {
+    if (run.systemId === undefined) return this.projectUri(path);
+    if (path.startsWith('/') || path.includes('..')) return undefined;
+    const remote = this.runs.remoteFileUri(run.systemId, path);
+    return remote === undefined ? undefined : new URI(remote);
+  }
+
+  protected openRunFile(path: string, run: RunView): void {
+    const uri = this.runFileUri(path, run);
     if (uri !== undefined) void open(this.openers, uri);
   }
 
-  protected openFailure(failure: TestCaseResult): void {
+  protected openFailure(failure: TestCaseResult, run: RunView): void {
     if (failure.file === undefined) return;
-    const uri = this.projectUri(failure.file);
+    const uri = this.runFileUri(failure.file, run);
     if (uri === undefined) return;
     const line = Math.max(0, (failure.line ?? 1) - 1);
     void open(this.openers, uri, {

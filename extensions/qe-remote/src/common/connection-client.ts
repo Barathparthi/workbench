@@ -1,4 +1,5 @@
 import type { FsOp } from '@qe/contracts';
+import type { RemoteTestRequest } from '@qe/theia-qe-core/lib/common/qe-remote-tests';
 
 import type {
   EmbeddedBrokerClient,
@@ -10,7 +11,13 @@ import type {
   PersonalTargetSummary,
 } from './embedded-broker-protocol';
 import { SIGN_IN_REQUIRED, type ManagedRelayService, type StreamClient } from './managed-relay-protocol';
-import { describeFailure, RemoteApiError, streamTarget, type RemoteClient } from './remote-client';
+import {
+  describeFailure,
+  RemoteApiError,
+  streamTarget,
+  type OpenedSession,
+  type RemoteClient,
+} from './remote-client';
 import type { RemoteFileSessions } from './remote-files';
 
 /**
@@ -55,6 +62,15 @@ export interface TargetListing {
 export interface ConnectionClient extends FileCaller {
   /** Every reachable system; a part that fails is reported in `problems` while the others are still listed. */
   listTargets(): Promise<TargetListing>;
+  /**
+   * Runs tests in the target's folder (PHASE_11 §11.4), streamed like a terminal: output frames, a `run` result, the
+   * close. Failures before the stream exists reject with a `RemoteApiError`.
+   */
+  runTests(
+    target: RemoteTarget,
+    request: RemoteTestRequest,
+    sink: TerminalSink,
+  ): Promise<{ runId: string; stream: TerminalStream }>;
   /** Opens a terminal; failures before the stream exists reject with a `RemoteApiError`. */
   openTerminal(
     target: RemoteTarget,
@@ -72,7 +88,34 @@ export function hostedConnectionClient(deps: {
   readonly files: RemoteFileSessions;
   readonly origin: string;
   readonly createSocket: (url: string, protocols: string[]) => WebSocket;
+  /** Hosted: the workspace a test run belongs to (its members then see it). */
+  readonly workspaceId?: string;
 }): ConnectionClient {
+  /** A broker stream for an opened session: frames to the sink, sends queued until the socket opens. */
+  const stream = (session: OpenedSession, sink: TerminalSink): TerminalStream => {
+    const { url, protocols } = streamTarget(deps.origin, session);
+    const socket = deps.createSocket(url, protocols);
+    socket.binaryType = 'arraybuffer';
+    const queued: (string | Uint8Array)[] = [];
+    socket.onopen = () => {
+      for (const frame of queued.splice(0)) socket.send(frame);
+    };
+    socket.onmessage = (event: MessageEvent<string | ArrayBuffer>) => {
+      sink.frame(typeof event.data === 'string' ? event.data : new Uint8Array(event.data));
+    };
+    socket.onclose = (event) => {
+      sink.closed(event.code);
+    };
+    return {
+      send: (frame) => {
+        if (socket.readyState === socket.OPEN) socket.send(frame);
+        else if (socket.readyState === socket.CONNECTING) queued.push(frame);
+      },
+      close: () => {
+        socket.close(1000);
+      },
+    };
+  };
   return {
     async listTargets() {
       const targets = await deps.client.listTargets();
@@ -88,29 +131,11 @@ export function hostedConnectionClient(deps: {
       };
     },
     async openTerminal(target, size, sink) {
-      const session = await deps.client.openTerminalSession(target.id, size);
-      const { url, protocols } = streamTarget(deps.origin, session);
-      const socket = deps.createSocket(url, protocols);
-      socket.binaryType = 'arraybuffer';
-      const queued: (string | Uint8Array)[] = [];
-      socket.onopen = () => {
-        for (const frame of queued.splice(0)) socket.send(frame);
-      };
-      socket.onmessage = (event: MessageEvent<string | ArrayBuffer>) => {
-        sink.frame(typeof event.data === 'string' ? event.data : new Uint8Array(event.data));
-      };
-      socket.onclose = (event) => {
-        sink.closed(event.code);
-      };
-      return {
-        send: (frame) => {
-          if (socket.readyState === socket.OPEN) socket.send(frame);
-          else if (socket.readyState === socket.CONNECTING) queued.push(frame);
-        },
-        close: () => {
-          socket.close(1000);
-        },
-      };
+      return stream(await deps.client.openTerminalSession(target.id, size), sink);
+    },
+    async runTests(target, request, sink) {
+      const started = await deps.client.startTestRun(target.id, request, deps.workspaceId);
+      return { runId: started.runId, stream: stream(started.session, sink) };
     },
     call: (targetId, op, body) => deps.files.call(targetId, op, body),
   };
@@ -126,6 +151,7 @@ interface StreamService {
   send(streamId: string, frame: string | Uint8Array): Promise<void>;
   closeTerminal(streamId: string): Promise<void>;
   fs(targetId: string, op: FsOp, request: unknown): Promise<EmbeddedResult<unknown>>;
+  runTests(streamId: string, targetId: string, request: RemoteTestRequest): Promise<EmbeddedResult<string>>;
 }
 
 /**
@@ -167,6 +193,28 @@ abstract class StreamedConnection<S extends StreamService> implements Connection
       },
       close: () => {
         void service.closeTerminal(streamId);
+      },
+    };
+  }
+
+  async runTests(target: RemoteTarget, request: RemoteTestRequest, sink: TerminalSink) {
+    const service = this.service();
+    const streamId = this.newId();
+    this.sinks.set(streamId, sink);
+    const result = await service.runTests(streamId, target.id, request);
+    if (!result.ok) {
+      this.sinks.delete(streamId);
+      throw new RemoteApiError(0, result.code);
+    }
+    return {
+      runId: result.value,
+      stream: {
+        send: (frame: string | Uint8Array) => {
+          void service.send(streamId, frame);
+        },
+        close: () => {
+          void service.closeTerminal(streamId);
+        },
       },
     };
   }
@@ -292,6 +340,7 @@ export function compositeConnectionClient(parts: {
     },
     // async: a target no part owns rejects like any other failure, never throws synchronously.
     openTerminal: async (target, size, sink) => owner(target.id).openTerminal(target, size, sink),
+    runTests: async (target, request, sink) => owner(target.id).runTests(target, request, sink),
     call: async (targetId, op, body) => owner(targetId).call(targetId, op, body),
   };
 }

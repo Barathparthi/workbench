@@ -6,5 +6,12 @@
     "tsBuildInfoFile": "lib/.tsbuildinfo"
   },
   "include": ["src"],
-  "references": [{ "path": "../../packages/domain" }]
+  "references": [
+    {
+      "path": "../../packages/domain"
+    },
+    {
+      "path": "../../packages/contracts"
+    }
+  ]
 }

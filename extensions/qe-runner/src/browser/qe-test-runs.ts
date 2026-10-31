@@ -1,6 +1,7 @@
 import { ControlPlaneClient } from '@qe/client-sdk';
 import type { TestSelector } from '@qe/runner';
 import { QeEnvironmentService } from '@qe/theia-qe-core/lib/common/qe-environment';
+import { QeRemoteTestRunner, type RemoteTestSystem } from '@qe/theia-qe-core/lib/common/qe-remote-tests';
 import {
   RemoteConnectionProvider,
   type ServiceConnectionProvider,
@@ -8,7 +9,7 @@ import {
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { MessageService } from '@theia/core/lib/common/message-service';
 import type URI from '@theia/core/lib/common/uri';
-import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
+import { inject, injectable, optional, postConstruct } from '@theia/core/shared/inversify';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 
 import {
@@ -18,7 +19,7 @@ import {
   type RunOutcome,
 } from '../common/qe-runner-protocol';
 import { hostedRecorder, noRecorder, type RunRecorder } from './run-recorder';
-import { describeSelector, TestRunsModel } from './test-runs-model';
+import { describeSelector, outcomeOfRemote, TestRunsModel } from './test-runs-model';
 
 const FRAMEWORK = 'pytest' as const;
 
@@ -34,6 +35,12 @@ export class QeTestRuns {
   @inject(WorkspaceService) protected readonly workspace!: WorkspaceService;
   @inject(MessageService) protected readonly messages!: MessageService;
   @inject(RemoteConnectionProvider) protected readonly connections!: ServiceConnectionProvider;
+  /** Bound by qe-remote where remote systems exist: the panel then offers "Run on". */
+  @inject(QeRemoteTestRunner) @optional() protected readonly remote: QeRemoteTestRunner | undefined;
+
+  /** Where runs go: undefined for the project folder, else a remote system's id. */
+  runOn: string | undefined;
+  systems: RemoteTestSystem[] = [];
 
   readonly model = new TestRunsModel();
   protected backend: QeRunnerService | undefined;
@@ -163,7 +170,73 @@ export class QeTestRuns {
   }
 
   async cancel(runId: string): Promise<void> {
+    const run = this.model.runs.find((r) => r.runId === runId);
+    if (run?.cancel !== undefined) {
+      run.cancel();
+      return;
+    }
     await this.service().cancel(runId);
+  }
+
+  /** The remote systems the panel can run on (none without qe-remote, or when they cannot be listed). */
+  async loadSystems(): Promise<void> {
+    if (this.remote === undefined) return;
+    this.systems = await this.remote.systems().catch(() => []);
+    this.model.touch();
+  }
+
+  setRunOn(systemId: string | undefined): void {
+    this.runOn = systemId;
+    this.model.touch();
+  }
+
+  /** Runs where the panel says: the project folder, or the chosen remote system's folder. */
+  async runSelected(selector: TestSelector): Promise<void> {
+    const system = this.systems.find((s) => s.id === this.runOn);
+    if (system === undefined || this.remote === undefined) {
+      await this.run(selector);
+      return;
+    }
+    // Output, or even the end, may arrive before run() returns the id: held until the run is in the panel.
+    let runId: string | undefined;
+    const early: string[] = [];
+    let ended: Parameters<Parameters<QeRemoteTestRunner['run']>[2]['finished']> | undefined;
+    try {
+      const run = await this.remote.run(
+        system.id,
+        { framework: FRAMEWORK, selector },
+        {
+          output: (text) => {
+            if (runId === undefined) early.push(text);
+            else this.model.appendOutput(runId, text);
+          },
+          finished: (result, problem) => {
+            if (runId === undefined) ended = [result, problem];
+            else this.model.finish(runId, outcomeOfRemote(runId, result, problem));
+          },
+        },
+      );
+      runId = run.runId;
+      this.model.addRun({
+        runId,
+        where: system.name,
+        systemId: system.id,
+        selector,
+        startedAt: new Date().toISOString(),
+        cancel: () => {
+          run.cancel();
+        },
+      });
+      for (const text of early.splice(0)) this.model.appendOutput(runId, text);
+      if (ended !== undefined) this.model.finish(runId, outcomeOfRemote(runId, ...ended));
+    } catch (error) {
+      await this.messages.error(error instanceof Error ? error.message : 'The run could not be started.');
+    }
+  }
+
+  /** A file of where a run happened, to open: the project folder's, or the remote system's folder's. */
+  remoteFileUri(systemId: string, path: string): string | undefined {
+    return this.remote?.fileUri(systemId, path);
   }
 
   label(selector: TestSelector): string {

@@ -17,6 +17,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@qe/contracts": "0.0.0",
     "@qe/domain": "0.0.0",
     "@theia/core": "1.76.0",
     "@theia/getting-started": "1.76.0",

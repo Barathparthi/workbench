@@ -1,4 +1,5 @@
 import type { FsOp } from '@qe/contracts';
+import type { RemoteTestRequest } from '@qe/theia-qe-core/lib/common/qe-remote-tests';
 import type { RpcServer } from '@theia/core/lib/common/messaging/proxy-factory';
 
 import type { EmbeddedResult } from './embedded-broker-protocol';
@@ -32,6 +33,8 @@ export interface ManagedRelayService extends RpcServer<StreamClient> {
   send(streamId: string, frame: string | Uint8Array): Promise<void>;
   closeTerminal(streamId: string): Promise<void>;
   fs(targetId: string, op: FsOp, request: unknown): Promise<EmbeddedResult<unknown>>;
+  /** A test run on a managed target (no workspace: the desktop app's runs are its user's). */
+  runTests(streamId: string, targetId: string, request: RemoteTestRequest): Promise<EmbeddedResult<string>>;
 }
 
 /** Terminal output and closes, from the backend to the frontend. */
