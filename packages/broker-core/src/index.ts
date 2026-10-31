@@ -19,6 +19,7 @@ export {
   ALGORITHMS,
   CONNECT_TIMEOUT_MS,
   ssh2Transport,
+  type ExecChannel,
   type PtyChannel,
   type KeyMaterial,
   type SshConnection,
@@ -77,3 +78,10 @@ export {
   type PersonalCredentials,
 } from './personal-credentials.js';
 export { localAuditLog, type LocalAuditOptions } from './local-audit.js';
+export {
+  remoteCancelCommand,
+  remoteRunCommand,
+  shellCommand,
+  shellQuote,
+  type RemoteRun,
+} from './remote-exec.js';

@@ -39,8 +39,18 @@ export interface PtyChannel {
   onClose(listener: (code: number | null, signal: string | null) => void): void;
 }
 
+/** A command run without a PTY (`remoteRunCommand`): its output as it comes, then its exit status. */
+export interface ExecChannel {
+  onData(listener: (data: Buffer) => void): void;
+  /** The exit code, or the signal that ended it; both null when the channel closed without either. */
+  onClose(listener: (code: number | null, signal: string | null) => void): void;
+  close(): void;
+}
+
 export interface SshConnection {
   shell(options: { cols: number; rows: number; term: string }): Promise<PtyChannel>;
+  /** Runs one command line, built only by `remoteRunCommand`/`remoteCancelCommand` (CLAUDE.md rule 6). */
+  exec(command: string): Promise<ExecChannel>;
   /** Opens the SFTP subsystem (one channel per files-session, reused across operations). */
   sftp(): Promise<SftpChannel>;
   close(): void;
@@ -185,6 +195,29 @@ function credentialOptions(credential: SshCredential, username: string): Partial
 
 function wrap(client: ssh2.Client): SshConnection {
   return {
+    exec: (command) =>
+      new Promise((resolve, reject) => {
+        client.exec(command, { pty: false }, (error, stream) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve({
+            onData: (listener) => {
+              stream.on('data', listener);
+              stream.stderr.on('data', listener);
+            },
+            onClose: (listener) => {
+              stream.on('close', (code: number | null, signal: string | null) => {
+                listener(typeof code === 'number' ? code : null, signal ?? null);
+              });
+            },
+            close: () => {
+              stream.close();
+            },
+          });
+        });
+      }),
     shell: (opts) =>
       new Promise((resolve, reject) => {
         client.shell({ term: opts.term, cols: opts.cols, rows: opts.rows }, (error, stream) => {
