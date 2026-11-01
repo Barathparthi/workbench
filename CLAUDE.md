@@ -69,6 +69,7 @@ timeouts on all I/O, explicit cleanup for PTYs/channels/sockets/timers, package 
 ## Working style
 
 - Read before writing; keep changes to the current phase; small commits (Conventional Commits).
+- Commit and PR messages are plain: no `Co-Authored-By`, "Generated with" or other attribution lines (owner's rule).
 - Inspect/plan prompts mean no edits. Report ACTUAL command output.
 - Missing org decision or uncertain API: stop and ask.
 - After meaningful work, add an entry to `docs/PROJECT_LOG.md` and `CHANGELOG.md`.

@@ -32,18 +32,23 @@ web → same project → QE test run → results + report) — met 2026-11-01.
 
 New to the project? Start with [`GETTING_STARTED.md`](GETTING_STARTED.md).
 
-**Next actions**
+**Next actions** (updated 2026-11-01; how to continue with an AI agent:
+[`CONTINUING_WITH_AI_AGENTS.md`](CONTINUING_WITH_AI_AGENTS.md))
 
-1. Phase 00 gate conditions: send sections A8 and B–E of [`ORG_DECISIONS.md`](ORG_DECISIONS.md) (incl. D9,
-   D12) to the owning teams, A8 with a licence review; hold the architecture review (tech lead + security)
-   before Phase 05.
-2. Decide how to carry the `ssh2` certificate patch (S4): `patch-package` + upstream PR is the recommendation.
-3. Phase 02 follow-ups: ratify ADR-012; name the Open VSX mirror (D7) and re-pin plugin hashes from it; decide
-   D13 (docs URL) and D14 (Theia AI/MCP).
-4. Phase 04: push `phase-04-identity-rbac`, open the PR, confirm `integration + coverage` is green, then mark PASS.
-   Next is Phase 05 (workspace runtime and routing).
-5. Add `integration + coverage` to the required status checks of the `main` ruleset.
-6. When a second maintainer joins: add "require a pull request + 1 approval" to the `main` ruleset.
+1. Owner: open the stacked PRs in order — Phase 09 follow-up (`1456e3c`), `phase-10-local-desktop`,
+   `phase-11-qe-runner` — and merge each when CI is green; run the `desktop` workflow once by hand (Phase 10
+   condition).
+2. Next phase: **13 — Observability**, then 14 (security hardening), 15 (CI/CD and supply chain), 19 (optional
+   advanced remote). **Phase 12 is deferred to the end** (owner's decision 2026-11-01); 16–18 follow it.
+3. Follow-ups from Phase 11: a parity scenario that runs tests on a remote system from the QE Tests panel (rehearsed by
+   hand 2026-11-01, green in hosted and local web); the local-web backend logs an uncaught `transport close` from
+   engine.io when a page closes after a remote run.
+4. Org decisions to raise: B1, D9, D15, D16, D17, D18, D19 (see [`ORG_DECISIONS.md`](ORG_DECISIONS.md)); Phase 00
+   architecture review (tech lead + security).
+5. Phase 12 needs a choice first: how to carry the `ssh2` certificate patch (S4) — `patch-package` + upstream PR is
+   the recommendation (ADR).
+6. Repository settings: add `integration + coverage` to the `main` ruleset's required checks; "1 approval" once a
+   second maintainer joins.
 
 ---
 
