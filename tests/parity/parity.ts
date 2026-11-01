@@ -11,10 +11,19 @@
  * (QE_E2E_HOME); both run on the lab machine QE_E2E_LAB_CONTAINER (default qews-lab-a) as its user qe.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 import {
   _electron as electron,
@@ -70,6 +79,7 @@ function localFiles(dir: string): ProjectFiles {
   return {
     read: (name) => (existsSync(join(dir, name)) ? decode(readFileSync(join(dir, name))).trim() : ''),
     write: (name, content) => {
+      mkdirSync(dirname(join(dir, name)), { recursive: true });
       writeFileSync(join(dir, name), content);
     },
     remove: (name) => {
@@ -94,7 +104,18 @@ function containerFiles(container: string, dir: string): ProjectFiles {
     write: (name, content) => {
       const r = spawnSync(
         'docker',
-        ['exec', '-i', '-u', '1000', '-w', dir, container, 'sh', '-c', `cat > '${name}'`],
+        [
+          'exec',
+          '-i',
+          '-u',
+          '1000',
+          '-w',
+          dir,
+          container,
+          'sh',
+          '-c',
+          `mkdir -p "$(dirname '${name}')" && cat > '${name}'`,
+        ],
         {
           input: content,
         },
