@@ -42,6 +42,19 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   edit and save, links out of the remote folder. Desktop runs nightly on Linux, Windows and macOS.
 - Local web: webviews (Markdown preview, plugin panels) work, on their own `<id>.webview.localhost` origin; the sign-in
   link uses `localhost`.
+- QE test runner (Phase 11): the **QE Tests** panel and "QE: Run Tests" / "QE: Show Tests" in every mode — the
+  project's tests, Run all / a file / one test, Cancel, live output, counts, failures that open the test at its line,
+  the run's JUnit report, HTML report (with `pytest-html`) and output log, and earlier runs. pytest and Maven Surefire
+  (`packages/runner`, ADR-014); runs keep their files in `.qe-runs/<runId>/`.
+- **Run on** a remote system: managed targets through the control plane and broker (`POST /api/v1/targets/{id}/test-runs`
+  on an exec session; needs the policy's `exec` capability), personal hosts through the embedded broker; output,
+  cancel and results as for a local run.
+- Control plane: test-run records (`POST /api/v1/workspaces/{id}/test-runs`, `/api/v1/test-runs`: result, list, get,
+  cancel), migrations 0005 and 0006, audit events `QE_TEST_STARTED`, `QE_TEST_CANCELLED`, `QE_TEST_FINISHED`.
+- pytest in the workspace runtime image (`python3-pytest`) and the OpenSSH lab image; sample pytest and Maven projects
+  in `tests/fixtures/`.
+- `docs/GETTING_STARTED.md`: a step-by-step guide for beginners — setup, first start, the IDE, tests, remote systems
+  and the hosted stack.
 
 ### Security
 
@@ -50,9 +63,15 @@ The narrative history (decisions, deviations, evidence) lives in [`docs/PROJECT_
   `vendor/decompress-compat`, its CommonJS API on the patched `@xhmikosr/decompress` 11.1.4 (root `overrides`).
 - `deepmerge` 4.3.1 (GHSA-gcqx-w48m-w2h4, low, no fixed release) is kept: Theia merges only its own configuration
   defaults with it, never user or network input.
+- Test runs never use a shell: argv with `shell: false` locally; on targets one quoting helper and command lines built
+  only from fixed text and quoted values; every selector, path, marker, Maven name and environment variable checked.
+  JUnit reports are read without DTDs or entities, with depth and size limits. A remote run's reports are read through
+  the folder's confinement, so a planted link reads nothing outside it.
 
 ### Fixed
 
+- Desktop app: on a busy machine reading the Windows managed settings could time out (5 s) and stop the app at
+  startup; it now has 15 s.
 - Remote files: a save over a change made on the server could overwrite it without asking. SFTP mtimes have whole
   seconds and the browser auto-saves after 1 s, so an auto-save and a change on the server often fell in one second,
   which Theia's check does not count. Remote files now count any other mtime or size as changed, and the save asks.

@@ -9,7 +9,7 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 
 ---
 
-## Status snapshot (updated 2026-10-28)
+## Status snapshot (updated 2026-11-01)
 
 | Phase                                | State                                                                                                                            | Record                                               |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
@@ -23,10 +23,14 @@ evidence, and open items. Release-level changes also go in `/CHANGELOG.md`.
 | 07 — Target registry & policy        | **Done — gate PASS** (2026-10-27; integration green in WSL)                                                                      | [`phase-gates/PHASE_07.md`](phase-gates/PHASE_07.md) |
 | 08 — SSH broker & remote terminal    | **Done — gate PASS** (M2 terminal run 2026-10-27, PR #18)                                                                        | [`phase-gates/PHASE_08.md`](phase-gates/PHASE_08.md) |
 | 09 — Remote filesystem               | **Done — gate PASS** ([PR #22](https://github.com/Barathparthi/workbench/pull/22) merged; CI fix `1456e3c` needs a follow-up PR) | [`phase-gates/PHASE_09.md`](phase-gates/PHASE_09.md) |
-| 10 — Local desktop & local web       | **In progress** — P10.1–P10.7 built on `phase-10-local-desktop` (parity green in all three modes); review and gates 10a/10b open | `02_PHASES/`                                         |
-| 11 – 19                              | Not started                                                                                                                      | `02_PHASES/`                                         |
+| 10 — Local desktop & local web       | **10a PASS, 10b CONDITIONAL** (D15, D16, D17, D9, a green `desktop` workflow run)                                                | [`phase-gates/PHASE_10.md`](phase-gates/PHASE_10.md) |
+| 11 — QE test runner & reports        | **Gate PASS** (2026-11-01; M3 met; branch `phase-11-qe-runner`, PR to open)                                                      | [`phase-gates/PHASE_11.md`](phase-gates/PHASE_11.md) |
+| 12 – 19                              | Not started                                                                                                                      | `02_PHASES/`                                         |
 
-Milestones: M1 (end of Phase 06) — not reached. M2 (remote terminal + remote files) — met 2026-10-27.
+Milestones: M1 (end of Phase 06) — not reached. M2 (remote terminal + remote files) — met 2026-10-27. M3 (desktop +
+web → same project → QE test run → results + report) — met 2026-11-01.
+
+New to the project? Start with [`GETTING_STARTED.md`](GETTING_STARTED.md).
 
 **Next actions**
 
@@ -804,3 +808,35 @@ clickable) and passed three times since, once in the same order; the nightly `de
 
 Gate: **10a PASS**, **10b CONDITIONAL** on D15 (signing), D16 (package identity), D17 (update channel), a green
 `desktop` workflow run on Windows and macOS, and D9 (hosted webview domain).
+
+### 2026-11-01 — Phase 11: QE test runner and reports, P11.1–P11.6, review and gate (branch `phase-11-qe-runner`)
+
+Built (ADR-014, `docs/phase-gates/PHASE_11.md`): `packages/runner` — run model, pytest and Maven Surefire adapters that
+build argv only, one set of value checks, a streaming JUnit reader on `saxes` (`8c2fbf8`, `ed722bc`, `cd8fc90`); the
+local runner in the IDE backend, without a shell, in its own process group, SIGINT then SIGKILL after 10 s
+(`ae30eca`, `2596a25`); control-plane records with migration 0005 (`37647d9`); remote runs on exec sessions with one
+quoting helper, through the broker for managed targets and the embedded broker for personal hosts, migration 0006
+(`ec6a6d3`, `309a7d7`, `1da6294`, `237fb34`); the QE Tests panel with Run on, `QE: Run Tests`, `QE: Show Tests`
+(`e4aa4ba`, `913cc13`); pytest in the runtime and lab images, sample pytest and Maven projects (`6bd0686`, `ab2c62d`);
+parity and E2E scenarios (`a22ee1f`, `2993ef3`).
+
+Owner's decisions: exec per policy — `remote:connect` plus the policy's `exec` capability (`f76ee50`), since only
+`qe.admin` held `remote:execute` and lab users could never run remote tests; artifacts stay where the run happened and
+signed download waits on object storage (new open decision **D18**); Maven only where a project or machine provides it
+(new open decision **D19**, the Maven dependency source).
+
+Review and gate fixes: a remote run's reports are read through the folder's confinement (`2b13ed8`, T10); the Windows
+managed-settings read has 15 s on a busy machine and the runner's unit tests wait as long for a process (`4ab838d`);
+the parity harness creates a project file's folder, which a fresh hosted project lacks (`b6c86b4`); the runtime image
+build retries downloads the proxy drops (`dc812cc`). Found before its commit: dash refuses `kill -SIG -- -PGID`, so
+remote cancel uses `kill -SIG -PGID`.
+
+Evidence (2026-11-01): Windows typecheck, lint, format clean; unit 1712 passed with 2 failures under load, both
+passing after `4ab838d`. WSL on `2b13ed8` with runtime image `a9ea627db394` (third build attempt; the proxy dropped
+two): hosted 3/3 twice, browser 23/23, local-web security 6/6, electron 4/4, parity local web 10/10, parity desktop
+9/9, integration 154 passed + 1 skipped (opt-in real Maven), unit 1716 passed + 2 skipped (Windows-only). Parity
+hosted failed once in the harness (above); on `b6c86b4`: 8 passed + 1 skipped (webview, D9), twice.
+
+Gate: **PASS**, milestone **M3** met. Follow-ups: a parity scenario that runs tests on a remote system from the panel
+(integration covers it today); D18 and D19 to the owning teams; [`GETTING_STARTED.md`](GETTING_STARTED.md) added for
+new users.
