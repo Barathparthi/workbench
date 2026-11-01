@@ -10,7 +10,9 @@
 ## 0. This repository: status and quick start
 
 This repository holds the implementation kit (folders `00_…07_`, `reference/`) **and** the product code
-built from it. Where things stand, and what was done when, is in **[`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)**.
+built from it. **New here? Start with [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md)**: install, start
+and use QE Workspace step by step. Where things stand, and what was done when, is in
+**[`docs/PROJECT_LOG.md`](docs/PROJECT_LOG.md)**.
 To set up a local machine (requirements, step-by-step setup, how to continue), read
 **[`docs/LOCAL_DEVELOPMENT.md`](docs/LOCAL_DEVELOPMENT.md)**.
 
