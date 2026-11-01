@@ -100,3 +100,35 @@ describe('reading a remote run', () => {
     });
   });
 });
+
+describe('reading a remote run stays inside the folder (T10)', () => {
+  it('reads nothing through a link planted in .qe-runs or target, out of the folder', async () => {
+    const fake = new FakeSftp({ home: '/home/qe' });
+    fake.mkdirp('/home/qe/outside').put('/home/qe/outside/junit.xml', PYTEST);
+    fake.mkdirp('/home/qe/outside/reports').put('/home/qe/outside/reports/TEST-x.xml', SUREFIRE);
+    fake.mkdirp(`${ROOT}/.qe-runs`).link(`${ROOT}/.qe-runs/${RUN}`, '/home/qe/outside');
+    const pytest = await readRemoteRun(
+      channel(fake),
+      ROOT,
+      { runId: RUN, framework: 'pytest', selector: { kind: 'all' } },
+      exit(1),
+      pytestAdapter,
+    );
+    expect(pytest).toMatchObject({
+      result: { state: 'ERROR', counts: { total: 0 }, artifacts: [] },
+      problem: 'a report points outside the folder and was not read',
+    });
+    fake.mkdirp(`${ROOT}/target`).link(`${ROOT}/target/surefire-reports`, '/home/qe/outside/reports');
+    const maven = await readRemoteRun(
+      channel(fake),
+      ROOT,
+      { runId: RUN, framework: 'maven', selector: { kind: 'all' } },
+      exit(1),
+      mavenAdapter,
+    );
+    expect(maven).toMatchObject({
+      result: { state: 'ERROR', counts: { total: 0 } },
+      problem: 'the run wrote no test reports',
+    });
+  });
+});

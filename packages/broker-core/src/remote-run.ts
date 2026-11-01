@@ -14,6 +14,7 @@ import {
 
 import { isDomainError } from '@qe/domain';
 import { remoteCancelCommand, remoteRunCommand } from './remote-exec.js';
+import { createRemoteFileSystem, type RemoteFileSystem } from './remote-fs.js';
 import type { SftpChannel } from './sftp.js';
 import type { ExecChannel, PtyChannel, SshConnection } from './ssh-transport.js';
 import type { TerminalBridge } from './terminal-bridge.js';
@@ -40,24 +41,43 @@ const NO_COUNTS = { total: 0, passed: 0, failed: 0, errors: 0, skipped: 0 };
 
 const sha256 = (data: Buffer) => createHash('sha256').update(data).digest('hex');
 
-/** A file of the run's folder on the target: its bytes, or why not. */
+/** Report files read for one remote run (Surefire writes one per test class). */
+const MAX_REMOTE_REPORTS = 2_000;
+
+/**
+ * The run's files on the target, through the same confinement as every remote file operation (08 §8, T10): paths
+ * relative to the folder, resolved with the server's realpath inside it, links out of it never followed — a planted
+ * link in `.qe-runs` or `target` reads nothing outside. Read-only, with the report limits.
+ */
+const confined = (sftp: SftpChannel, root: string): RemoteFileSystem =>
+  createRemoteFileSystem(sftp, {
+    remoteRoot: root,
+    canWrite: false,
+    limits: {
+      maxFileBytes: MAX_REMOTE_REPORT_BYTES,
+      maxListEntries: MAX_REMOTE_REPORTS,
+      opTimeoutMs: 60_000,
+    },
+  });
+
+/** A file of the run on the target, by its path relative to the folder: its bytes, or why not. */
 async function readRunFile(
-  sftp: SftpChannel,
+  files: RemoteFileSystem,
   path: string,
 ): Promise<{ data: Buffer } | { missing: true } | { problem: string }> {
   try {
-    return { data: (await sftp.readFile(path, MAX_REMOTE_REPORT_BYTES)).data };
+    return { data: (await files.read({ path })).data };
   } catch (error) {
     if (isDomainError(error) && error.code === 'NOT_FOUND') return { missing: true };
     if (isDomainError(error) && error.code === 'REMOTE_FILE_TOO_LARGE') {
       return { problem: 'the JUnit report is larger than 50 MB and was not read' };
     }
+    if (isDomainError(error) && error.code === 'PATH_OUTSIDE_ROOT') {
+      return { problem: 'a report points outside the folder and was not read' };
+    }
     return { problem: 'the JUnit report could not be read' };
   }
 }
-
-/** Report files read for one remote run (Surefire writes one per test class). */
-const MAX_REMOTE_REPORTS = 2_000;
 
 /**
  * The run's reports on the target, read over SFTP: its one JUnit report (pytest, kept as an artifact with its sha256),
@@ -65,12 +85,11 @@ const MAX_REMOTE_REPORTS = 2_000;
  * `pid` file, by the target's own clock — merged. Those stay where Maven wrote them: counts and failures only.
  */
 async function readReports(
-  sftp: SftpChannel,
-  root: string,
+  remote: RemoteFileSystem,
   files: RunFiles,
 ): Promise<{ results?: RunResults; problem?: string; artifacts: TestRunResultRequest['artifacts'] }> {
   if (files.junit !== undefined) {
-    const report = await readRunFile(sftp, `${root}/${files.junit}`);
+    const report = await readRunFile(remote, files.junit);
     if (!('data' in report)) {
       return {
         problem: 'problem' in report ? report.problem : 'the run wrote no JUnit report',
@@ -87,30 +106,31 @@ async function readReports(
     }
   }
   if (files.reports === undefined) return { problem: 'the run wrote no JUnit report', artifacts: [] };
-  const since = await sftp.stat(`${root}/${files.folder}/pid`).then(
-    (s) => s.mtimeMs,
+  const since = await remote.stat({ path: `${files.folder}/pid` }).then(
+    (s) => (s.type === 'file' ? s.mtimeMs : undefined),
     () => undefined,
   );
-  const folder = `${root}/${files.reports.folder}`;
-  const listed = await sftp.readdir(folder, MAX_REMOTE_REPORTS).catch(() => ({ entries: [] }));
+  const folder = files.reports.folder;
+  const listed = await remote.list({ path: folder }).catch(() => ({ entries: [] }));
   const fresh = listed.entries
     .filter(
       (e) =>
-        e.stats.kind === 'file' &&
+        // Plain files only: a listed link is never read.
+        e.type === 'file' &&
         files.reports?.pattern.test(e.name) === true &&
         // A second of slack: SFTP modification times have whole seconds.
         since !== undefined &&
-        e.stats.mtimeMs >= since - 1_000,
+        e.mtimeMs >= since - 1_000,
     )
     .sort((a, b) => a.name.localeCompare(b.name));
   if (fresh.length === 0) return { problem: 'the run wrote no test reports', artifacts: [] };
-  if (fresh.reduce((sum, e) => sum + e.stats.size, 0) > MAX_REMOTE_REPORT_BYTES) {
+  if (fresh.reduce((sum, e) => sum + e.size, 0) > MAX_REMOTE_REPORT_BYTES) {
     return { problem: 'the reports are larger than 50 MB and were not read', artifacts: [] };
   }
   const parsed: RunResults[] = [];
   let unreadable = 0;
   for (const entry of fresh) {
-    const read = await readRunFile(sftp, `${folder}/${entry.name}`);
+    const read = await readRunFile(remote, `${folder}/${entry.name}`);
     try {
       if (!('data' in read)) throw new Error('unread');
       parsed.push(parseJUnit(read.data.toString('utf8')));
@@ -138,7 +158,8 @@ export async function readRemoteRun(
   adapter: RunnerAdapter = adapterFor(spec.framework),
 ): Promise<RemoteRunOutcome> {
   const files = adapter.resultFiles({ runId: spec.runId });
-  const read = await readReports(sftp, root, files);
+  const remote = confined(sftp, root);
+  const read = await readReports(remote, files);
   const exited: RunState = exit.cancelled
     ? 'CANCELLED'
     : exit.code === null
@@ -147,7 +168,7 @@ export async function readRemoteRun(
   const state = exited === 'FAILED' && read.results === undefined ? 'ERROR' : exited;
   const artifacts = [...read.artifacts];
   if (read.results !== undefined && files.htmlReport !== undefined) {
-    const html = await readRunFile(sftp, `${root}/${files.htmlReport}`);
+    const html = await readRunFile(remote, files.htmlReport);
     if ('data' in html) {
       artifacts.push({
         kind: 'html_report',
@@ -232,20 +253,19 @@ export async function runRemoteTests(options: RemoteRunOptions): Promise<RemoteR
   const now = options.now ?? Date.now;
   const adapter = adapterFor(spec.framework);
   // The project's own virtual environment if it has one, as in the IDE backend.
-  const venv = await sftp.stat(`${root}/.venv/bin/python`).then(
-    (s) => s.kind === 'file',
-    () => false,
-  );
+  // Present or not, inside the folder; a venv's python is usually a link to the system's, which is fine to run.
+  const remote = confined(sftp, root);
+  const exists = (path: string) =>
+    remote.stat({ path }).then(
+      (st) => st.type === 'file' || st.symlink,
+      () => false,
+    );
+  const venv = await exists('.venv/bin/python');
   const command = adapter.buildCommand(spec.selector, {
     runId: spec.runId,
     python: venv ? '.venv/bin/python' : 'python3',
     // The project's Maven wrapper when it has one.
-    tool: (await sftp.stat(`${root}/mvnw`).then(
-      (st) => st.kind === 'file',
-      () => false,
-    ))
-      ? './mvnw'
-      : 'mvn',
+    tool: (await exists('mvnw')) ? './mvnw' : 'mvn',
     htmlReport: false,
   });
   const exec: ExecChannel = await connection.exec(remoteRunCommand({ root, runId: spec.runId, command }));
