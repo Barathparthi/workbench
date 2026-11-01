@@ -522,18 +522,19 @@ KEYS=apps/connection-broker/dev-keys
 mkdir -p $KEYS && chmod 700 $KEYS
 [ -f $KEYS/qe-lab-a_ed25519 ] || ssh-keygen -q -t ed25519 -N '' -C qe-lab-a-dev -f $KEYS/qe-lab-a_ed25519
 
-# 2. The lab machine: an OpenSSH container that accepts that key for the account "qe"
-docker build -q -t qews-test-openssh packages/test-utils/openssh
-docker create --name qews-lab-a --restart unless-stopped qews-test-openssh
+# 2. The lab machine: an OpenSSH container (with Python and pytest) that accepts that key for the account "qe",
+#    on its own network with a fixed address, so it keeps the address across restarts
+docker network create --subnet 172.30.0.0/24 qews-lab 2>/dev/null || true
+docker build -q -t qews-lab-openssh:dev packages/test-utils/openssh
+docker create --name qews-lab-a --network qews-lab --ip 172.30.0.10 --restart unless-stopped qews-lab-openssh:dev
 docker cp $KEYS/qe-lab-a_ed25519.pub qews-lab-a:/etc/ssh/authorized_keys/qe
 docker start qews-lab-a
 docker exec qews-lab-a sh -c 'chown root:root /etc/ssh/authorized_keys/qe && chmod 644 /etc/ssh/authorized_keys/qe'
-IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' qews-lab-a)
+IP=172.30.0.10
 HOSTKEY=$(docker exec qews-lab-a cat /etc/ssh/ssh_host_ed25519_key.pub | cut -d' ' -f1,2)
-echo "lab machine at $IP"
 
 # 3. Policy: role lab.a.user may use port 22 on that network for terminals, files and test runs
-POLICY=$(api POST /policies "{\"name\":\"lab-a-dev\",\"allowedRoles\":[\"lab.a.user\"],\"allowedCidrs\":[\"${IP%.*.*}.0.0/16\"],\"allowedPorts\":[22],\"capabilities\":[\"terminal\",\"file_read\",\"file_write\",\"exec\"]}" | jid)
+POLICY=$(api POST /policies '{"name":"lab-a-dev","allowedRoles":["lab.a.user"],"allowedCidrs":["172.30.0.0/24"],"allowedPorts":[22],"capabilities":["terminal","file_read","file_write","exec"]}' | jid)
 
 # 4. Credential reference: the key file from step 1 (by name, never its contents)
 CRED=$(api POST /credential-refs '{"provider":"file_dev","method":"vault_key","providerPath":"qe-lab-a_ed25519"}' | jid)
@@ -615,7 +616,7 @@ from zero.
 | Port 8080 or 8082 "already in use"                               | An old copy is still running: `ss -ltnp \| grep 8080` shows its pid; `kill <pid>`                                                                       |
 | Workspace stays `STARTING`, then `FAILED`                        | The runtime image is missing: build it (7.4). Check `docker images qews/runtime`                                                                        |
 | "Not allowed to connect"                                         | Your roles do not match the policy (`DEV_ROLES` must include `lab.a.user`), or the target is not `active`                                               |
-| "The remote system did not answer in time"                       | The lab container is stopped or changed its address after a restart: `docker start qews-lab-a`; if its IP changed, update the target's `host`           |
+| "The remote system did not answer in time"                       | The lab container is stopped: `docker start qews-lab-a`                                                                                                 |
 | "Host key mismatch"                                              | The machine's key is not the approved one. On a real lab machine: stop and tell the admin. For the dev container: approve its new key again             |
 | "Path outside root"                                              | You tried to reach a file outside the machine's project folder; that is refused on purpose                                                              |
 | QE Tests: "The tests could not be listed: is pytest installed…?" | Install pytest (`python3 -m pytest --version` must work), or create the project's `.venv` with it. For Maven, check `pom.xml` and `qe.runner.framework` |
@@ -647,6 +648,7 @@ from zero.
 
 | You want to…                                        | Read                                                                                                      |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Show QE Workspace to someone (a demo script)        | [`DEMO_GUIDE.md`](DEMO_GUIDE.md)                                                                          |
 | Install WSL and Docker in detail                    | [`DOCKER_WSL_SETUP.md`](DOCKER_WSL_SETUP.md)                                                              |
 | Develop the project (tests, CI, the phase workflow) | [`LOCAL_DEVELOPMENT.md`](LOCAL_DEVELOPMENT.md)                                                            |
 | Know what is done and what is next                  | [`PROJECT_LOG.md`](PROJECT_LOG.md)                                                                        |
