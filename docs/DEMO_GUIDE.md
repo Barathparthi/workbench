@@ -267,6 +267,14 @@ docker start qews-lab-a
 
 **T2**: `npm run dev -w @qe/connection-broker` · **T3**: `npm run dev -w @qe/control-plane`
 
+If either stops with `EADDRINUSE: address already in use 127.0.0.1:8082` (or `:8080`), an older copy is still
+running in the background (for example from a test script). Stop it, then run the command again:
+
+```bash
+kill $(ss -ltnp | grep -E ':(8080|8082) ' | grep -oP 'pid=\K[0-9]+')
+ss -ltn | grep -E ':(8080|8082) ' || echo "ports free"
+```
+
 Then in **T1** paste the helpers from 2.7 again, set `WS=<your workspace id>` and start the workspace (2.10, the
 `start` and `until` lines).
 
@@ -557,17 +565,18 @@ are stored), D19 (Maven dependency source).
 
 Stay calm, say "let me show you this another way", and use the fallback.
 
-| Problem during the demo                               | Quick fix                                                                                                                       | Fallback                                                                     |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| The workspace page is blank or says it is not running | T1: `api POST /workspaces/$WS/start '{}'`, wait 30–60 s, refresh                                                                | Show local web (Part E) first                                                |
-| The page shows an error after a restart of the PC     | Check T2 and T3 still run; `curl localhost:8080/readyz`                                                                         | Restart T3 (`Ctrl+C`, then `npm run dev -w @qe/control-plane`)               |
-| "The remote system did not answer in time"            | `docker start qews-lab-a`, try again                                                                                            | Skip to Part D's explanation, show the integration test evidence in PHASE_11 |
-| "You are not allowed to connect" when it should work  | The policy lost `exec` (F2 not restored): run the restore command from F2                                                       | —                                                                            |
-| QE Tests shows "The tests could not be listed…"       | Click the refresh icon in the panel; check the sample files exist (3.2)                                                         | Run `python3 -m pytest -q` in the terminal instead                           |
-| Run on lab-a-dev ends with an error and no counts     | pytest is missing on the lab machine: `docker exec qews-lab-a python3 -m pytest --version`; if it fails, recreate the lab (2.8) | Run the tests in the workspace only                                          |
-| Too many terminals ("limit of 10 open terminals")     | Close terminals (trash icon); or restart the workspace: `api POST /workspaces/$WS/stop '{}'`, then `start`                      | —                                                                            |
-| Local web shows "Forbidden" or nothing                | Open the link from `cat ~/.qe-workspace/local-web-url` again                                                                    | Show the desktop app                                                         |
-| Everything is slow                                    | Close other programs; `wsl --shutdown` the evening before and start fresh                                                       | —                                                                            |
+| Problem during the demo                                 | Quick fix                                                                                                                       | Fallback                                                                     |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| The workspace page is blank or says it is not running   | T1: `api POST /workspaces/$WS/start '{}'`, wait 30–60 s, refresh                                                                | Show local web (Part E) first                                                |
+| The page shows an error after a restart of the PC       | Check T2 and T3 still run; `curl localhost:8080/readyz`                                                                         | Restart T3 (`Ctrl+C`, then `npm run dev -w @qe/control-plane`)               |
+| "The remote system did not answer in time"              | `docker start qews-lab-a`, try again                                                                                            | Skip to Part D's explanation, show the integration test evidence in PHASE_11 |
+| "You are not allowed to connect" when it should work    | The policy lost `exec` (F2 not restored): run the restore command from F2                                                       | —                                                                            |
+| QE Tests shows "The tests could not be listed…"         | Click the refresh icon in the panel; check the sample files exist (3.2)                                                         | Run `python3 -m pytest -q` in the terminal instead                           |
+| Run on lab-a-dev ends with an error and no counts       | pytest is missing on the lab machine: `docker exec qews-lab-a python3 -m pytest --version`; if it fails, recreate the lab (2.8) | Run the tests in the workspace only                                          |
+| Too many terminals ("limit of 10 open terminals")       | Close terminals (trash icon); or restart the workspace: `api POST /workspaces/$WS/stop '{}'`, then `start`                      | —                                                                            |
+| Local web shows "Forbidden" or nothing                  | Open the link from `cat ~/.qe-workspace/local-web-url` again                                                                    | Show the desktop app                                                         |
+| Broker or control plane: `EADDRINUSE … :8082` / `:8080` | An old copy runs in the background: the `kill $(ss …)` command in 3.1, then start T2/T3 again                                   | —                                                                            |
+| Everything is slow                                      | Close other programs; `wsl --shutdown` the evening before and start fresh                                                       | —                                                                            |
 
 ---
 
