@@ -119,6 +119,9 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+/** A spawned process can be slow to start on a busy machine (CI, a parallel build): waits on one get its time. */
+const slow = { timeout: 15_000 };
+
 describe('local test runs', () => {
   it('runs the adapter command without a shell, streams its output and logs all of it under .qe-runs/<runId>', async () => {
     const { start, done, outputs } = setup();
@@ -134,7 +137,7 @@ describe('local test runs', () => {
     expect(outputs.get(runId)).toContain('selector {"kind":"file","path":"tests/test_a.py"}');
     await vi.waitFor(() => {
       expect(readFileSync(join(root, outcome.log), 'utf8')).toBe(outputs.get(runId));
-    });
+    }, slow);
   });
 
   it('reads the report when the run ends, describes its files and keeps the record for the history', async () => {
@@ -241,7 +244,7 @@ describe('local test runs', () => {
     const runId = await start('hang');
     await vi.waitFor(() => {
       expect(outputs.get(runId)).toContain('env');
-    });
+    }, slow);
     await service.cancel(runId);
     expect(await done(runId)).toMatchObject({ state: 'CANCELLED' });
     if (posix) expect(outputs.get(runId)).toContain('interrupted');
@@ -252,7 +255,7 @@ describe('local test runs', () => {
     const runId = await start('stubborn');
     await vi.waitFor(() => {
       expect(outputs.get(runId)).toContain('env');
-    });
+    }, slow);
     const started = Date.now();
     await service.cancel(runId);
     expect(await done(runId)).toMatchObject({ state: 'CANCELLED' });
@@ -274,7 +277,7 @@ describe('local test runs', () => {
     const runId = await start('loud');
     await vi.waitFor(() => {
       expect(outputs.get(runId)?.length ?? 0).toBeGreaterThan(100_000);
-    });
+    }, slow);
     const [running] = await service.running();
     expect(running?.run).toMatchObject({ runId, state: 'RUNNING', framework: 'pytest' });
     // Whole chunks are dropped, oldest first; the newest chunk is always kept.
@@ -284,7 +287,7 @@ describe('local test runs', () => {
     const outcome = await done(runId);
     await vi.waitFor(() => {
       expect(readFileSync(join(root, outcome.log), 'utf8').length).toBeGreaterThan(100_000);
-    });
+    }, slow);
   });
 
   it.runIf(posix)('ends what a test started and left running when the run ends', async () => {
@@ -295,7 +298,7 @@ describe('local test runs', () => {
     const orphan = Number(readFileSync(pidFile, 'utf8'));
     await vi.waitFor(() => {
       expect(() => process.kill(orphan, 0)).toThrow();
-    });
+    }, slow);
   });
 
   it('reports a framework that cannot be started as an error of the run', async () => {
@@ -481,7 +484,7 @@ describe('Maven projects (Surefire)', () => {
     const done = async (runId: string) => {
       await vi.waitFor(() => {
         expect(finished.get(runId)).toBeDefined();
-      });
+      }, slow);
       return finished.get(runId) as RunOutcome;
     };
     return { s, done };

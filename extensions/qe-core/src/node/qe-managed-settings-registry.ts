@@ -13,7 +13,8 @@ export function queryRegistry(key: string, env: NodeJS.ProcessEnv = process.env)
   const result = spawnSync(reg, ['query', key, '/reg:64'], {
     shell: false,
     encoding: 'utf8',
-    timeout: 5_000,
+    // Generous: a busy machine (a scan at login, a build) can take seconds to start a process.
+    timeout: 15_000,
     windowsHide: true,
   });
   if (result.error !== undefined) {
