@@ -109,13 +109,19 @@ The broker's `.env` already has the same `INTERNAL_SERVICE_TOKEN`; check with
 
 Open **two more Ubuntu terminals** (call them **T2** and **T3**; the first one is **T1**). In each: `cd ~/src/workbench`.
 
-```bash
-# T2 — the connection broker (leave it running)
-npm run dev -w @qe/connection-broker
+Start the control plane first, then the broker:
 
+```bash
 # T3 — the control plane (applies the database migrations, then serves; leave it running)
 npm run dev -w @qe/control-plane
+
+# T2 — the connection broker (leave it running)
+npm run dev -w @qe/connection-broker
 ```
+
+If the broker starts first, it logs a few warnings `could not tell the control plane this broker started …
+ECONNREFUSED 127.0.0.1:8080` and retries. That is harmless: once the control plane is up it logs
+`sessions of the previous run closed; accepting sessions` and is ready.
 
 Check in T1:
 
@@ -265,7 +271,7 @@ docker compose -f deploy/compose/docker-compose.dev.yml up -d --wait
 docker start qews-lab-a
 ```
 
-**T2**: `npm run dev -w @qe/connection-broker` · **T3**: `npm run dev -w @qe/control-plane`
+**T3**: `npm run dev -w @qe/control-plane`, then **T2**: `npm run dev -w @qe/connection-broker`
 
 If either stops with `EADDRINUSE: address already in use 127.0.0.1:8082` (or `:8080`), an older copy is still
 running in the background (for example from a test script). Stop it, then run the command again:

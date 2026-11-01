@@ -456,17 +456,18 @@ BROKER_PUBLIC_URL=http://localhost:8082
 
 These files hold development values only and are never committed (they are git-ignored).
 
-### 7.3 Start the broker (terminal 2) and the control plane (terminal 3)
+### 7.3 Start the control plane (terminal 3), then the broker (terminal 2)
 
 ```bash
-# terminal 2
-npm run dev -w @qe/connection-broker          # serves http://127.0.0.1:8082
-
 # terminal 3
 npm run dev -w @qe/control-plane              # applies database migrations, then serves http://127.0.0.1:8080
+
+# terminal 2
+npm run dev -w @qe/connection-broker          # serves http://127.0.0.1:8082
 ```
 
-Leave both running. Check from terminal 1:
+Leave both running. A broker started first logs a few `could not tell the control plane this broker started …
+ECONNREFUSED` warnings and retries; that is harmless. Check from terminal 1:
 
 ```bash
 curl http://localhost:8080/readyz             # {"status":"ready"}
@@ -573,8 +574,8 @@ database).
 cd ~/src/workbench
 docker compose -f deploy/compose/docker-compose.dev.yml up -d --wait   # database + sign-in server
 docker start qews-lab-a                                               # lab machine (if you made one)
+npm run dev -w @qe/control-plane                                      # terminal 3, first
 npm run dev -w @qe/connection-broker                                  # terminal 2
-npm run dev -w @qe/control-plane                                      # terminal 3
 ```
 
 Then start your workspace again (the `start` call from 7.5) and open `http://localhost:8080/w/<workspace id>/`.
