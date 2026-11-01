@@ -20,6 +20,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 # node-gyp uses the headers this image ships instead of downloading them from nodejs.org on every build.
 ENV npm_config_nodedir=/usr/local
+# Proxies drop long downloads: more retries, longer waits between them (npm's defaults are 2 and 10–60 s).
+ENV npm_config_fetch_retries=6 npm_config_fetch_retry_mintimeout=20000 npm_config_fetch_retry_maxtimeout=120000
 WORKDIR /src
 COPY . .
 ARG QE_VSX_URL=""
